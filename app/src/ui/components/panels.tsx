@@ -288,6 +288,10 @@ export function StoryPanel({ s }: { s: State }) {
         <Segmented label="Frame" value={s.style.aspect} options={[{ value: "4x3", label: "4:3" }, { value: "9x16", label: "9:16" }, { value: "1x1", label: "1:1" }, { value: "4x5", label: "4:5" }]} onChange={(v) => studio.setStyle({ aspect: v })} />
         <span className="hint">nio.trade posts story clips in 4:3, keeping the YouTube frame whole.</span>
       </div>
+      <div className="field">
+        <span className="label">Look</span>
+        <Segmented label="Look" value={s.style.look} options={[{ value: "warm", label: "Warm film" }, { value: "natural", label: "As shot" }]} onChange={(v) => studio.setStyle({ look: v })} />
+      </div>
     </Section>
   );
 }
@@ -364,6 +368,11 @@ export function StylePanel({ s }: { s: State }) {
           )}
         </>
       )}
+      <div className="field">
+        <span className="label">Look</span>
+        <Segmented label="Look" value={st.look} options={[{ value: "warm", label: "Warm film" }, { value: "natural", label: "As shot" }]} onChange={(v) => studio.setStyle({ look: v })} />
+        <span className="hint">{st.look === "warm" ? "The nio.trade grade: warm highlights, soft contrast, a little grain and vignette." : "No grade: for footage that's already graded."}</span>
+      </div>
       <div className="field">
         <span className="label">How many edits</span>
         <Segmented label="Number of edits" value={st.variants} options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: String(n) }))} onChange={(v) => studio.setStyle({ variants: v })} />

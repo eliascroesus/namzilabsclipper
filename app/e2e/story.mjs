@@ -101,6 +101,15 @@ try {
     return btoa(s);
   });
   writeFileSync(`${out}/clip.webm`, Buffer.from(b64, "base64"));
+  const b64v = await page.evaluate(async () => {
+    const a = document.querySelectorAll(".job .actions a")[1];
+    if (!a) return "";
+    const buf = new Uint8Array(await (await fetch(a.href)).arrayBuffer());
+    let s = "";
+    for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+    return btoa(s);
+  });
+  if (b64v) writeFileSync(`${out}/clip-voice.webm`, Buffer.from(b64v, "base64"));
   writeFileSync(`${out}/gemini-calls.json`, JSON.stringify(log, null, 1));
   console.log(JSON.stringify(log));
 } finally {

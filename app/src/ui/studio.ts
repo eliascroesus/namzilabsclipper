@@ -13,7 +13,7 @@ import { detectSpeech, type Run } from "../engine/audio/speech";
 import { pickModel } from "../engine/ai/gemini";
 import { findMoments, transcribe, type Moment, type Transcript } from "../engine/story/story";
 import { planMontage, usedRanges } from "../engine/plan/montage";
-import type { Aspect, CardSpec, EditPlan } from "../engine/plan/types";
+import { NO_GRADE, WARM_GRADE, type Aspect, type CardSpec, type EditPlan } from "../engine/plan/types";
 import { pickCodecs, renderPlan } from "../engine/render/export";
 import { loadKit, saveKit, saveKitShot, loadKitShot, type KitFields } from "./kit";
 
@@ -68,6 +68,8 @@ export interface Style {
   memeText: string;
   memePosition: "upper" | "centre";
   variants: number;
+  /** the grade: nio.trade's warm film look, or the footage as it is */
+  look: "warm" | "natural";
 }
 
 export interface Job {
@@ -136,6 +138,7 @@ const DEFAULT_STYLE: Style = {
   memeText: "",
   memePosition: "upper",
   variants: 3,
+  look: "warm",
 };
 
 const LENGTHS: Record<Format, number> = { montage: 14, twist: 18, meme: 9, story: 30 };
@@ -558,6 +561,7 @@ class Studio {
           if (!song) throw new Error("Add a sound first");
           plan = planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text } });
         }
+        plan.grade = style.look === "natural" ? NO_GRADE : WARM_GRADE;
         usedRanges(plan, avoid);
         this.patchJob(job.id, { plan, status: "rendering", stage: "Rendering" });
         let last = 0;
