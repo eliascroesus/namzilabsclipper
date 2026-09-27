@@ -58,9 +58,11 @@ Screen size in all captures: 1728×960 CSS px at 2× (3456 px wide).
 
 ### The shell
 
-- **Rail (left, 260 px wide):** workspace switcher at the top (a blue rounded square holding the workspace's initial, then the name and a chevron), a search box, the caps caption "Main Menu", then **Dashboard** (with its views nested under it on a thin vertical line: Overview, Calls, Money, Leads…, then "Show all N"), **Activity**, **Flows**, **Apps** and **Settings**. At the bottom: the user's initials avatar with a settings cog, the **Invite & earn** card (deep blue gradient, gift icon, "1 invite = 1 month free", an arrow, and a slowly rotating light beam around its edge), and a full-width **+ New** button.
-- **Top bar (inside the content panel):** page title in 24 px bold, a dash, then the date window in muted text ("Mon, Jun 29 - Sat, Sep 26"). On the right: "Updated 4 hr ago", **Share** (link icon), a theme toggle (moon or sun), and a bell (a red count badge when there are unread notifications).
+- **Rail (left, 260 px wide):** workspace switcher at the top (a blue rounded square holding the workspace's initial, then the name and a chevron), a search box (⌘K), the caps caption "Main Menu", then **Dashboard** (with its views nested under it on a thin vertical line: Overview, Calls, Money, Leads…, then "Show all N"), **Activity**, **Flows**, **Apps** and **Settings**. At the bottom: the user's initials avatar with a settings cog, the **Invite & earn** card (deep blue gradient, gift icon, "1 invite = 1 month free", an arrow, and a slowly rotating light beam around its edge), and a full-width **+ New** button. On a phone the same rail opens as a drawer from a menu button.
+- **Top bar (inside the content panel):** page title in 24 px bold, a dash, then the date window in muted text ("Mon, Jun 29 - Sat, Sep 26"). On the right: "Updated 4 hr ago", **Share** (link icon), a theme toggle (moon or sun), and a bell (a red count badge when something needs attention).
 - **The content panel** sits inset 8 px from the window on the top, right and bottom, with rounded corners, so the rail frames it.
+- **Icons** (lucide): Dashboard `LayoutDashboard`, Activity `Radio`, Flows `Workflow`, Apps `Plug`, Settings `Settings`, search `Search`, invite card `Gift` and `ArrowUpRight`, New `Plus`, Share `Link2`, theme `Moon` / `Sun`, notifications `Bell`.
+- **Notifications:** the bell opens a side panel, "Needs attention", listing only broken or paused connections and failed metrics. When nothing is wrong it says "Everything is running".
 
 ### Themes
 
@@ -76,14 +78,16 @@ A workspace's dashboard is a set of **views**, shown as tabs under the page titl
 
 | Kind | Looks like | In the screenshots |
 |---|---|---|
-| **Custom** | A 12-column grid of chart tiles (6 columns on a tablet, 1 on a phone), where one metric can appear several times as different charts | Overview, Calls, Money, Leads |
-| **Groups** | Notion-style coloured lanes of metric cards | "View 5" |
+| **Custom** (and **Report**, a custom layout preset: an area and a line chart over four numbers) | A 12-column grid of chart tiles (6 columns on a tablet, 1 on a phone), where one metric can appear several times as different charts | Overview, Calls, Money, Leads |
+| **Columns** | Notion-style coloured lanes (groups) of metric cards | "View 5" |
 | **Calendar** | One metric, day by day, for a month | Calendar |
 
-- **View tabs:** each tab has a small icon (a grid for custom, people for groups, a calendar for calendar), the active one is a grey filled rounded rectangle with a "⋯" menu, and a **+** adds a view.
-- **Controls (right):** **+ Add** (or **+ New group** on a groups view), the date window (a calendar-icon dropdown: Today, Yesterday, Last 7 days, Last 30 days, Last 90 days, All time, or a custom range picked with two clicks on a calendar), **Compare To** (muted; comparisons aren't drawn at the moment), and **Refresh All**.
+A new view starts from a "Choose a layout" modal with four big picture cards: Columns, Custom, Report and Calendar. Each view tab's menu has Rename, Duplicate, Share as template and Delete view.
+
+- **View tabs:** each tab has a small icon (a grid for custom, people for columns, a calendar for calendar), the active one is a grey filled rounded rectangle with a "⋯" menu, and a **+** adds a view.
+- **Controls (right):** **+ Add** (or **+ New group** on a columns view), the date window (a calendar-icon dropdown: Today, Yesterday, Last 7 days, Last 30 days, Last 90 days, All time, or a custom range picked with two clicks on a calendar), **Compare To** (muted; comparisons aren't drawn at the moment), and **Refresh All**.
 - **Tiles** are white cards with an 8 px radius and a 1 px hairline. Each has a title (14 px semibold, sentence case, the name the customer gave it) and a big figure (28 px semibold, tabular digits), and most show a chart beneath. A tile that is catching up says "Recomputing…" with a spinner.
-- **Groups view:** one lane per group (for example Leads, Facebook, Instagram, TikTok, Revenue). Each lane is washed in its own colour at 6%, has a 4 px coloured bar on top, and a header with a coloured dot, the group name and a count. Each card shows its title, "4 hr ago" and a big figure.
+- **Columns view:** one lane per group (for example Leads, Facebook, Instagram, TikTok, Revenue). Each lane is washed in its own colour at 6%, has a 4 px coloured bar on top, and a header with a coloured dot, the group name and a count. Each card shows its title, "4 hr ago" and a big figure.
 - **Calendar view:** a month grid with SUN to SAT caps headers. Each day with data shows the figure and "N RECORDS" in caps, tinted periwinkle blue by its share of the month's best day. A black "BEST" badge marks the best day. Below: "SHADED BY SHARE OF THE MONTH'S BEST DAY", a LESS ▢▢▢▢ MORE legend, and chips reading "BEST DAY $9,991 on Aug 31", "AVERAGE DAY" and "DAYS WITH DATA". Controls: a month stepper ("‹ August 2026 ›"), the timezone, and a metric picker.
 
 **Chart types:**
@@ -136,7 +140,25 @@ A big deep-blue gradient card: "INVITE & EARN", a huge "0" with "people joined",
 
 ### Sign up and log in
 
-A centred card on the page ground, in the same deep-blue gradient with a faint grid: "Create your account", a white **Continue with Google** button, "or", Email and Password fields, a white **Create account** button, the terms line, and "Already have an account? Sign in".
+A centred card on the page ground, in the same deep-blue gradient with a faint grid: "Create your account", a white **Continue with Google** button, "or", Email and Password fields, a white **Create account** button, the terms line, and "Already have an account? Sign in". Log in is the same card ("Welcome back" / "Sign in").
+
+### First run, in order
+
+1. **Verify email:** "Check your email" / "We sent you a code. Enter it to finish signing in.", a six-digit code field, **Verify email**.
+2. **Create your workspace:** a narrow centred column. "A workspace is your organization's private space. All connected integrations and data live inside it." A "Workspace name" field ("Acme Inc") and **Create workspace**.
+3. **The empty dashboard:** a large "Build your Dashboard" and a blue gradient card, "New dashboard / Build a dashboard in three clicks", with 1 Get Started, 2 Select a Template, 3 Add your Metrics, and a white **Get Started** button.
+4. **The tour** (desktop, while the workspace has no apps and no flows): a spotlight ring on each target, a white bubble with "1 / 5", Skip, Back and Next. The five stops: "This is your board" ("Every metric you publish lands here and keeps itself up to date."), "Flows make the numbers", "Search", "Alerts", and "Start here", whose button **Connect an app** goes to Apps.
+5. **"Get your first metric live"** checklist on an empty columns view: "Three steps — the first takes about a minute." Connect an integration, Build your first flow, Publish it, each ticked off from what's really done.
+6. **Connect an app:** a "Connect <App>" modal (a connection name, "Where do I find these?", masked key fields) or Google's own sign-in, landing on the connection's page.
+7. **Build and publish a flow**, then the metric appears on the board.
+
+### Other screens
+
+- **A connection's page:** a back link to Apps, the app's logo and the connection's name, a status pill, and Disconnect. A "Data status" card (last full sync, last event, instant webhook, polling, and the data guarantee, for example "Mirror — always matches the source"), then the inbound webhook, "Latest records", "Delivery issues", and sync actions (Sync new, Full re-sync, Reprocess, Import more history).
+- **Activity:** filter chips by app, then a table of the last 50 records (Source / Type / Subject / Occurred).
+- **Settings:** a stack of cards: Members, Invite, Pending invitations, Roles (named permission sets that can limit which metrics someone sees), Templates, AI assistants, Danger zone.
+- **Templates:** a workspace can share its layout as a public link (`/t/<code>`) with a note on every slot saying which metric goes there, and never its data, apps or people. Built for a coach or agency sending one board to every student or client. The template page shows a numberless preview and **Use this template**.
+- **Profile:** picture, name, sign-in email, **Appearance** (Light / Mix / Dark / System), and Delete your account.
 
 ---
 
