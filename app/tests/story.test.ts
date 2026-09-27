@@ -109,3 +109,23 @@ describe("story plan", () => {
     for (const s of burst.filter((x) => x.source === "long")) expect(s.srcStart > moment.end + 1 || s.srcStart + (s.end - s.start) < moment.start - 1).toBe(true);
   });
 });
+
+describe("story subtitles at the edges of the kept talk", () => {
+  it("keeps a word that ends right where a run ends", () => {
+    const speech: Run[] = [
+      { start: 2, end: 5.5 },
+      { start: 6.3, end: 9.0 },
+    ];
+    const tr: Transcript = {
+      model: "t",
+      phrases: [
+        { start: 0.5, end: 5.8, speaker: "A", text: "alpha bravo charlie delta echo foxtrot golf hotel", tone: "normal" },
+        { start: 6.3, end: 9.2, speaker: "A", text: "india juliet kilo lima mike november", tone: "normal" },
+      ],
+    };
+    const plan = planStory({ moment: { id: "m", first: 0, last: 1, start: 2, end: 9, hook: "", why: "", caption: "", score: 1 }, transcript: tr, speech, source: fakeScan("src", 20, 1), broll: [], aspect: "9x16", card: null, variant: 0 });
+    const said = plan.captions.map((c) => c.text).join(" ");
+    expect(said).toContain("hotel");
+    expect(said).toContain("november");
+  });
+});

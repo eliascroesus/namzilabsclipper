@@ -171,3 +171,31 @@ describe("planners on a synthetic song (runs everywhere)", () => {
     expect(mm.card).toBeUndefined();
   });
 });
+
+describe("a long video skimmed by its key frames", () => {
+  it("gives shots from all over the video, not its first frame", () => {
+    // Samples only every 2 s, the way scanVideo skims a long file.
+    const n = 300;
+    const f = (k: number) => new Float32Array(k);
+    const stats = { t: f(n), luma: f(n), contrast: f(n), sharp: f(n), color: f(n), skin: f(n), motion: f(n), hist: f(n * 64), cols: f(n * PROFILE_BINS).fill(1 / PROFILE_BINS), rows: f(n * PROFILE_BINS).fill(1 / PROFILE_BINS), rgb: f(n * 3) };
+    const rand = mulberry32(5);
+    const interest = f(n);
+    for (let i = 0; i < n; i++) {
+      stats.t[i] = i * 2;
+      interest[i] = 0.3 + 0.6 * rand();
+      stats.motion[i] = 0.1 * rand();
+      stats.rgb[i * 3] = rand();
+    }
+    const long: Scan = { id: "long", kind: "video", start: 0, duration: 600, width: 1920, height: 1080, rate: 0.5, stats, cuts: [], interest };
+    const SR = 22050;
+    const y = new Float32Array(SR * 30);
+    for (let b = 0; b * 0.5 < 29.5; b++) {
+      const s0 = Math.round((0.1 + b * 0.5) * SR);
+      for (let i = 0; i < 2500; i++) y[s0 + i] += 0.7 * Math.exp(-i / 700) * Math.sin((2 * Math.PI * 70 * i) / SR);
+    }
+    const song = analyzeSong(y, SR);
+    const plan = planMontage({ song, songSource: "song", songName: "x", fromStart: true, scans: [long], aspect: "9x16", length: 14, card: null, caption: null, variant: 0 });
+    const starts = new Set(plan.shots.map((s) => Math.round(s.srcStart)));
+    expect(starts.size).toBeGreaterThan(plan.shots.length * 0.8);
+  });
+});
