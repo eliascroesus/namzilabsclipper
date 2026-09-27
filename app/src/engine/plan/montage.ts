@@ -60,7 +60,8 @@ function cardTime(song: SongAnalysis, songStart: number, target: number, availab
   let bestScore = -Infinity;
   song.beats.forEach((b, i) => {
     const t = b - songStart;
-    if (t < target - 1.8 || t > Math.min(target + 1.8, available)) return;
+    // Near the target, and never much short of it (a short edit can't give up seconds).
+    if (t < Math.max(target - 1.8, target * 0.85) || t > Math.min(target + 1.8, available)) return;
     const score = (song.beatInBar[i] === 0 ? 1 : 0) + 0.5 * song.beatStrength[i] - 0.35 * Math.abs(t - target);
     if (score > bestScore) {
       bestScore = score;
@@ -78,9 +79,12 @@ export function musicWindow(song: SongAnalysis, length: number, cardHold: number
   const section = pickSection(song, length + cardHold, fromStart);
   const songStart = fromStart ? 0 : section.start;
   const available = song.duration - songStart;
-  const len = Math.max(4, Math.min(length, available - cardHold - 0.2));
-  const cardAt = frame(cardTime(song, songStart, len, available - cardHold));
-  const duration = frame(cardAt + cardHold);
+  // A short sound shortens the card first (to 2.5 s), then the footage (to 3 s);
+  // past that the card runs on after the song ends.
+  const hold = cardHold > 0 ? Math.max(Math.min(cardHold, 2.5), Math.min(cardHold, available - Math.min(length, 3) - 0.2)) : 0;
+  const len = Math.max(3, Math.min(length, available - hold - 0.2));
+  const cardAt = frame(cardTime(song, songStart, len, Math.max(len, available - hold)));
+  const duration = frame(cardAt + hold);
   const dropSong = section.drop ?? song.drops.find((d) => d.t - songStart > 1.2 && d.t - songStart < cardAt - 1.2)?.t;
   const dropEdit = dropSong !== undefined ? dropSong - songStart : undefined;
   const dropAt = dropEdit !== undefined && dropEdit > 1.2 && dropEdit < cardAt - 1.2 ? dropEdit : undefined;
@@ -307,7 +311,7 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
     for (let s = 0; s + 1 < bounds.length; s++) {
       const lo = bounds[s] + 0.08;
       const hi = bounds[s + 1] - 0.08;
-      for (let start = lo; start + d <= hi; start += step) {
+      for (let start = lo; start + d <= hi + 1e-6; start += step) {
         let sum = 0;
         let peak = 0;
         let motion = 0;
@@ -351,7 +355,13 @@ function candidatesFor(scans: Scan[], d: number, motionScale: number): { segs: S
   if (segs.length) return { segs, len: d };
   const whole = Math.max(...scans.map((s) => longestStretch(s, true)));
   const len = Math.max(0.1, Math.min(d, whole));
-  return { segs: segmentsFor(scans, len, motionScale, true), len };
+  segs = segmentsFor(scans, len, motionScale, true);
+  if (segs.length) return { segs, len };
+  // Clips too short for even that: each one from its start, whatever its length.
+  return {
+    segs: scans.map((scan) => ({ scan, start: scan.start, score: scan.interest?.[0] ?? 0.5, peak: scan.interest?.[0] ?? 0.5, motion: 0, rgb: [scan.stats.rgb[0] ?? 0, scan.stats.rgb[1] ?? 0, scan.stats.rgb[2] ?? 0] as [number, number, number] })),
+    len: Math.max(0.1, Math.min(d, whole)),
+  };
 }
 
 export interface AssignContext {

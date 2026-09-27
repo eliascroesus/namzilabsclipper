@@ -69,8 +69,12 @@ Split it into short phrases of at most about 10 words, breaking where the speake
 For each phrase give its start and end in seconds from the start of this audio (one decimal), the speaker (A, B, C... by order of first appearance), the exact words, and the tone: "shout" if yelled, "laugh" if laughed through, "sing" if sung, otherwise "normal".
 Keep filler words out ("um", "uh") but keep everything else word for word. Don't summarise, don't skip, don't invent. Music without words is not speech: leave it out.`;
 
-/** Split points every ~8 minutes, placed in the longest pause near each mark. */
-export function chunkBounds(duration: number, runs: Run[], every = 480): number[] {
+/**
+ * Split points every ~5 minutes, placed in the longest pause near each mark. Five
+ * minutes of talk transcribes to about 5,000 tokens, inside every Flash model's
+ * output limit.
+ */
+export function chunkBounds(duration: number, runs: Run[], every = 300): number[] {
   const bounds = [0];
   for (let mark = every; mark < duration - 60; mark += every) {
     let best = mark;
@@ -125,6 +129,8 @@ export async function transcribe(y: Float32Array, rate: number, runs: Run[], o: 
       schema: TRANSCRIBE_SCHEMA,
       temperature: 0,
       signal: o.signal,
+      // Newer models allow long answers; older ones cap at 8,192 and would refuse a bigger ask.
+      maxOutputTokens: Number(/gemini-(\d+(?:\.\d+)?)/.exec(o.model)?.[1] ?? 0) >= 2.5 ? 32768 : undefined,
     });
     results[c.i] = cleanPhrases(r.phrases ?? [], c.a, c.b - c.a);
     done++;
