@@ -73,7 +73,11 @@ export function drawCaption(ctx: Ctx, W: number, H: number, ev: CaptionEvent, al
   const lines = wrap(ctx, text, W * st.maxWidth);
   const lh = px * st.lineHeight;
   const cx = W * st.x;
-  const cy = H * (ev.y ?? st.y);
+  // In a tall frame the app's own caption, name and buttons cover the bottom
+  // fifth, so bottom captions sit higher there (inside y 240 to 1500 of 1920).
+  const tall = H / W > 1.5;
+  const baseY = tall && st.y > 0.8 ? 0.74 : st.y;
+  const cy = H * (ev.y ?? baseY);
   const top = cy - ((lines.length - 1) * lh) / 2;
   lines.forEach((line, i) => {
     const y = top + i * lh;

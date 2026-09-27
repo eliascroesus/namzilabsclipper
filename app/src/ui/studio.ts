@@ -163,6 +163,10 @@ class Studio {
   private scanQueue: Promise<void> = Promise.resolve();
   private abort: AbortController | null = null;
   private readonly speech = new Map<string, Run[]>();
+  /** edits made so far with this footage and sound: the next batch continues from here */
+  private made = 0;
+  private madeAvoid = new Map<string, [number, number][]>();
+  private madeKey = "";
   private readonly transcripts = new Map<string, Transcript>();
   private model: string | null = null;
 
@@ -503,11 +507,21 @@ class Studio {
     const label = style.format === "montage" ? "Montage" : style.format === "twist" ? "Twist" : style.format === "meme" ? "Meme" : "Clip";
     const chosenMoments = style.format === "story" ? s.story.moments.filter((m) => m.selected) : [];
     const count = style.format === "story" ? chosenMoments.length : style.variants;
-    const jobs: Job[] = Array.from({ length: count }, (_, v) => ({ id: newId("j"), label: style.format === "story" ? chosenMoments[v].hook || `${label} ${v + 1}` : `${label} ${v + 1}`, status: "waiting", progress: 0, stage: "Waiting" }));
+    const first = this.madeKey === [style.format, style.aspect, ready.map((f) => f.id).join(","), s.sound?.id ?? ""].join("|") ? this.made : 0;
+    const jobs: Job[] = Array.from({ length: count }, (_, v) => ({ id: newId("j"), label: style.format === "story" ? chosenMoments[v].hook || `${label} ${first + v + 1}` : `${label} ${first + v + 1}`, status: "waiting", progress: 0, stage: "Waiting" }));
     this.set((st) => ({ jobs: [...jobs, ...st.jobs], busy: true, notice: undefined }));
     this.abort = new AbortController();
     const signal = this.abort.signal;
-    const avoid = new Map<string, [number, number][]>();
+    // Another batch with the same footage and sound picks up where the last left off.
+    const key = [style.format, style.aspect, ready.map((f) => f.id).join(","), s.sound?.id ?? ""].join("|");
+    if (key !== this.madeKey) {
+      this.madeKey = key;
+      this.made = 0;
+      this.madeAvoid = new Map();
+    }
+    const avoid = this.madeAvoid;
+    const base = this.made;
+    this.made += count;
     const songName = s.sound?.name ?? "the song";
     for (const [v, job] of jobs.entries()) {
       if (signal.aborted) {
@@ -518,7 +532,7 @@ class Studio {
         this.patchJob(job.id, { status: "planning", stage: "Picking the moments" });
         await new Promise((r) => setTimeout(r, 0));
         let plan: EditPlan;
-        const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, scans, aspect: style.aspect, length: style.length, card, variant: v, avoid };
+        const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, scans, aspect: style.aspect, length: style.length, card, variant: base + v, avoid };
         if (style.format === "story") {
           const m = chosenMoments[v];
           const srcId = s.story.sourceId!;
@@ -533,7 +547,7 @@ class Studio {
             songName,
             aspect: style.aspect,
             card,
-            variant: v,
+            variant: base + v,
           });
         } else if (style.format === "twist") {
           const actB = new Set(ready.filter((f) => f.act === "b").map((f) => f.id));

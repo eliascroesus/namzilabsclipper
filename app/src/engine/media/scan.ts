@@ -3,7 +3,7 @@
  * second, measured for sharpness, exposure, colour, movement and people, plus
  * where in the frame the interest sits (for crops) and where the shots change.
  */
-import { VideoSampleSink } from "mediabunny";
+import { EncodedPacketSink, VideoSampleSink, type InputVideoTrack } from "mediabunny";
 import type { Source } from "./sources";
 
 /** Columns and rows in the saliency profiles. */
@@ -235,15 +235,45 @@ export interface ScanOptions {
   onProgress?: (p: number) => void;
 }
 
+/**
+ * The times of a track's key frames, at least `gap` seconds apart. A key frame
+ * decodes on its own, so skimming a long video by its key frames skips decoding
+ * everything in between.
+ */
+async function keyFrameTimes(track: InputVideoTrack, gap: number, signal?: AbortSignal): Promise<number[]> {
+  const sink = new EncodedPacketSink(track);
+  const out: number[] = [];
+  let p = await sink.getFirstKeyPacket({ metadataOnly: true });
+  for (let guard = 0; p && guard < 200000; guard++) {
+    if (signal?.aborted) break;
+    if (!out.length || p.timestamp - out[out.length - 1] >= gap) out.push(p.timestamp);
+    p = await sink.getNextKeyPacket(p, { metadataOnly: true });
+  }
+  return out;
+}
+
+/** Past this length a video is skimmed by its key frames. */
+const LONG_VIDEO = 150;
+
 /** Scan a video source. */
 export async function scanVideo(src: Source, opts: ScanOptions = {}): Promise<Scan> {
   const { info, video } = src;
   if (!video) throw new Error(`${info.name} has no video`);
-  const rate = opts.rate ?? sampleRate(info.duration);
+  let rate = opts.rate ?? sampleRate(info.duration);
   const first = await video.getFirstTimestamp().catch(() => 0);
-  const count = Math.max(2, Math.floor(info.duration * rate));
-  const times: number[] = [];
-  for (let i = 0; i < count; i++) times.push(first + (i + 0.5) / rate);
+  let times: number[] = [];
+  if (!opts.rate && info.duration > LONG_VIDEO) {
+    const keys = await keyFrameTimes(video, 1 / rate, opts.signal).catch(() => []);
+    // Key frames every few seconds are plenty; much sparser and a plain skim is better.
+    if (keys.length >= info.duration / 12) {
+      times = keys;
+      rate = keys.length / Math.max(1, info.duration);
+    }
+  }
+  if (!times.length) {
+    const count = Math.max(2, Math.floor(info.duration * rate));
+    for (let i = 0; i < count; i++) times.push(first + (i + 0.5) / rate);
+  }
   const [w, h] = analysisSize(info.width, info.height);
   const canvas = new OffscreenCanvas(w, h);
   const ctx = canvas.getContext("2d", { willReadFrequently: true, alpha: false })!;
