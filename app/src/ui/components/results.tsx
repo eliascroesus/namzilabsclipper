@@ -156,7 +156,14 @@ function Moments({ s }: { s: State }) {
     <div>
       <div className="outputs-head">
         <h1>Moments</h1>
-        <span className="muted num">{st.moments.filter((m) => m.selected).length} picked</span>
+        <div className="row">
+          <span className="muted num">{st.moments.filter((m) => m.selected).length} picked</span>
+          {!s.busy && (
+            <button type="button" className="btn ghost" onClick={() => void studio.findMoments()} title="Pick again with the current clip length and count (the transcript is kept)">
+              Find again
+            </button>
+          )}
+        </div>
       </div>
       <div className="moments">
         {st.moments.map((m) => (

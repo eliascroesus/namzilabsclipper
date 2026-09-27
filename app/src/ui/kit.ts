@@ -5,6 +5,8 @@
  */
 export interface KitFields {
   enabled: boolean;
+  /** the device on the card: a laptop for a website, a phone for an app */
+  kind: "laptop" | "phone";
   top: string;
   bottom: string;
   accent: string;
@@ -13,7 +15,7 @@ export interface KitFields {
 }
 
 const KEY = "clipper.kit.v1";
-const DEFAULTS: KitFields = { enabled: true, top: "start free", bottom: "namzilabs.co", accent: "#568CFF", draw: true, hold: 4 };
+const DEFAULTS: KitFields = { enabled: true, kind: "laptop", top: "start free", bottom: "namzilabs.co", accent: "#568CFF", draw: true, hold: 4 };
 
 export function loadKit(): KitFields {
   try {
@@ -26,8 +28,8 @@ export function loadKit(): KitFields {
 
 export function saveKit(k: KitFields) {
   try {
-    const { enabled, top, bottom, accent, draw, hold } = k;
-    localStorage.setItem(KEY, JSON.stringify({ enabled, top, bottom, accent, draw, hold }));
+    const { enabled, kind, top, bottom, accent, draw, hold } = k;
+    localStorage.setItem(KEY, JSON.stringify({ enabled, kind, top, bottom, accent, draw, hold }));
   } catch {
     // private mode: the kit just won't be remembered
   }

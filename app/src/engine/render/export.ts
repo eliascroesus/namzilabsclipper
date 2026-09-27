@@ -24,7 +24,7 @@ import {
 import type { Source } from "../media/sources";
 import type { EditPlan, FxEvent, ShotEvent } from "../plan/types";
 import { drawCaption } from "./captions";
-import { drawLaptopCard } from "./card";
+import { drawCard } from "./card";
 import { loadFonts } from "./fonts";
 import { Compositor, type LayerDraw, type Rotation } from "./gl";
 import { mixPlan } from "./mix";
@@ -263,7 +263,7 @@ export class FramePainter {
     if (key && key !== this.overlayKey) {
       this.octx.clearRect(0, 0, W, H);
       if (cardT >= 0 && plan.card) {
-        drawLaptopCard(this.octx, W, H, cardT, plan.card.end - plan.card.start, plan.card.spec, { shot: this.cardImage }, plan.card.fadeIn, plan.card.fadeOut);
+        drawCard(this.octx, W, H, cardT, plan.card.end - plan.card.start, plan.card.spec, { shot: this.cardImage }, plan.card.fadeIn, plan.card.fadeOut);
       } else {
         for (const cap of caps) drawCaption(this.octx, W, H, cap);
       }

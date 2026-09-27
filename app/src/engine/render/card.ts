@@ -153,11 +153,12 @@ export function drawLaptopCard(ctx: Ctx, W: number, H: number, t: number, durati
 
   // The arrow: from just left of the call to action, out past the laptop's left
   // side, back in just left of the address. One stroke, then the head.
-  const sx = 480 - topW / 2 - 14;
-  const sy = 174.1;
-  const ex = 480 - bottomW / 2 - 18;
-  const ey = 544.2;
-  const bulge = 232 - 82;
+  drawArrow(ctx, [480 - topW / 2 - 14, 174.1], [480 - bottomW / 2 - 18, 544.2], 232 - 82, spec, t, alpha);
+  ctx.restore();
+}
+
+/** The hand-drawn arrow: out to `bulge` on the left, back in, then the head. */
+function drawArrow(ctx: Ctx, [sx, sy]: Pt, [ex, ey]: Pt, bulge: number, spec: CardSpec, t: number, alpha: number) {
   const midY = (sy + ey) / 2;
   const a: [Pt, Pt, Pt, Pt] = [[sx, sy], [sx - (sx - bulge) * 0.55, sy + 2], [bulge, sy + 48], [bulge, midY]];
   const b: [Pt, Pt, Pt, Pt] = [[bulge, midY], [bulge, ey - 42], [ex - (ex - bulge) * 0.62, ey + 2], [ex, ey]];
@@ -201,6 +202,73 @@ export function drawLaptopCard(ctx: Ctx, W: number, H: number, t: number, durati
     ctx.lineTo(p1[0], p1[1]);
     ctx.lineTo(p1[0] - len * Math.cos(ang - spread), p1[1] - len * Math.sin(ang - spread));
     ctx.stroke();
+    ctx.globalAlpha = alpha;
   }
+}
+
+/**
+ * The same card for an app: a phone instead of the laptop, laid out on a
+ * portrait 600 × 900 grid with the same type, arrow and pull-out.
+ */
+export function drawPhoneCard(ctx: Ctx, W: number, H: number, t: number, duration: number, spec: CardSpec, assets: CardAssets, fadeIn = 0.27, fadeOut = 0.5) {
+  ctx.save();
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+  const alpha = Math.min(clamp01(t / fadeIn), clamp01((duration - t) / fadeOut));
+  if (alpha <= 0) {
+    ctx.restore();
+    return;
+  }
+  ctx.globalAlpha = alpha;
+  const k = Math.min((W * 0.78) / 600, (H * 0.84) / 900);
+  const s = 1.06 - 0.06 * clamp01(t / duration);
+  ctx.translate(W / 2 - 300 * k, H * (H > W ? 0.47 : 0.5) - 450 * k);
+  ctx.scale(k, k);
+  ctx.translate(300, 450);
+  ctx.scale(s, s);
+  ctx.translate(-300, -450);
+
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = `500 36px ${FONT.sans}`;
+  ctx.letterSpacing = "-0.36px";
+  const topW = ctx.measureText(spec.top).width;
+  ctx.fillText(spec.top, 300, 128);
+  ctx.font = `500 38px ${FONT.sans}`;
+  ctx.letterSpacing = "-0.38px";
+  const bottomW = ctx.measureText(spec.bottom).width;
+  ctx.fillText(spec.bottom, 300, 806);
+  ctx.letterSpacing = "0px";
+
+  // The phone: a thin titanium edge, black glass, the screen, the island.
+  const px = 176;
+  const py = 170;
+  const pw = 248;
+  const ph = 540;
+  roundRect(ctx, px, py, pw, ph, [44, 44, 44, 44]);
+  ctx.fillStyle = "#5a5b60";
+  ctx.fill();
+  roundRect(ctx, px + 2.5, py + 2.5, pw - 5, ph - 5, [41.5, 41.5, 41.5, 41.5]);
+  ctx.fillStyle = "#0b0b0d";
+  ctx.fill();
+  ctx.save();
+  roundRect(ctx, px + 10, py + 10, pw - 20, ph - 20, [34, 34, 34, 34]);
+  ctx.clip();
+  ctx.fillStyle = "#111";
+  ctx.fillRect(px + 10, py + 10, pw - 20, ph - 20);
+  if (assets.shot) drawScreen(ctx, assets.shot, px + 10, py + 10, pw - 20, ph - 20);
   ctx.restore();
+  roundRect(ctx, 300 - 38, py + 20, 76, 22, [11, 11, 11, 11]);
+  ctx.fillStyle = "#000";
+  ctx.fill();
+
+  drawArrow(ctx, [300 - topW / 2 - 14, 116], [300 - bottomW / 2 - 18, 793], px - 72, spec, t, alpha);
+  ctx.restore();
+}
+
+/** The card for a spec: the laptop, or the phone for an app. */
+export function drawCard(ctx: Ctx, W: number, H: number, t: number, duration: number, spec: CardSpec, assets: CardAssets, fadeIn?: number, fadeOut?: number) {
+  if (spec.kind === "phone") drawPhoneCard(ctx, W, H, t, duration, spec, assets, fadeIn, fadeOut);
+  else drawLaptopCard(ctx, W, H, t, duration, spec, assets, fadeIn, fadeOut);
 }

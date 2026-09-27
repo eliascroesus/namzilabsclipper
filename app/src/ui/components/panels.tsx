@@ -1,6 +1,6 @@
 import { AudioWaveform, Clapperboard, Eye, EyeOff, Film, ImagePlus, MessageSquareQuote, Music, Plus, RotateCcw, Shuffle, Type, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { drawLaptopCard } from "../../engine/render/card";
+import { drawCard } from "../../engine/render/card";
 import { loadFonts } from "../../engine/render/fonts";
 import { FRAME_SIZE, type Aspect } from "../../engine/plan/types";
 import { studio, type Format, type State } from "../studio";
@@ -176,7 +176,7 @@ function CardPreview({ s }: { s: State }) {
       const ctx = c.getContext("2d")!;
       ctx.setTransform(k, 0, 0, k, 0, 0);
       const img = studio.getCardImage();
-      drawLaptopCard(ctx, W, H, 2, 4, { kind: "laptop", top: s.kit.top, bottom: s.kit.bottom, accent: s.kit.accent, hold: 4, draw: false }, { shot: img ?? undefined });
+      drawCard(ctx, W, H, 2, 4, { kind: s.kit.kind, top: s.kit.top, bottom: s.kit.bottom, accent: s.kit.accent, hold: 4, draw: false }, { shot: img ?? undefined });
     });
     return () => {
       alive = false;
@@ -196,6 +196,10 @@ export function CardPanel({ s }: { s: State }) {
       {kit.enabled ? (
         <>
           <CardPreview s={s} />
+          <div className="field">
+            <span className="label">On the card</span>
+            <Segmented label="Device on the card" value={kit.kind} options={[{ value: "laptop", label: "Laptop (a website)" }, { value: "phone", label: "Phone (an app)" }]} onChange={(v) => studio.setKit({ kind: v })} />
+          </div>
           <div className="field">
             <label htmlFor="card-top">Line above</label>
             <input id="card-top" className="input" value={kit.top} maxLength={40} onChange={(e) => studio.setKit({ top: e.target.value })} />
@@ -218,7 +222,7 @@ export function CardPanel({ s }: { s: State }) {
                 <RotateCcw size={15} />
               </button>
             </div>
-            <span className="hint">A screenshot of the product's page or app, landscape. The top of it shows.</span>
+            <span className="hint">{kit.kind === "phone" ? "A phone screenshot of the app. The top of it shows." : "A screenshot of the product's page, landscape. The top of it shows."}</span>
           </div>
           <div className="field">
             <span className="label">Arrow</span>

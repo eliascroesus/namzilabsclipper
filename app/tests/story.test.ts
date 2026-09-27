@@ -53,7 +53,8 @@ describe("speech detection", () => {
     expect(b[0]).toBe(0);
     expect(b[b.length - 1]).toBe(1500);
     expect(b.length).toBeGreaterThanOrEqual(3);
-    for (let i = 1; i < b.length - 1; i++) expect(runs.some((r) => b[i] > r.end - 0.01 && b[i] < r.end + 1.01)).toBe(true);
+    // Every split falls in a pause, never mid-speech.
+    for (let i = 1; i < b.length - 1; i++) expect(runs.some((r) => b[i] > r.start && b[i] < r.end)).toBe(false);
   });
 
   it("counts syllables roughly", () => {

@@ -38,10 +38,15 @@ interface Word {
   shout: boolean;
 }
 
-/** Map source time to edit time through the kept runs; null inside a cut pause. */
+/**
+ * Map source time to edit time through the kept runs; null inside a cut pause.
+ * A run's edit length is rounded to whole frames, so a word ending right at a
+ * run's end can fall a frame outside it: that much slack still maps (clamped).
+ */
 function mapper(map: { src0: number; src1: number; out0: number }[]) {
+  const slack = 1.5 / FPS;
   return (t: number): number | null => {
-    for (const m of map) if (t >= m.src0 - 1e-6 && t <= m.src1 + 1e-6) return m.out0 + (t - m.src0);
+    for (const m of map) if (t >= m.src0 - slack && t <= m.src1 + slack) return m.out0 + (Math.min(m.src1, Math.max(m.src0, t)) - m.src0);
     return null;
   };
 }

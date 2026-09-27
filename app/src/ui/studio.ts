@@ -503,7 +503,7 @@ class Studio {
     const ready = s.footage.filter((f) => f.status === "ready");
     const scans = ready.map((f) => this.scans.get(f.id)!).filter(Boolean);
     scoreInterest(scans);
-    const card: CardSpec | null = s.kit.enabled ? { kind: "laptop", top: s.kit.top, bottom: s.kit.bottom, accent: s.kit.accent, hold: s.kit.hold, draw: s.kit.draw } : null;
+    const card: CardSpec | null = s.kit.enabled ? { kind: s.kit.kind, top: s.kit.top, bottom: s.kit.bottom, accent: s.kit.accent, hold: s.kit.hold, draw: s.kit.draw } : null;
     const style = s.style;
     const song = this.song && s.sound?.status === "ready" ? this.song : null;
     const fromReel = s.sound?.fromReel ?? true;

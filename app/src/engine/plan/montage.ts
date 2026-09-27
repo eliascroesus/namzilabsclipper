@@ -311,14 +311,23 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
     for (let s = 0; s + 1 < bounds.length; s++) {
       const lo = bounds[s] + 0.08;
       const hi = bounds[s + 1] - 0.08;
-      for (let start = lo; start + d <= hi + 1e-6; start += step) {
+      if (hi - lo < d - 1e-6) continue;
+      // Where a slot can start: an even grid, or, when the samples are sparser than
+      // the slot is long (a long video skimmed by its key frames), centred on each
+      // sample so every window has one.
+      const starts: number[] = [];
+      if (step > d) {
+        for (let i = 0; i < st.t.length; i++) if (st.t[i] >= lo && st.t[i] <= hi) starts.push(Math.min(Math.max(lo, st.t[i] - d / 2), hi - d));
+      } else {
+        for (let start = lo; start + d <= hi + 1e-6; start += step) starts.push(start);
+      }
+      for (const start of starts) {
         let sum = 0;
         let peak = 0;
         let motion = 0;
         let c = 0;
         const rgb: [number, number, number] = [0, 0, 0];
-        for (let i = 0; i < st.t.length; i++) {
-          if (st.t[i] < start || st.t[i] > start + d) continue;
+        const take = (i: number) => {
           sum += interest[i];
           peak = Math.max(peak, interest[i]);
           motion += st.motion[i];
@@ -326,8 +335,15 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
           rgb[1] += st.rgb[i * 3 + 1];
           rgb[2] += st.rgb[i * 3 + 2];
           c++;
+        };
+        for (let i = 0; i < st.t.length; i++) if (st.t[i] >= start && st.t[i] <= start + d) take(i);
+        if (!c) {
+          // No sample inside: judge it by the nearest one.
+          let near = -1;
+          for (let i = 0; i < st.t.length; i++) if (near < 0 || Math.abs(st.t[i] - start - d / 2) < Math.abs(st.t[near] - start - d / 2)) near = i;
+          if (near < 0) continue;
+          take(near);
         }
-        if (!c) continue;
         out.push({ scan, start, score: sum / c, peak, motion: clamp(motion / c / motionScale, 0, 1.5), rgb: [rgb[0] / c, rgb[1] / c, rgb[2] / c] });
       }
     }

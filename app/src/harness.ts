@@ -27,6 +27,21 @@ const round = (x: number, d = 3) => Math.round(x * 10 ** d) / 10 ** d;
 
 const harness = {
   montage,
+  async cards() {
+    const { drawCard } = await import("./engine/render/card");
+    const { loadFonts } = await import("./engine/render/fonts");
+    await loadFonts();
+    const img = await createImageBitmap(await (await fetch("/demo-dashboard.jpg")).blob());
+    const out: string[] = [];
+    for (const [kind, W, H] of [["phone", 1080, 1920], ["phone", 1440, 1080], ["laptop", 1080, 1920], ["laptop", 1440, 1080]] as const) {
+      const c = new OffscreenCanvas(W, H);
+      drawCard(c.getContext("2d")!, W, H, 2, 4, { kind, top: "get the app", bottom: "namzilabs.co", accent: "#568CFF", hold: 4, draw: false }, { shot: img });
+      const name = `card-${kind}-${W}x${H}.png`;
+      await save(name, await c.convertToBlob({ type: "image/png" }));
+      out.push(name);
+    }
+    return out;
+  },
   async avsync() {
     const { audioDelay } = await import("./engine/render/avsync");
     return {
