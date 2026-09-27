@@ -156,6 +156,143 @@ async function blobToBase64Parts(blob: Blob, chunk = 6 * 1024 * 1024): Promise<s
 }
 export { blobToBase64Parts };
 
+/**
+ * Draws any frame of a plan: the footage (decoded on demand, streaming when the
+ * frames come in order), the grade and effects, the captions and the card.
+ */
+export class FramePainter {
+  readonly canvas: OffscreenCanvas;
+  private readonly comp: Compositor;
+  private readonly overlay: OffscreenCanvas;
+  private readonly octx: OffscreenCanvasRenderingContext2D;
+  private readonly sinks = new Map<string, VideoSampleSink>();
+  private readonly readers = new Map<number, ShotReader>();
+  private lastUpload = "";
+  private overlayKey = "";
+  private lastT = -Infinity;
+
+  constructor(
+    private readonly plan: EditPlan,
+    private readonly sources: Map<string, Source>,
+    private readonly cardImage?: CanvasImageSource & { width: number; height: number },
+  ) {
+    this.canvas = new OffscreenCanvas(plan.width, plan.height);
+    this.comp = new Compositor(this.canvas, plan.width, plan.height);
+    this.overlay = new OffscreenCanvas(plan.width, plan.height);
+    this.octx = this.overlay.getContext("2d")!;
+  }
+
+  private reader(i: number): ShotReader | null {
+    const shot = this.plan.shots[i];
+    if (!shot || shot.kind !== "video") return null;
+    let r = this.readers.get(i);
+    if (!r) {
+      let sink = this.sinks.get(shot.source);
+      if (!sink) {
+        const v = this.sources.get(shot.source)?.video;
+        if (!v) return null;
+        this.sinks.set(shot.source, (sink = new VideoSampleSink(v)));
+      }
+      r = new ShotReader(sink, shot.srcStart, shot.srcStart + (shot.end - shot.start) * shot.speed);
+      this.readers.set(i, r);
+    }
+    return r;
+  }
+
+  private async dropReaders(keep: (i: number) => boolean) {
+    for (const [i, r] of [...this.readers]) {
+      if (keep(i)) continue;
+      this.readers.delete(i);
+      await r.close();
+    }
+  }
+
+  /** Draw the frame at `t` into the canvas. */
+  async paint(t: number): Promise<void> {
+    const { plan, comp, sources } = this;
+    const { width: W, height: H, fps } = plan;
+    const f = Math.round(t * fps);
+    const idx = plan.shots.findIndex((s) => t >= s.start - 1e-6 && t < s.end - 1e-6);
+    // Going backwards restarts decoding; going forwards drops the shots left behind.
+    if (t < this.lastT) await this.dropReaders(() => false);
+    else if (idx >= 0) await this.dropReaders((i) => i >= idx);
+    this.lastT = t;
+
+    const layers: LayerDraw[] = [];
+    const inCard = !!plan.card && t >= plan.card.start - 1e-6;
+    const shot: ShotEvent | undefined = idx >= 0 ? plan.shots[idx] : undefined;
+    if (shot && !inCard) {
+      this.reader(idx + 1); // start decoding the next shot now
+      const p = (t - shot.start) / Math.max(1e-6, shot.end - shot.start);
+      const c = shot.crop;
+      const zoom = c.zoom0 + (c.zoom1 - c.zoom0) * p;
+      const cx = c.cx + ((c.cx1 ?? c.cx) - c.cx) * p;
+      const cy = c.cy + ((c.cy1 ?? c.cy) - c.cy) * p;
+      if (shot.kind === "image") {
+        const img = sources.get(shot.source)?.image;
+        if (img) {
+          const key = `img:${shot.source}`;
+          if (this.lastUpload !== key) {
+            comp.upload(0, img, img.width, img.height);
+            this.lastUpload = key;
+          }
+          layers.push({ slot: 0, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx, cy, zoom, fit: c.fit, alpha: 1 });
+        }
+      } else {
+        const sample = await this.reader(idx)?.at(shot.srcStart + (t - shot.start) * shot.speed);
+        if (sample) {
+          const key = `${shot.source}@${sample.timestamp}`;
+          if (this.lastUpload !== key) {
+            const vf = sample.toVideoFrame();
+            comp.upload(0, vf, sample.displayWidth, sample.displayHeight);
+            vf.close();
+            this.lastUpload = key;
+          }
+          layers.push({ slot: 0, srcW: sample.displayWidth, srcH: sample.displayHeight, rotation: sample.rotation as Rotation, flip: sample.flip, cx, cy, zoom, fit: c.fit, alpha: 1 });
+        }
+      }
+    }
+
+    // Captions and the card, redrawn only when they change.
+    const caps = plan.captions.filter((cap) => t >= cap.start - 1e-6 && t < cap.end - 1e-6);
+    const cardT = plan.card && inCard ? t - plan.card.start : -1;
+    const key = cardT >= 0 ? `card:${f}` : caps.map((cap) => `${cap.style}:${cap.y}:${cap.text}`).join("|");
+    if (key && key !== this.overlayKey) {
+      this.octx.clearRect(0, 0, W, H);
+      if (cardT >= 0 && plan.card) {
+        drawLaptopCard(this.octx, W, H, cardT, plan.card.end - plan.card.start, plan.card.spec, { shot: this.cardImage }, plan.card.fadeIn, plan.card.fadeOut);
+      } else {
+        for (const cap of caps) drawCaption(this.octx, W, H, cap);
+      }
+      comp.uploadOverlay(this.overlay);
+      this.overlayKey = key;
+    }
+    const e = fxAt(plan.fx, t, fps);
+    comp.draw({ layers, grade: plan.grade, flash: e.flash, burn: e.burn, burnPhase: e.burnPhase, dim: inCard ? 0 : e.dim, overlay: !!key, time: t, seed: 1.37 });
+  }
+
+  async close() {
+    await this.dropReaders(() => false);
+    this.comp.dispose();
+  }
+}
+
+/** Single frames of a plan as PNGs, for previews and checks. */
+export async function renderStills(plan: EditPlan, sources: Map<string, Source>, times: number[], cardImage?: CanvasImageSource & { width: number; height: number }): Promise<Blob[]> {
+  await loadFonts();
+  const painter = new FramePainter(plan, sources, cardImage);
+  const out: Blob[] = [];
+  try {
+    for (const t of times) {
+      await painter.paint(Math.round(t * plan.fps) / plan.fps);
+      out.push(await painter.canvas.convertToBlob({ type: "image/png" }));
+    }
+  } finally {
+    await painter.close();
+  }
+  return out;
+}
+
 export async function renderPlan(plan: EditPlan, sources: Map<string, Source>, opts: RenderOptions): Promise<RenderResult> {
   const t0 = performance.now();
   const { width: W, height: H, fps } = plan;
@@ -166,10 +303,9 @@ export async function renderPlan(plan: EditPlan, sources: Map<string, Source>, o
 
   const target = new BufferTarget();
   const output = new Output({ format: codecs.container === "mp4" ? new Mp4OutputFormat({ fastStart: "in-memory" }) : new WebMOutputFormat(), target });
-  const canvas = new OffscreenCanvas(W, H);
-  const comp = new Compositor(canvas, W, H);
+  const painter = new FramePainter(plan, sources, opts.cardImage);
   const packets: { packet: EncodedPacket; meta?: EncodedVideoChunkMetadata }[] = [];
-  const video = new CanvasSource(canvas, {
+  const video = new CanvasSource(painter.canvas, {
     codec: codecs.video,
     bitrate: bitrateFor(W, H),
     keyFrameInterval: 2,
@@ -184,96 +320,12 @@ export async function renderPlan(plan: EditPlan, sources: Map<string, Source>, o
   await audioSource.add(audio);
   audioSource.close();
 
-  const overlay = new OffscreenCanvas(W, H);
-  const octx = overlay.getContext("2d")!;
-  const sinks = new Map<string, VideoSampleSink>();
-  const sinkFor = (id: string) => {
-    let s = sinks.get(id);
-    if (!s) {
-      const v = sources.get(id)?.video;
-      if (!v) return null;
-      sinks.set(id, (s = new VideoSampleSink(v)));
-    }
-    return s;
-  };
-  const readers = new Map<number, ShotReader>();
-  const reader = (i: number) => {
-    const shot = plan.shots[i];
-    if (!shot || shot.kind !== "video") return null;
-    let r = readers.get(i);
-    if (!r) {
-      const sink = sinkFor(shot.source);
-      if (!sink) return null;
-      r = new ShotReader(sink, shot.srcStart, shot.srcStart + (shot.end - shot.start) * shot.speed);
-      readers.set(i, r);
-    }
-    return r;
-  };
-
   const frames = Math.round(plan.duration * fps);
-  let lastUpload = "";
-  let overlayKey = "";
-  let shotIndex = 0;
   try {
     for (let f = 0; f < frames; f++) {
       if (opts.signal?.aborted) throw new DOMException("Render cancelled", "AbortError");
       const t = f / fps;
-      while (shotIndex < plan.shots.length && t >= plan.shots[shotIndex].end - 1e-6) {
-        await readers.get(shotIndex)?.close();
-        readers.delete(shotIndex);
-        shotIndex++;
-      }
-      const layers: LayerDraw[] = [];
-      const shot: ShotEvent | undefined = plan.shots[shotIndex];
-      const inCard = plan.card && t >= plan.card.start - 1e-6;
-      if (shot && t >= shot.start - 1e-6 && !inCard) {
-        reader(shotIndex + 1); // start decoding the next shot now
-        const p = (t - shot.start) / Math.max(1e-6, shot.end - shot.start);
-        const c = shot.crop;
-        const zoom = c.zoom0 + (c.zoom1 - c.zoom0) * p;
-        const cx = c.cx + ((c.cx1 ?? c.cx) - c.cx) * p;
-        const cy = c.cy + ((c.cy1 ?? c.cy) - c.cy) * p;
-        if (shot.kind === "image") {
-          const img = sources.get(shot.source)?.image;
-          if (img) {
-            const key = `img:${shotIndex}`;
-            if (lastUpload !== key) {
-              comp.upload(0, img, img.width, img.height);
-              lastUpload = key;
-            }
-            layers.push({ slot: 0, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx, cy, zoom, fit: c.fit, alpha: 1 });
-          }
-        } else {
-          const sample = await reader(shotIndex)?.at(shot.srcStart + (t - shot.start) * shot.speed);
-          if (sample) {
-            const key = `${shot.source}@${sample.timestamp}`;
-            if (lastUpload !== key) {
-              const vf = sample.toVideoFrame();
-              comp.upload(0, vf, sample.displayWidth, sample.displayHeight);
-              vf.close();
-              lastUpload = key;
-            }
-            layers.push({ slot: 0, srcW: sample.displayWidth, srcH: sample.displayHeight, rotation: sample.rotation as Rotation, flip: sample.flip, cx, cy, zoom, fit: c.fit, alpha: 1 });
-          }
-        }
-      }
-
-      // Captions and the card, redrawn only when they change.
-      const caps = plan.captions.filter((cap) => t >= cap.start - 1e-6 && t < cap.end - 1e-6);
-      const cardT = plan.card && inCard ? t - plan.card.start : -1;
-      const key = cardT >= 0 ? `card:${f}` : caps.map((cap) => `${cap.style}:${cap.text}`).join("|");
-      if (key && key !== overlayKey) {
-        octx.clearRect(0, 0, W, H);
-        if (cardT >= 0 && plan.card) {
-          drawLaptopCard(octx, W, H, cardT, plan.card.end - plan.card.start, plan.card.spec, { shot: opts.cardImage }, plan.card.fadeIn, plan.card.fadeOut);
-        } else {
-          for (const cap of caps) drawCaption(octx, W, H, cap);
-        }
-        comp.uploadOverlay(overlay);
-        overlayKey = key;
-      }
-      const e = fxAt(plan.fx, t, fps);
-      comp.draw({ layers, grade: plan.grade, flash: e.flash, burn: e.burn, burnPhase: e.burnPhase, dim: inCard ? 0 : e.dim, overlay: !!key, time: t, seed: 1.37 });
+      await painter.paint(t);
       await video.add(t, 1 / fps);
       opts.onProgress?.((f + 1) / frames, "Rendering");
     }
@@ -283,8 +335,7 @@ export async function renderPlan(plan: EditPlan, sources: Map<string, Source>, o
     await output.cancel().catch(() => undefined);
     throw err;
   } finally {
-    for (const r of readers.values()) await r.close();
-    comp.dispose();
+    await painter.close();
   }
   const mime = codecs.container === "mp4" ? "video/mp4" : "video/webm";
   const blob = new Blob([target.buffer!], { type: mime });

@@ -135,31 +135,48 @@ export function measureFrame(px: Uint8ClampedArray, w: number, h: number, s: Fra
   s.rgb[i * 3 + 1] = sg / n / 255;
   s.rgb[i * 3 + 2] = sb / n / 255;
 
-  // Sharpness and saliency from the luma gradients.
+  // Sharpness from the Laplacian at full analysis size.
   let lapSum = 0;
   let lapSum2 = 0;
   let lapN = 0;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x;
+      const lap = 4 * Y[p] - Y[p - 1] - Y[p + 1] - Y[p - w] - Y[p + w];
+      lapSum += lap;
+      lapSum2 += lap * lap;
+      lapN++;
+    }
+  }
+
+  // Where the subject is: edges at a coarse scale (object outlines, not gravel or
+  // leaves), things brighter or darker or more colourful than the frame around
+  // them, and skin.
   const cols = s.cols.subarray(i * PROFILE_BINS, (i + 1) * PROFILE_BINS);
   const rows = s.rows.subarray(i * PROFILE_BINS, (i + 1) * PROFILE_BINS);
   const mr = s.rgb[i * 3] * 255;
   const mg = s.rgb[i * 3 + 1] * 255;
   const mb = s.rgb[i * 3 + 2] * 255;
-  for (let y = 1; y < h - 1; y++) {
-    const by = Math.min(PROFILE_BINS - 1, Math.floor((y * PROFILE_BINS) / h));
-    for (let x = 1; x < w - 1; x++) {
-      const p = y * w + x;
-      const c = Y[p];
-      const lap = 4 * c - Y[p - 1] - Y[p + 1] - Y[p - w] - Y[p + w];
-      lapSum += lap;
-      lapSum2 += lap * lap;
-      lapN++;
-      const gx = Y[p + 1] - Y[p - 1];
-      const gy = Y[p + w] - Y[p - w];
+  const cw = w >> 1;
+  const ch = h >> 1;
+  const C = new Float32Array(cw * ch);
+  for (let y = 0; y < ch; y++) {
+    for (let x = 0; x < cw; x++) {
+      const p = 2 * y * w + 2 * x;
+      C[y * cw + x] = (Y[p] + Y[p + 1] + Y[p + w] + Y[p + w + 1]) / 4;
+    }
+  }
+  for (let y = 1; y < ch - 1; y++) {
+    for (let x = 1; x < cw - 1; x++) {
+      const c = y * cw + x;
+      const edge = Math.abs(C[c + 1] - C[c - 1]) + Math.abs(C[c + cw] - C[c - cw]);
+      const p = 2 * y * w + 2 * x;
       const q = p * 4;
+      const dl = Math.abs(C[c] - mY);
       const dc = (Math.abs(px[q] - mr) + Math.abs(px[q + 1] - mg) + Math.abs(px[q + 2] - mb)) / 765;
-      const sal = Math.abs(gx) + Math.abs(gy) + 0.6 * skinMask[p] + 0.4 * dc;
-      cols[Math.min(PROFILE_BINS - 1, Math.floor((x * PROFILE_BINS) / w))] += sal;
-      rows[by] += sal;
+      const sal = edge + 0.8 * dl + 0.5 * dc + 0.6 * skinMask[p];
+      cols[Math.min(PROFILE_BINS - 1, Math.floor((2 * x * PROFILE_BINS) / w))] += sal;
+      rows[Math.min(PROFILE_BINS - 1, Math.floor((2 * y * PROFILE_BINS) / h))] += sal;
     }
   }
   const lapMean = lapSum / Math.max(1, lapN);

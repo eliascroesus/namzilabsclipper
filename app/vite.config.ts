@@ -9,6 +9,8 @@ export default defineConfig({
   plugins: [react()],
   build: {
     target: "es2022",
+    // Mediabunny is one big module; the WASM AAC encoder loads only where a browser lacks one.
+    chunkSizeWarningLimit: 1100,
     rollupOptions: {
       input: {
         main: resolve(import.meta.dirname, "index.html"),

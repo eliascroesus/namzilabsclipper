@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { analyzeSong, type SongAnalysis } from "../src/engine/audio/song";
 import { PROFILE_BINS, type Scan } from "../src/engine/media/scan";
 import { CUT_LEAD, mulberry32, planMontage, usedRanges } from "../src/engine/plan/montage";
+import { planMeme, planTwist } from "../src/engine/plan/formats";
 import { FPS, type CardSpec } from "../src/engine/plan/types";
 
 /** A stand-in for a scanned clip: interest and motion that wander, one colour cast. */
@@ -83,5 +84,40 @@ describe.skipIf(!songs.length).each(songs)("montage on %s", (name) => {
     const b = planMontage({ song, songSource: "song", songName: name, fromStart: true, scans, aspect: "4x3", length: len, card, caption: null, variant: 1, avoid: usedRanges(a) });
     const sig = (p: typeof a) => p.shots.map((s) => `${s.source}@${s.srcStart.toFixed(1)}`).join();
     expect(sig(a)).not.toBe(sig(b));
+  });
+});
+
+describe.skipIf(!songs.length)("twist and meme", () => {
+  const song = load(songs[0] === "mico" && songs.length > 1 ? songs[1] : songs[0]);
+  const scans = Array.from({ length: 6 }, (_, i) => fakeScan(`clip${i}`, 5 + i, 300 + i));
+  scans.push(fakeScan("desk", 12, 999));
+
+  it("twist: flex montage, a flip on a downbeat, one long shot of the other side", () => {
+    const len = Math.min(18, song.duration - 4.5);
+    const plan = planTwist({ song, songSource: "song", songName: "x", fromStart: true, scans, aspect: "9x16", length: len, card, variant: 0, actB: new Set(["desk"]), captionA: "what they see vs...", captionB: "what they don't..." });
+    const sw = plan.checks!.switchAt as number;
+    const after = plan.shots.filter((s) => s.start >= sw - 1e-6);
+    expect(after.length).toBeGreaterThanOrEqual(1);
+    expect(after.every((s) => s.source === "desk")).toBe(true);
+    expect(plan.shots.filter((s) => s.start < sw - 1e-6).every((s) => s.source !== "desk")).toBe(true);
+    expect(plan.captions.map((c) => c.text)).toEqual(["what they see vs...", "what they don't..."]);
+    expect(plan.captions[1].start).toBeCloseTo(sw, 6);
+    const marks = [...song.beats];
+    expect(Math.min(...marks.map((m) => Math.abs(m - CUT_LEAD - sw)))).toBeLessThanOrEqual(1 / FPS);
+  });
+
+  it("meme: one held clip, faded up, text over it", () => {
+    const plan = planMeme({ song, songSource: "song", songName: "x", fromStart: true, scans, aspect: "1x1", length: 9, card, variant: 0, text: "It's rare, but some people truly want to see you win", position: "centre" });
+    expect(plan.shots.length).toBe(1);
+    expect(plan.fx.some((f) => f.kind === "fadein")).toBe(true);
+    expect(plan.captions[0].y).toBe(0.5);
+    expect(plan.width).toBe(1080);
+    expect(plan.height).toBe(1080);
+  });
+
+  it("meme without a song", () => {
+    const plan = planMeme({ fromStart: true, scans, aspect: "9x16", length: 9, card, variant: 1, text: "hi", position: "upper" });
+    expect(plan.music).toBeUndefined();
+    expect(plan.duration).toBeCloseTo(13, 1);
   });
 });

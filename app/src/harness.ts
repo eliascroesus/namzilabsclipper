@@ -6,8 +6,9 @@ import { analyzeSong, pickSection, SR } from "./engine/audio/song";
 import { decodeMono, openSource, type Source } from "./engine/media/sources";
 import { scanImage, scanVideo, scoreInterest, type Scan } from "./engine/media/scan";
 import { planMontage, usedRanges } from "./engine/plan/montage";
+import { planMeme, planTwist } from "./engine/plan/formats";
 import type { Aspect, CardSpec } from "./engine/plan/types";
-import { blobToBase64Parts, renderPlan } from "./engine/render/export";
+import { blobToBase64Parts, renderPlan, renderStills } from "./engine/render/export";
 
 async function save(name: string, blob: Blob) {
   const parts = await blobToBase64Parts(blob);
@@ -75,6 +76,12 @@ const harness = {
 };
 
 export interface MontageRun {
+  format?: "montage" | "twist" | "meme";
+  /** clip indices that go after the flip, in the twist */
+  actB?: number[];
+  captionB?: string;
+  memeText?: string;
+  memePosition?: "upper" | "centre";
   song: string;
   clips: string[];
   aspect?: Aspect;
@@ -85,6 +92,8 @@ export interface MontageRun {
   card?: Partial<CardSpec> | null;
   prefer?: "mp4" | "webm";
   out?: string;
+  /** only draw these moments (seconds, or "shots" for the middle of every shot) as PNGs */
+  stills?: number[] | "shots";
 }
 
 async function montage(run: MontageRun) {
@@ -95,10 +104,10 @@ async function montage(run: MontageRun) {
     timing[k] = Math.round(now - t);
     t = now;
   };
-  const songSrc = await load(run.song, "song");
-  const song = analyzeSong(await decodeMono(songSrc, SR));
+  const songSrc = run.song ? await load(run.song, "song") : null;
+  const song = songSrc ? analyzeSong(await decodeMono(songSrc, SR)) : null;
   lap("song");
-  const sources = new Map<string, Source>([["song", songSrc]]);
+  const sources = new Map<string, Source>(songSrc ? [["song", songSrc]] : []);
   const scans: Scan[] = [];
   for (const [i, url] of run.clips.entries()) {
     const src = await load(url, `clip${i}`);
@@ -112,14 +121,25 @@ async function montage(run: MontageRun) {
   const results = [];
   const avoid = new Map<string, [number, number][]>();
   for (let v = 0; v < (run.variants ?? 1); v++) {
-    const plan = planMontage({
-      song, songSource: "song", songName: run.song.split("/").pop()!, fromStart: run.fromStart ?? true, scans,
-      aspect: run.aspect ?? "9x16", length: run.length ?? 14, card, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption,
-      variant: v, avoid,
-    });
+    const common = { song: song ?? undefined, songSource: "song", songName: run.song?.split("/").pop() ?? "", fromStart: run.fromStart ?? true, scans, aspect: run.aspect ?? "9x16", length: run.length ?? 14, card, variant: v, avoid };
+    const plan =
+      run.format === "twist"
+        ? planTwist({ ...common, actB: new Set((run.actB ?? []).map((i) => `clip${i}`)), captionA: run.caption?.text ?? "what they see vs...", captionB: run.captionB ?? "what they don't..." })
+        : run.format === "meme"
+          ? planMeme({ ...common, text: run.memeText ?? "", position: run.memePosition ?? "upper" })
+          : planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption });
     usedRanges(plan, avoid);
     lap(`plan${v}`);
-    const res = await renderPlan(plan, sources, { music: true, silentCopy: v === 0, cardImage: img, prefer: run.prefer });
+    if (run.stills) {
+      const times = run.stills === "shots" ? [...plan.shots.map((s) => (s.start + s.end) / 2), ...(plan.card ? [plan.card.start + 2] : [])] : run.stills;
+      const pngs = await renderStills(plan, sources, times, img);
+      for (const [k, png] of pngs.entries()) await save(`${run.out ?? "still"}-v${v + 1}-${String(k).padStart(2, "0")}.png`, png);
+      await save(`${run.out ?? "still"}-v${v + 1}.plan.json`, new Blob([JSON.stringify(plan, null, 1)]));
+      lap(`stills${v}`);
+      results.push({ file: "", bytes: 0, silentBytes: 0, codecs: "", ms: 0, checks: plan.checks, shots: plan.shots.map((s) => [s.start.toFixed(2), s.source, s.srcStart.toFixed(2), s.role, s.score]) });
+      continue;
+    }
+    const res = await renderPlan(plan, sources, { music: !!plan.music, silentCopy: v === 0 && !!plan.music, cardImage: img, prefer: run.prefer });
     lap(`render${v}`);
     const base = `${run.out ?? "montage"}-v${v + 1}`;
     await save(`${base}.${res.ext}`, res.blob);
@@ -127,7 +147,7 @@ async function montage(run: MontageRun) {
     await save(`${base}.plan.json`, new Blob([JSON.stringify(plan, null, 1)]));
     results.push({ file: `${base}.${res.ext}`, bytes: res.blob.size, silentBytes: res.silent?.size, codecs: `${res.videoCodec}/${res.audioCodec}`, ms: res.ms, checks: plan.checks, shots: plan.shots.map((s) => [s.start.toFixed(2), s.source, s.srcStart.toFixed(2), s.role, s.score]) });
   }
-  return { timing, bpm: song.bpm, results };
+  return { timing, bpm: song?.bpm, results };
 }
 
 declare global {

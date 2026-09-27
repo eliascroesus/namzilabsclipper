@@ -1,8 +1,9 @@
 /**
- * The music-montage planner: the edit the mico and nio.trade montages are made
- * of (docs/edit-analysis.md, format 3). It picks where to cut from the song's
- * accents, then which moment of which clip goes in each slot, then the one
- * flourish, the caption and the demo card.
+ * Planning edits cut to music. The building blocks here (the stretch of song,
+ * the cut grid, filling each slot with the best moment, and finishing the edit
+ * with its flourish, captions and demo card) make the music montage of the mico
+ * and nio.trade Reels (docs/edit-analysis.md, format 3), and the twist and meme
+ * formats in formats.ts.
  */
 import { pickSection, type SongAnalysis } from "../audio/song";
 import { PROFILE_BINS, type Scan } from "../media/scan";
@@ -14,25 +15,10 @@ import { FPS, FRAME_SIZE, WARM_GRADE, type Aspect, type CaptionEvent, type CardS
  * also where a cut reads as "on the beat" (the eye expects the picture first).
  */
 export const CUT_LEAD = 0.04;
-const MIN_SHOT = 0.3;
+export const MIN_SHOT = 0.3;
 const MAX_SHOT = 2.1;
 
-export interface MontageOptions {
-  song: SongAnalysis;
-  songSource: string;
-  songName: string;
-  /** the sound came from a Reel: start at its 0:00 so "Use audio" lines up */
-  fromStart: boolean;
-  scans: Scan[];
-  aspect: Aspect;
-  /** seconds of footage before the card */
-  length: number;
-  card: CardSpec | null;
-  caption: { style: "mood" | "pov"; text: string } | null;
-  variant: number;
-  /** source ranges earlier variants used, to spread the footage around */
-  avoid?: Map<string, [number, number][]>;
-}
+export type Role = NonNullable<ShotEvent["role"]>;
 
 export function mulberry32(seed: number) {
   let a = seed >>> 0;
@@ -45,18 +31,11 @@ export function mulberry32(seed: number) {
   };
 }
 
-const frame = (t: number) => Math.round(t * FPS) / FPS;
+export const frame = (t: number) => Math.round(t * FPS) / FPS;
 const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x));
 
-interface Cand {
-  t: number;
-  w: number;
-  down: boolean;
-  drop: boolean;
-}
-
 /** The song's loudness (0 to 1) averaged over a stretch of the edit. */
-function loudnessOver(song: SongAnalysis, songStart: number, a: number, b: number): number {
+export function loudnessOver(song: SongAnalysis, songStart: number, a: number, b: number): number {
   const fps = song.sr / song.hop;
   const f0 = Math.max(0, Math.floor((songStart + a) * fps));
   const f1 = Math.min(song.loudness.length, Math.max(f0 + 1, Math.ceil((songStart + b) * fps)));
@@ -65,13 +44,65 @@ function loudnessOver(song: SongAnalysis, songStart: number, a: number, b: numbe
   return f1 > f0 ? s / (f1 - f0) : 0;
 }
 
-/** Cut candidates in edit time: every beat, plus strong accents between beats. */
-function candidates(song: SongAnalysis, songStart: number, until: number, dropAt?: number): Cand[] {
+// ── the stretch of music ─────────────────────────────────────────────────────
+
+export interface MusicWindow {
+  songStart: number;
+  /** when the card comes in (edit time), on a downbeat */
+  cardAt: number;
+  duration: number;
+  dropAt?: number;
+}
+
+/** Where to put the card: on a downbeat near the target length. */
+function cardTime(song: SongAnalysis, songStart: number, target: number, available: number): number {
+  let best = Math.min(target, available);
+  let bestScore = -Infinity;
+  song.beats.forEach((b, i) => {
+    const t = b - songStart;
+    if (t < target - 1.8 || t > Math.min(target + 1.8, available)) return;
+    const score = (song.beatInBar[i] === 0 ? 1 : 0) + 0.5 * song.beatStrength[i] - 0.35 * Math.abs(t - target);
+    if (score > bestScore) {
+      bestScore = score;
+      best = t;
+    }
+  });
+  return best;
+}
+
+/**
+ * The part of the song an edit uses: `length` seconds of footage, then the card
+ * for `cardHold` seconds with the music still playing under it.
+ */
+export function musicWindow(song: SongAnalysis, length: number, cardHold: number, fromStart: boolean): MusicWindow {
+  const section = pickSection(song, length + cardHold, fromStart);
+  const songStart = fromStart ? 0 : section.start;
+  const available = song.duration - songStart;
+  const len = Math.max(4, Math.min(length, available - cardHold - 0.2));
+  const cardAt = frame(cardTime(song, songStart, len, available - cardHold));
+  const duration = frame(cardAt + cardHold);
+  const dropSong = section.drop ?? song.drops.find((d) => d.t - songStart > 1.2 && d.t - songStart < cardAt - 1.2)?.t;
+  const dropEdit = dropSong !== undefined ? dropSong - songStart : undefined;
+  const dropAt = dropEdit !== undefined && dropEdit > 1.2 && dropEdit < cardAt - 1.2 ? dropEdit : undefined;
+  return { songStart, cardAt, duration, dropAt };
+}
+
+// ── the cut grid ─────────────────────────────────────────────────────────────
+
+interface Cand {
+  t: number;
+  w: number;
+  down: boolean;
+  drop: boolean;
+}
+
+/** Cut candidates in edit time: every beat, plus strong hits on the "and" between beats. */
+function candidates(song: SongAnalysis, songStart: number, from: number, until: number, dropAt?: number): Cand[] {
   const out: Cand[] = [];
   const inWindow: number[] = [];
   song.beats.forEach((b, i) => {
     const t = b - songStart;
-    if (t > 0.2 && t < until) inWindow.push(i);
+    if (t > from + 0.2 && t < until) inWindow.push(i);
   });
   // Rank each beat's strength within the window, blended with its absolute strength.
   const ranked = [...inWindow].sort((a, b) => song.beatStrength[a] - song.beatStrength[b]);
@@ -82,10 +113,9 @@ function candidates(song: SongAnalysis, songStart: number, until: number, dropAt
     const w = 0.25 + 0.35 * (rank.get(i) ?? 0.5) + 0.35 * song.beatStrength[i] + (down ? 0.25 : 0);
     out.push({ t, w, down, drop: false });
   }
-  // Off-beat hits count only on the "and" between two beats (syncopation), and only strong ones.
   for (const a of song.accents) {
     const t = a.t - songStart;
-    if (t <= 0.2 || t >= until) continue;
+    if (t <= from + 0.2 || t >= until) continue;
     if (song.beats.some((b) => Math.abs(b - a.t) < 0.07)) continue;
     const frac = a.beat - Math.floor(a.beat);
     if (a.s < 0.5 || Math.abs(frac - 0.5) > 0.12) continue;
@@ -103,21 +133,35 @@ function candidates(song: SongAnalysis, songStart: number, until: number, dropAt
   return out;
 }
 
+export interface CutOptions {
+  /** where the stretch starts (edit time) */
+  from?: number;
+  /** 1 = the reference montages; above 1 holds shots longer */
+  pace?: number;
+  maxShot?: number;
+  dropAt?: number;
+}
+
 /**
- * Choose the cuts: a path through the candidates from 0 to the card that lands
- * on the strongest accents, keeps shots near a length that suits how loud the
- * music is there (long in the build, short after the drop), and doesn't settle
- * into one length for long (mico runs 1, 1, 2, 1, 3 beats).
+ * Choose the cuts between `from` and `end`: a path through the candidates that
+ * lands on the strongest accents, keeps shots near a length that suits how loud
+ * the music is there (long in the build, short after the drop), and doesn't
+ * settle into one length for long (mico runs 1, 1, 2, 1, 3 beats). Returns the
+ * musical times, without the lead.
  */
-export function planCuts(song: SongAnalysis, songStart: number, end: number, dropAt?: number): number[] {
-  const cands = [{ t: 0, w: 0, down: true, drop: false }, ...candidates(song, songStart, end - MIN_SHOT, dropAt), { t: end, w: 0, down: true, drop: false }];
+export function planCuts(song: SongAnalysis, songStart: number, end: number, opts: CutOptions = {}): number[] {
+  const from = opts.from ?? 0;
+  const pace = opts.pace ?? 1;
+  const maxShot = opts.maxShot ?? MAX_SHOT * Math.max(1, pace);
+  const { dropAt } = opts;
+  const cands = [{ t: from, w: 0, down: true, drop: false }, ...candidates(song, songStart, from, end - MIN_SHOT, dropAt), { t: end, w: 0, down: true, drop: false }];
   const n = cands.length;
   const pref = (a: number, b: number) => {
     const L = b - a;
     const e = loudnessOver(song, songStart, a, b);
-    let target = 1.12 - 0.68 * e;
+    let target = (1.12 - 0.68 * e) * pace;
     if (dropAt !== undefined) target *= b <= dropAt + 0.05 ? 1.25 : 0.85;
-    return -0.5 * Math.log(L / clamp(target, 0.38, 1.6)) ** 2 / (2 * 0.5 ** 2);
+    return (-0.5 * Math.log(L / clamp(target, 0.38, 1.6 * pace)) ** 2) / (2 * 0.5 ** 2);
   };
   // Each cut has to earn its place: only accents stronger than a typical beat pay for themselves.
   const ws = cands.slice(1, -1).map((c) => c.w).sort((a, b) => a - b);
@@ -125,8 +169,8 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, dro
   // best[j] maps a predecessor i to the best score of a path ending ..., i, j.
   const best: Map<number, { score: number; prev: number }>[] = Array.from({ length: n }, () => new Map());
   for (let j = 1; j < n; j++) {
-    const L = cands[j].t;
-    if (L >= MIN_SHOT && L <= MAX_SHOT) best[j].set(0, { score: cands[j].w - cost + pref(0, cands[j].t), prev: -1 });
+    const L = cands[j].t - from;
+    if (L >= MIN_SHOT && L <= maxShot) best[j].set(0, { score: (j === n - 1 ? 0 : cands[j].w - cost) + pref(from, cands[j].t), prev: -1 });
   }
   for (let j = 1; j < n; j++) {
     for (const [i, st] of best[j]) {
@@ -134,13 +178,13 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, dro
       for (let k = j + 1; k < n; k++) {
         const L = cands[k].t - cands[j].t;
         if (L < MIN_SHOT) continue;
-        if (L > MAX_SHOT) break;
+        if (L > maxShot) break;
         // Skipping a drop is not allowed.
         let skipsDrop = false;
         for (let m = j + 1; m < k; m++) if (cands[m].drop) skipsDrop = true;
         if (skipsDrop) continue;
         const same = Math.abs(L - Lp) < 0.06 ? 0.2 : 0;
-        const score = st.score + cands[k].w - (k === n - 1 ? 0 : cost) + pref(cands[j].t, cands[k].t) - same;
+        const score = st.score + (k === n - 1 ? 0 : cands[k].w - cost) + pref(cands[j].t, cands[k].t) - same;
         const cur = best[k].get(j);
         if (!cur || score > cur.score) best[k].set(j, { score, prev: i });
       }
@@ -156,8 +200,8 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, dro
   }
   if (bestEnd < 0) {
     // No musical path (no pulse): an even grid.
-    const k = Math.max(1, Math.round(end / 0.8));
-    return Array.from({ length: k - 1 }, (_, i) => ((i + 1) * end) / k);
+    const k = Math.max(1, Math.round((end - from) / (0.8 * pace)));
+    return Array.from({ length: k - 1 }, (_, i) => from + ((i + 1) * (end - from)) / k);
   }
   const cuts: number[] = [];
   let j = n - 1;
@@ -171,20 +215,12 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, dro
   return cuts.reverse();
 }
 
-/** Where to put the card: on a downbeat near the target length. */
-function cardTime(song: SongAnalysis, songStart: number, target: number, available: number): number {
-  let best = Math.min(target, available);
-  let bestScore = -Infinity;
-  song.beats.forEach((b, i) => {
-    const t = b - songStart;
-    if (t < target - 1.8 || t > Math.min(target + 1.8, available)) return;
-    const score = (song.beatInBar[i] === 0 ? 1 : 0) + 0.5 * song.beatStrength[i] - 0.35 * Math.abs(t - target);
-    if (score > bestScore) {
-      bestScore = score;
-      best = t;
-    }
-  });
-  return best;
+// ── filling the slots ────────────────────────────────────────────────────────
+
+export interface Slot {
+  start: number;
+  end: number;
+  role: Role;
 }
 
 interface Segment {
@@ -235,6 +271,9 @@ export function cropFor(scan: Scan, a: number, b: number, aspect: Aspect): Crop 
     }
     return best;
   };
+  // A portrait clip in a landscape frame loses too much to a crop: it sits whole
+  // over a blurred copy of itself instead, the way the apps show one.
+  if (scan.height > scan.width * 1.05 && W > H) return { cx: 0.5, cy: 0.5, zoom0: 1, zoom1: 1, fit: "fit" };
   let cx = 0.5;
   let cy = 0.5;
   if (src > out * 1.01) cx = bestCentre(cols, out / src, 0.5);
@@ -242,12 +281,19 @@ export function cropFor(scan: Scan, a: number, b: number, aspect: Aspect): Crop 
   return { cx, cy, zoom0: 1, zoom1: 1, fit: "cover" };
 }
 
-function colourDistance(a: [number, number, number], b: [number, number, number]) {
-  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+const colourDistance = (a: [number, number, number], b: [number, number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+/** The longest stretch of a source without a cut in it (or at all, `acrossCuts`). */
+export function longestStretch(scan: Scan, acrossCuts = false): number {
+  if (scan.kind === "image") return Infinity;
+  const bounds = acrossCuts ? [scan.start, scan.duration] : [scan.start, ...scan.cuts, scan.duration];
+  let best = 0;
+  for (let i = 0; i + 1 < bounds.length; i++) best = Math.max(best, bounds[i + 1] - bounds[i] - 0.16);
+  return best;
 }
 
 /** Every usable stretch of every source for a slot `d` seconds long. */
-function segmentsFor(scans: Scan[], d: number, motionScale: number): Segment[] {
+function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts = false): Segment[] {
   const out: Segment[] = [];
   for (const scan of scans) {
     const st = scan.stats;
@@ -256,7 +302,7 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number): Segment[] {
       out.push({ scan, start: 0, score: interest[0], peak: interest[0], motion: 0, rgb: [st.rgb[0], st.rgb[1], st.rgb[2]] });
       continue;
     }
-    const bounds = [scan.start, ...scan.cuts, scan.duration];
+    const bounds = acrossCuts ? [scan.start, scan.duration] : [scan.start, ...scan.cuts, scan.duration];
     const step = 1 / scan.rate;
     for (let s = 0; s + 1 < bounds.length; s++) {
       const lo = bounds[s] + 0.08;
@@ -287,59 +333,73 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number): Segment[] {
 
 const overlaps = (ranges: [number, number][] | undefined, a: number, b: number) => !!ranges?.some(([x, y]) => a < y && b > x);
 
-export function planMontage(o: MontageOptions): EditPlan {
-  const { song, scans } = o;
-  const rand = mulberry32(0x9e3779b9 ^ (o.variant * 7919 + 17));
-  const cardHold = o.card ? o.card.hold : 0;
-  const [W, H] = FRAME_SIZE[o.aspect];
+/**
+ * The stretches that can fill a slot `d` seconds long: whole ones inside a shot;
+ * failing that, the longest there are (played slower); failing that, stretches
+ * running across the source's own cuts.
+ */
+function candidatesFor(scans: Scan[], d: number, motionScale: number): { segs: Segment[]; len: number } {
+  let segs = segmentsFor(scans, d, motionScale);
+  if (segs.length) return { segs, len: d };
+  const inShot = Math.max(...scans.map((s) => longestStretch(s)));
+  if (inShot >= d * 0.5) {
+    const len = Math.max(MIN_SHOT, Math.min(d, inShot));
+    segs = segmentsFor(scans, len, motionScale);
+    if (segs.length) return { segs, len };
+  }
+  segs = segmentsFor(scans, d, motionScale, true);
+  if (segs.length) return { segs, len: d };
+  const whole = Math.max(...scans.map((s) => longestStretch(s, true)));
+  const len = Math.max(0.1, Math.min(d, whole));
+  return { segs: segmentsFor(scans, len, motionScale, true), len };
+}
 
-  // 1. The stretch of music.
-  const want = o.length + cardHold;
-  const section = pickSection(song, want, o.fromStart);
-  const songStart = o.fromStart ? 0 : section.start;
-  const available = song.duration - songStart;
-  const length = Math.max(4, Math.min(o.length, available - cardHold - 0.2));
-  const cardAt = frame(cardTime(song, songStart, length, available - cardHold));
-  const duration = frame(cardAt + cardHold);
-  const dropSong = section.drop ?? song.drops.find((d) => d.t - songStart > 1.2 && d.t - songStart < cardAt - 1.2)?.t;
-  const dropEdit = dropSong !== undefined ? dropSong - songStart : undefined;
-  const dropAt = dropEdit !== undefined && dropEdit > 1.2 && dropEdit < cardAt - 1.2 ? dropEdit : undefined;
+export interface AssignContext {
+  song?: SongAnalysis;
+  songStart: number;
+  aspect: Aspect;
+  variant: number;
+  /** source ranges earlier variants used, to spread the footage around */
+  avoid?: Map<string, [number, number][]>;
+  /** ranges already used in this edit (shared between acts) */
+  used?: Map<string, [number, number][]>;
+}
 
-  // 2. The cuts, a frame and a bit ahead of each accent.
-  const musical = planCuts(song, songStart, cardAt, dropAt);
-  const cuts = musical.map((t) => frame(Math.max(1 / FPS, t - CUT_LEAD)));
-  const bounds = [0, ...cuts, cardAt];
-  const slots = bounds.slice(0, -1).map((a, i) => ({ start: a, end: bounds[i + 1], i }));
-
-  // 3. What goes in each slot.
+/**
+ * The best moment for each slot: the hook and the drop get the most striking
+ * footage, energy in the footage follows energy in the music, neighbours come
+ * from different clips and look different, and the edit spreads over all the
+ * footage rather than leaning on one clip.
+ */
+export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): ShotEvent[] {
+  if (!scans.length) throw new Error("No footage to fill the edit");
+  const rand = mulberry32(0x9e3779b9 ^ (ctx.variant * 7919 + 17));
   const motionAll: number[] = [];
   for (const s of scans) if (s.kind === "video") for (const m of s.stats.motion) motionAll.push(m);
   motionAll.sort((a, b) => a - b);
   const motionScale = motionAll.length ? motionAll[Math.floor(motionAll.length * 0.9)] || 0.1 : 0.1;
-  const dropSlot = dropAt !== undefined ? slots.findIndex((s) => Math.abs(s.start - frame(dropAt - CUT_LEAD)) < 0.07) : -1;
-  const role = (i: number): ShotEvent["role"] => (i === 0 ? "hook" : i === dropSlot ? "drop" : i === slots.length - 1 ? "closer" : dropSlot > 0 && i < dropSlot ? "build" : "body");
-  const order = [0, ...(dropSlot > 0 ? [dropSlot] : []), ...(slots.length > 1 ? [slots.length - 1] : []), ...slots.map((s) => s.i)].filter((v, k, arr) => arr.indexOf(v) === k);
-
-  const fairShare = Math.ceil(slots.length / Math.max(1, scans.length)) + (scans.length < 4 ? 2 : 1);
-  const used = new Map<string, [number, number][]>();
+  const importance: Record<Role, number> = { hook: 0, drop: 1, closer: 2, build: 3, body: 3 };
+  const order = slots.map((_, i) => i).sort((a, b) => importance[slots[a].role] - importance[slots[b].role] || a - b);
+  const fairShare = Math.ceil(slots.length / scans.length) + (scans.length < 4 ? 2 : 1);
+  const used = ctx.used ?? new Map<string, [number, number][]>();
   const uses = new Map<string, number>();
-  const chosen: (Segment & { d: number })[] = new Array(slots.length);
-  const cache = new Map<number, Segment[]>();
+  const chosen: (Segment & { d: number; len: number })[] = new Array(slots.length);
+  const cache = new Map<number, { segs: Segment[]; len: number }>();
   for (const i of order) {
     const slot = slots[i];
     const d = slot.end - slot.start;
     const key = Math.round(d * FPS);
-    if (!cache.has(key)) cache.set(key, segmentsFor(scans, d, motionScale));
-    const segs = cache.get(key)!;
-    const energy = loudnessOver(song, songStart, slot.start, slot.end);
-    const r = role(i);
+    if (!cache.has(key)) cache.set(key, candidatesFor(scans, d, motionScale));
+    const { segs, len } = cache.get(key)!;
+    const energy = ctx.song ? loudnessOver(ctx.song, ctx.songStart, slot.start, slot.end) : 0.5;
+    const r = slot.role;
     let best: Segment | undefined;
     let bestScore = -Infinity;
     for (const relax of [false, true]) {
       for (const seg of segs) {
         const id = seg.scan.id;
         const a = seg.start;
-        const b = seg.start + d;
+        const b = seg.start + len;
         if (seg.scan.kind === "video" && overlaps(used.get(id), a - 0.05, b + 0.05) && !relax) continue;
         let s = seg.score;
         if (r === "hook" || r === "drop") s += 0.35 * seg.peak + 0.15 * Math.min(1, seg.motion);
@@ -352,11 +412,10 @@ export function planMontage(o: MontageOptions): EditPlan {
           if (other.scan.id === id) s -= seg.scan.kind === "image" || Math.abs(other.start - a) < 4 ? 0.4 : 0.15;
           s -= 0.12 * Math.max(0, 1 - colourDistance(other.rgb, seg.rgb) / 0.12);
         }
-        // Spread the edit over the footage: each reuse costs more, and past a fair share, a lot.
         const u = uses.get(id) ?? 0;
         s -= 0.16 * u + (u >= fairShare ? 0.6 : 0);
-        if (seg.scan.kind === "image" && (uses.get(id) ?? 0) > 0) s -= 0.5;
-        if (overlaps(o.avoid?.get(id), a, b)) s -= 0.18;
+        if (seg.scan.kind === "image" && u > 0) s -= 0.5;
+        if (overlaps(ctx.avoid?.get(id), a, b)) s -= 0.18;
         if (relax && overlaps(used.get(id), a - 0.05, b + 0.05)) s -= 0.6;
         s += (rand() - 0.5) * 0.1;
         if (s > bestScore) {
@@ -367,87 +426,129 @@ export function planMontage(o: MontageOptions): EditPlan {
       if (best) break;
     }
     if (!best) throw new Error("No footage to fill the edit");
-    chosen[i] = { ...best, d };
+    chosen[i] = { ...best, d, len };
     const id = best.scan.id;
     if (!used.has(id)) used.set(id, []);
-    used.get(id)!.push([best.start, best.start + d]);
+    used.get(id)!.push([best.start, best.start + len]);
     uses.set(id, (uses.get(id) ?? 0) + 1);
   }
 
-  let kb = 0;
-  const shots: ShotEvent[] = slots.map((slot, i) => {
+  let kb = ctx.variant;
+  return slots.map((slot, i) => {
     const seg = chosen[i];
-    const crop = cropFor(seg.scan, seg.start, seg.start + seg.d, o.aspect);
+    const d = slot.end - slot.start;
+    const crop = cropFor(seg.scan, seg.start, seg.start + d, ctx.aspect);
+    // A stretch shorter than the slot plays slower to fill it (down to half speed; past
+    // that its last frame holds).
+    const speed = seg.scan.kind === "video" && seg.len < d - 1e-6 ? Math.max(0.5, seg.len / d) : 1;
     if (seg.scan.kind === "image") {
       // Ken Burns: a slow push, alternating in and out, drifting towards the subject.
       const inward = kb++ % 2 === 0;
-      crop.zoom0 = inward ? 1.02 : 1.1;
-      crop.zoom1 = inward ? 1.1 : 1.02;
       const tx = crop.cx;
       const ty = crop.cy;
-      crop.cx = inward ? 0.5 + (tx - 0.5) * 0.4 : tx;
-      crop.cy = inward ? 0.5 + (ty - 0.5) * 0.4 : ty;
-      crop.cx1 = inward ? tx : 0.5 + (tx - 0.5) * 0.4;
-      crop.cy1 = inward ? ty : 0.5 + (ty - 0.5) * 0.4;
+      const drift = 0.4;
+      crop.zoom0 = inward ? 1.02 : 1.1;
+      crop.zoom1 = inward ? 1.1 : 1.02;
+      crop.cx = inward ? 0.5 + (tx - 0.5) * drift : tx;
+      crop.cy = inward ? 0.5 + (ty - 0.5) * drift : ty;
+      crop.cx1 = inward ? tx : 0.5 + (tx - 0.5) * drift;
+      crop.cy1 = inward ? ty : 0.5 + (ty - 0.5) * drift;
     } else if (seg.motion < 0.18) {
       // A still shot gets a barely-there push so it doesn't look frozen.
-      crop.zoom0 = 1;
       crop.zoom1 = 1.04;
     }
-    return { start: slot.start, end: slot.end, source: seg.scan.id, kind: seg.scan.kind, srcStart: seg.start, speed: 1, crop, role: role(i), score: Math.round(seg.score * 100) / 100 };
+    return { start: slot.start, end: slot.end, source: seg.scan.id, kind: seg.scan.kind, srcStart: seg.start, speed, crop, role: slot.role, score: Math.round(seg.score * 100) / 100 };
   });
+}
 
-  // 4. One flourish on the drop, the dip to black, the card.
-  const fx: FxEvent[] = [];
-  const flourishAt = dropSlot > 0 ? shots[dropSlot].start : undefined;
-  const flourish = (["flash", "burn", null] as const)[o.variant % 3];
-  if (flourishAt !== undefined && flourish === "flash") fx.push({ kind: "flash", start: flourishAt, end: flourishAt + 5 / FPS, strength: 0.85, at: flourishAt });
-  if (flourishAt !== undefined && flourish === "burn") fx.push({ kind: "burn", start: flourishAt - 2 / FPS, end: flourishAt + 4 / FPS, strength: 0.9, at: flourishAt });
-  if (o.card) fx.push({ kind: "dip", start: cardAt - 4 / FPS, end: cardAt, strength: 1 });
-
-  const captions: CaptionEvent[] = [];
-  if (o.caption?.text.trim()) {
-    captions.push({ style: o.caption.style, text: o.caption.text.trim(), start: 0, end: o.card ? cardAt - 4 / FPS : duration });
+/** Slots between cut points, with the drop, hook and closer marked. */
+export function slotsBetween(bounds: number[], dropCut?: number): Slot[] {
+  const slots: Slot[] = [];
+  for (let i = 0; i + 1 < bounds.length; i++) {
+    const start = bounds[i];
+    let role: Role = "body";
+    if (i === 0) role = "hook";
+    else if (dropCut !== undefined && Math.abs(start - dropCut) < 0.07) role = "drop";
+    else if (i === bounds.length - 2) role = "closer";
+    else if (dropCut !== undefined && start < dropCut) role = "build";
+    slots.push({ start, end: bounds[i + 1], role });
   }
+  return slots;
+}
 
-  const fadeOut = Math.min(0.8, cardHold * 0.2 || 0.6);
-  const plan: EditPlan = {
-    id: `montage-${o.aspect}-v${o.variant + 1}`,
-    label: `Montage ${o.variant + 1}`,
-    format: "montage",
+// ── finishing ────────────────────────────────────────────────────────────────
+
+export interface FinishOptions {
+  id: string;
+  label: string;
+  format: EditPlan["format"];
+  aspect: Aspect;
+  shots: ShotEvent[];
+  window: MusicWindow;
+  songSource?: string;
+  songName?: string;
+  fromStart: boolean;
+  card: CardSpec | null;
+  captions: CaptionEvent[];
+  variant: number;
+  /** where the flourish goes (a cut on the drop), if anywhere */
+  flourishAt?: number;
+  fadeIn?: number;
+  bpm?: number;
+}
+
+/** The flourish, the dip into the card, the card, the music and the post note. */
+export function finishPlan(o: FinishOptions): EditPlan {
+  const [W, H] = FRAME_SIZE[o.aspect];
+  const { cardAt, duration, songStart } = o.window;
+  const cardHold = duration - cardAt;
+  const fx: FxEvent[] = [];
+  if (o.fadeIn) fx.push({ kind: "fadein", start: 0, end: o.fadeIn, strength: 1 });
+  const flourish = (["flash", "burn", null] as const)[o.variant % 3];
+  const at = o.flourishAt;
+  if (at !== undefined && flourish === "flash") fx.push({ kind: "flash", start: at, end: at + 5 / FPS, strength: 0.85, at });
+  if (at !== undefined && flourish === "burn") fx.push({ kind: "burn", start: at - 2 / FPS, end: at + 4 / FPS, strength: 0.9, at });
+  if (o.card) fx.push({ kind: "dip", start: cardAt - 4 / FPS, end: cardAt, strength: 1 });
+  const fadeOut = o.card ? Math.min(0.8, cardHold * 0.2) : 0.6;
+  const lengths = o.shots.map((s) => s.end - s.start).sort((a, b) => a - b);
+  const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+  return {
+    id: `${o.id}-${o.aspect}-v${o.variant + 1}`,
+    label: o.label,
+    format: o.format,
     aspect: o.aspect,
     width: W,
     height: H,
     fps: FPS,
     duration,
-    shots,
+    shots: o.shots,
     fx,
-    captions,
+    captions: o.captions,
     card: o.card ? { spec: o.card, start: cardAt, end: duration, fadeIn: 8 / FPS, fadeOut } : undefined,
-    music: { source: o.songSource, songStart, start: 0, end: duration, fadeIn: 0.01, fadeOut, gain: 1 },
+    music: o.songSource ? { source: o.songSource, songStart, start: 0, end: duration, fadeIn: 0.01, fadeOut, gain: 1 } : undefined,
     sourceAudio: false,
     grade: WARM_GRADE,
     note: {
-      caption: o.caption?.text.trim() || "",
+      caption: o.captions.map((c) => c.text).join(" "),
       hashtags: [],
-      sound: o.fromStart
-        ? "Add the sound from the Reel you took it from (tap the sound, then Use audio). It starts at 0:00, so every cut lands on the beat."
-        : `Song: ${o.songName}, from ${Math.floor(songStart / 60)}:${String(Math.floor(songStart % 60)).padStart(2, "0")}.`,
+      sound: !o.songSource
+        ? "No sound in this one: add one in the app."
+        : o.fromStart
+          ? "Add the sound from the Reel you took it from (tap the sound, then Use audio). It starts at 0:00, so every cut lands on the beat."
+          : `Song: ${o.songName ?? "the song you dropped"}, from ${mmss(songStart)}. In the app, start the sound at ${mmss(songStart)}.`,
+    },
+    checks: {
+      shots: o.shots.length,
+      medianShot: lengths.length ? Math.round(lengths[Math.floor(lengths.length / 2)] * 100) / 100 : 0,
+      shortest: lengths.length ? Math.round(lengths[0] * 100) / 100 : 0,
+      longest: lengths.length ? Math.round(lengths[lengths.length - 1] * 100) / 100 : 0,
+      bpm: o.bpm ? Math.round(o.bpm) : "none",
+      songStart: Math.round(songStart * 100) / 100,
+      drop: o.window.dropAt !== undefined ? Math.round(o.window.dropAt * 100) / 100 : "none",
+      cardAt,
+      sources: new Set(o.shots.map((s) => s.source)).size,
     },
   };
-  const lengths = shots.map((s) => s.end - s.start).sort((a, b) => a - b);
-  plan.checks = {
-    shots: shots.length,
-    medianShot: Math.round(lengths[Math.floor(lengths.length / 2)] * 100) / 100,
-    shortest: Math.round(lengths[0] * 100) / 100,
-    longest: Math.round(lengths[lengths.length - 1] * 100) / 100,
-    bpm: Math.round(song.bpm),
-    songStart: Math.round(songStart * 100) / 100,
-    drop: dropAt !== undefined ? Math.round(dropAt * 100) / 100 : "none",
-    cardAt,
-    sources: new Set(shots.map((s) => s.source)).size,
-  };
-  return plan;
 }
 
 /** The source ranges a plan uses, to steer the next variant elsewhere. */
@@ -457,4 +558,48 @@ export function usedRanges(plan: EditPlan, into = new Map<string, [number, numbe
     into.get(s.source)!.push([s.srcStart, s.srcStart + (s.end - s.start) * s.speed]);
   }
   return into;
+}
+
+// ── the music montage ────────────────────────────────────────────────────────
+
+export interface MontageOptions {
+  song: SongAnalysis;
+  songSource: string;
+  songName: string;
+  /** the sound came from a Reel: start at its 0:00 so "Use audio" lines up */
+  fromStart: boolean;
+  scans: Scan[];
+  aspect: Aspect;
+  /** seconds of footage before the card */
+  length: number;
+  card: CardSpec | null;
+  caption: { style: "mood" | "pov" | "meme"; text: string } | null;
+  variant: number;
+  avoid?: Map<string, [number, number][]>;
+}
+
+export function planMontage(o: MontageOptions): EditPlan {
+  const win = musicWindow(o.song, o.length, o.card ? o.card.hold : 0, o.fromStart);
+  const cuts = planCuts(o.song, win.songStart, win.cardAt, { dropAt: win.dropAt }).map((t) => frame(Math.max(1 / FPS, t - CUT_LEAD)));
+  const dropCut = win.dropAt !== undefined ? frame(win.dropAt - CUT_LEAD) : undefined;
+  const slots = slotsBetween([0, ...cuts, win.cardAt], dropCut);
+  const shots = assignShots(slots, o.scans, { song: o.song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid });
+  const drop = shots.find((s) => s.role === "drop");
+  const captions: CaptionEvent[] = o.caption?.text.trim() ? [{ style: o.caption.style, text: o.caption.text.trim(), start: 0, end: o.card ? win.cardAt - 4 / FPS : win.duration }] : [];
+  return finishPlan({
+    id: "montage",
+    label: `Montage ${o.variant + 1}`,
+    format: "montage",
+    aspect: o.aspect,
+    shots,
+    window: win,
+    songSource: o.songSource,
+    songName: o.songName,
+    fromStart: o.fromStart,
+    card: o.card,
+    captions,
+    variant: o.variant,
+    flourishAt: drop?.start,
+    bpm: o.song.bpm,
+  });
 }

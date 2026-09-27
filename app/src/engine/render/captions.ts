@@ -35,7 +35,7 @@ const STYLES: Record<CaptionEvent["style"], Style> = {
   // mico's mood line: a small italic serif, dead centre
   mood: { font: (px) => `italic 400 ${px}px ${FONT.serif}`, size: 0.042, y: 0.5, x: 0.5, lineHeight: 1.2, box: false, outline: false, shadow: true, transform: (s) => s, maxWidth: 0.8 },
   // the text meme: small bold lines, centred in the upper third
-  meme: { font: (px) => `700 ${px}px ${FONT.sans}`, size: 0.034, y: 0.3, x: 0.5, lineHeight: 1.45, box: false, outline: false, shadow: true, transform: (s) => s, maxWidth: 0.82 },
+  meme: { font: (px) => `700 ${px}px ${FONT.sans}`, size: 0.029, y: 0.3, x: 0.5, lineHeight: 1.4, box: false, outline: false, shadow: true, transform: (s) => s, maxWidth: 0.56 },
 };
 
 function wrap(ctx: Ctx, text: string, max: number): string[] {
