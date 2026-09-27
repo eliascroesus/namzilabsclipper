@@ -544,7 +544,7 @@ export function finishPlan(o: FinishOptions): EditPlan {
       sound: !o.songSource
         ? "No sound in this one: add one in the app."
         : o.fromStart
-          ? "Add the sound from the Reel you took it from (tap the sound, then Use audio). It starts at 0:00, so every cut lands on the beat."
+          ? "Post the version with the song, or add the sound from the Reel you took it from (tap the sound, then Use audio): the edit starts at the Reel's 0:00, so every cut lands on the beat. If your file was a screen recording, post the version with the song."
           : `Song: ${o.songName ?? "the song you dropped"}, from ${mmss(songStart)}. In the app, start the sound at ${mmss(songStart)}.`,
     },
     checks: {

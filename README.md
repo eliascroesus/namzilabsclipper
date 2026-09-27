@@ -22,7 +22,7 @@ Each result comes as an MP4 **with the song** and a copy **without it**, plus a 
 1. Open the link in **Chrome on your Mac** (Chrome uses the Mac's hardware to decode and encode, and writes the H.264 MP4 Instagram wants).
 2. Pick a format.
 3. Drop the footage. Anything Chrome plays works: iPhone MOV and MP4, screen recordings, photos (JPEG, PNG; export HEIC photos as JPEG first).
-4. Drop the sound: save a Reel that uses a trending sound and drop the video file, or drop any song.
+4. Drop the sound: a Reel that uses the trending sound, or any song. The easy way to get a Reel onto the Mac: screen-record it on your iPhone with the sound on, AirDrop the recording, drop it in. Only its sound is used. (A screen recording rarely starts where the Reel does, so post the version with the song in it rather than adding the sound in the app.)
 5. For Story: paste a free Gemini key from [Google AI Studio](https://aistudio.google.com/apikey) (no card), then **Find the moments**, tick the ones you want and edit their hooks.
 6. **Make edits**. Download, post, add the sound in the app if you used the version without it.
 
