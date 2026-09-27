@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { analyzeSong, type SongAnalysis } from "../src/engine/audio/song";
@@ -88,7 +88,11 @@ describe.skipIf(!songs.length).each(songs)("montage on %s", (name) => {
 });
 
 describe.skipIf(!songs.length)("twist and meme", () => {
-  const song = load(songs[0] === "mico" && songs.length > 1 ? songs[1] : songs[0]);
+  let song: SongAnalysis;
+  // Loaded when the suite runs, not when it's collected: CI has no fixtures.
+  beforeAll(() => {
+    song = load(songs.find((s) => s !== "mico") ?? songs[0]);
+  });
   const scans = Array.from({ length: 6 }, (_, i) => fakeScan(`clip${i}`, 5 + i, 300 + i));
   scans.push(fakeScan("desk", 12, 999));
 
@@ -119,5 +123,51 @@ describe.skipIf(!songs.length)("twist and meme", () => {
     const plan = planMeme({ fromStart: true, scans, aspect: "9x16", length: 9, card, variant: 1, text: "hi", position: "upper" });
     expect(plan.music).toBeUndefined();
     expect(plan.duration).toBeCloseTo(13, 1);
+  });
+});
+
+describe("planners on a synthetic song (runs everywhere)", () => {
+  // 24 s at 128 bpm: quiet hats for 8 s, then kicks and claps come in (the drop).
+  const SR = 22050;
+  const y = new Float32Array(SR * 24);
+  const period = 60 / 128;
+  const hit = (t: number, amp: number, hz: number, decay: number) => {
+    const s0 = Math.round(t * SR);
+    for (let i = 0; i < 3000 && s0 + i < y.length; i++) y[s0 + i] += amp * Math.exp(-i / decay) * Math.sin((2 * Math.PI * hz * i) / SR);
+  };
+  for (let b = 0; b * period < 23.5; b++) {
+    const t = 0.1 + b * period;
+    hit(t, 0.08, 6000, 60);
+    if (t > 8) {
+      hit(t, b % 4 === 0 ? 0.9 : 0.6, 60, 900);
+      if (b % 2 === 1) hit(t, 0.4, 1800, 250);
+    }
+  }
+  const song = analyzeSong(y, SR);
+  const scans = Array.from({ length: 7 }, (_, i) => fakeScan(`clip${i}`, 5 + i, 700 + i));
+
+  it("hears the tempo and the drop", () => {
+    expect(song.bpm).toBeGreaterThan(120);
+    expect(song.bpm).toBeLessThan(136);
+    expect(song.drops.some((d) => Math.abs(d.t - 8.1) < 1)).toBe(true);
+  });
+
+  it("montage: cuts on beats, a flourish on the drop, the card on a beat", () => {
+    const plan = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans, aspect: "9x16", length: 12, card, caption: { style: "mood", text: "Peak life." }, variant: 0 });
+    for (const s of plan.shots.slice(1)) {
+      const off = Math.min(...song.beats.map((b) => Math.abs(b - plan.music!.songStart - CUT_LEAD - s.start)));
+      expect(off).toBeLessThanOrEqual(1.5 / FPS);
+    }
+    expect(plan.shots.some((s) => s.role === "drop")).toBe(true);
+    expect(plan.fx.some((f) => f.kind === "flash")).toBe(true);
+    expect(plan.card!.end - plan.card!.start).toBeCloseTo(4, 1);
+  });
+
+  it("twist and meme plan without fixtures", () => {
+    const tw = planTwist({ song, songSource: "song", songName: "click", fromStart: true, scans, aspect: "4x3", length: 16, card, variant: 1, actB: new Set(["clip6"]), captionA: "what they see vs...", captionB: "what they don't..." });
+    expect(tw.shots[tw.shots.length - 1].source).toBe("clip6");
+    const mm = planMeme({ song, songSource: "song", songName: "click", fromStart: true, scans, aspect: "1x1", length: 9, card: null, variant: 0, text: "hi", position: "centre" });
+    expect(mm.shots.length).toBe(1);
+    expect(mm.card).toBeUndefined();
   });
 });

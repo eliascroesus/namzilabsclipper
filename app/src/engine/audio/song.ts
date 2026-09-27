@@ -99,6 +99,18 @@ export function analyzeSong(y: Float32Array, sr = SR): SongAnalysis {
     beatFrames = [];
     for (let f = 0; f < frames; f += step) beatFrames.push(Math.round(f));
   }
+  // The tracker (like librosa) trims weak beats off both ends of the song; an
+  // editor still feels the pulse through a quiet intro or outro, so carry the
+  // grid on at the tracked spacing.
+  if (track.beats.length >= 4) {
+    const gaps = beatFrames.slice(1).map((f, i) => f - beatFrames[i]).sort((x, y) => x - y);
+    const step = gaps[Math.floor(gaps.length / 2)];
+    const head: number[] = [];
+    for (let f = beatFrames[0] - step; f >= 1; f -= step) head.unshift(Math.round(f));
+    const tail: number[] = [];
+    for (let f = beatFrames[beatFrames.length - 1] + step; f < frames - 1; f += step) tail.push(Math.round(f));
+    beatFrames = [...head, ...beatFrames, ...tail];
+  }
   const period = 60 / bpm;
   const beats = beatFrames.map((f) => (f * hop) / sr);
 
