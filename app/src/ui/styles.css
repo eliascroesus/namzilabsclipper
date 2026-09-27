@@ -234,8 +234,8 @@ input[type="range"] { width: 100%; accent-color: var(--brand); }
 .promise { margin-top: 18px; display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; }
 @media (max-width: 700px) { .steps { grid-template-columns: 1fr; } .empty h2 { font-size: 30px; } }
 
-.jobs { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; align-items: start; }
-.jobs.wide { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }
+.jobs { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 300px)); gap: 16px; align-items: start; }
+.jobs.wide { grid-template-columns: repeat(auto-fill, minmax(380px, 520px)); }
 .job { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; animation: pop 280ms var(--spring); }
 @keyframes pop { from { transform: scale(0.96); opacity: 0; } to { transform: none; opacity: 1; } }
 .job .screen { background: #000; position: relative; display: grid; place-items: center; }

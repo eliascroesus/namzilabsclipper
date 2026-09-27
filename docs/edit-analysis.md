@@ -1,6 +1,6 @@
 # The reference edits, taken apart
 
-Eight Reels in [`reference-edits/`](../reference-edits/), measured with [`tools/analyze_edit.py`](../tools/analyze_edit.py) (every cut, the beat grid, motion, brightness, loudness, where there's speech) and then reviewed frame by frame. This is what the clipping machine has to reproduce.
+Ten Reels in [`reference-edits/`](../reference-edits/), measured with [`tools/analyze_edit.py`](../tools/analyze_edit.py) (every cut, the beat grid, motion, brightness, loudness, where there's speech) and then reviewed frame by frame. This is what the clipping machine has to reproduce.
 
 ## At a glance
 
@@ -14,6 +14,8 @@ Eight Reels in [`reference-edits/`](../reference-edits/), measured with [`tools/
 | gillioniare …9336 | 11.2s | 9:16 | 1 | n/a | 136 | n/a | sung | Text meme over one clip |
 | gillioniare …7613 | 8.6s | 9:16 | 1 | n/a | 118 | n/a | sung | Text meme: a list that turns on its last line |
 | xxzezedongoxx | 28.7s | 9:16 | 5 | 4.83s | n/a | n/a | 87% | Raw first-person walkaround with talking |
+| brezscales …1216 | 21.5s | 9:16 | 9 | 1.60s | 92 | 12% (38%) | music | Twist: a night supercar montage under "what they see vs...", then one long shot of a dark room and a desk under "what they don't..." |
+| brezscales …9528 | 8.4s | 1:1 (720×720) | 1 | n/a | 144 | n/a | music | Text meme, square: one handheld night shot, a centred block of small bold text |
 
 ¹ Share of cuts within one frame (±50 ms) of a detected beat; in brackets, of any musical accent (onset). Speech is the share of the running time a voice-activity model marks as speech, so a sung track can read as speech.
 
@@ -49,6 +51,19 @@ Hook on black ("im down 600k"), then 12.6s of a screen recording (a memecoin cha
 
 One held clip of 8 to 11s, a fade up from black over about a second, and a block of small bold white text in the upper third: a setup and punchline ("when she tries to talk to me / but all i hear in my head is this..") or a list that turns on its last line ("Puffy eyebags / 5 hours of sleep / 80 hour work weeks / … / And then "is this your 812?""). The song carries it. No cuts at all.
 
+The square variant (brezscales …9528) puts the block dead centre, narrow (about 40% of the frame's width, four short lines: "It's rare, but some / people truly want to / see you win and / Im one of them:)") over a handheld, shallow-focus night shot of someone talking, with the music replacing their voice.
+
+### 5. Twist (brezscales …1216)
+
+The contrast format, and a natural promo: the flex, then the work behind it.
+
+| Time | What happens |
+|---|---|
+| 0 to 13.9s | **What they see:** night POV footage of supercars on the causeway, a Lamborghini at sunset, Porsches beside a private jet, a garage of cars. 8 shots of 0.3 to 4 seconds, held longer than a montage (median 1.6s), under a small centred caption, "what they see vs..." |
+| 13.9s to the end | **What they don't:** a hard cut to one 7.6 second shot of a dark room lit red, someone at a desk with two screens, under "what they don't...". The screen at the end shows the chart |
+
+No transitions and no flourish: the flip is the event. nio.trade's …8678 does the same turn with its caption ("kimchi after retiring:" to "kimchi 3 days before retiring:"). For a product, the second act is where the demo goes: the screen, the dashboard, the work.
+
 *xxzezedongoxx* is raw footage rather than an edit: long handheld orbits of a car in the fog, with the owner talking. Useful as a source type, not as a template.
 
 ## Craft rules, measured
@@ -61,7 +76,8 @@ One held clip of 8 to 11s, a fade up from black over about a second, and a block
 - **Music under everything.** It runs under the dialogue, carries on under the card, and fades out with the picture. The master is loud: −11 to −16 dBFS RMS.
 - **Warm, cinematic grade** on all the Nio footage.
 - **Nio posts in 4:3 landscape** (960×720), keeping the YouTube framing whole instead of cropping to 9:16.
-- **Lengths:** montages 12 to 20s, stories and reactions 25 to 34s, memes 8 to 11s.
+- **Lengths:** montages 12 to 20s, stories and reactions 25 to 34s, twists about 20s, memes 8 to 11s.
+- **Cut lead:** montage cuts sit about 45 ms (a frame and a half) ahead of the beat times the analyzer finds, consistently (mico: every one of its 17 cuts). The app places its cuts the same way.
 
 ## Caption styles
 

@@ -342,12 +342,21 @@ export async function renderPlan(plan: EditPlan, sources: Map<string, Source>, o
 
   let silent: Blob | undefined;
   if (opts.silentCopy && packets.length) {
-    // The same pictures without the song: the encoded frames go straight into a second file.
+    // The same pictures without the song: the encoded frames go straight into a second
+    // file, with the footage's own voice if the edit has any, and nothing else.
+    const hasVoice = plan.sourceAudio || plan.shots.some((s) => s.audio);
+    const voice = hasVoice ? await mixPlan(plan, sources, false) : null;
     const t2 = new BufferTarget();
     const out2 = new Output({ format: codecs.container === "mp4" ? new Mp4OutputFormat({ fastStart: "in-memory" }) : new WebMOutputFormat(), target: t2 });
     const src2 = new EncodedVideoPacketSource(codecs.video);
     out2.addVideoTrack(src2, { frameRate: fps });
+    const aud2 = voice ? new AudioBufferSource({ codec: codecs.audio, bitrate: 192e3 }) : null;
+    if (aud2) out2.addAudioTrack(aud2);
     await out2.start();
+    if (aud2 && voice) {
+      await aud2.add(voice);
+      aud2.close();
+    }
     for (const { packet, meta } of packets) await src2.add(packet, meta);
     src2.close();
     await out2.finalize();

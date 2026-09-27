@@ -58,11 +58,10 @@ function CopyButton({ text }: { text: string }) {
 function JobCard({ job, thumbs }: { job: Job; thumbs: Map<string, string | undefined> }) {
   const plan = job.plan;
   const aspect = plan ? plan.width / plan.height : 9 / 16;
-  const tall = aspect < 1;
   const name = `clipper-${job.label.toLowerCase().replace(/\s+/g, "-")}-${plan?.aspect ?? ""}`;
   return (
     <article className="job">
-      <div className="screen" style={{ aspectRatio: String(aspect), maxHeight: tall ? 520 : undefined }}>
+      <div className="screen" style={{ aspectRatio: String(aspect) }}>
         {job.status === "done" && job.url ? (
           <video src={job.url} controls loop playsInline preload="metadata" />
         ) : (
@@ -102,8 +101,8 @@ function JobCard({ job, thumbs }: { job: Job; thumbs: Map<string, string | undef
                 <Download size={15} /> Download
               </a>
               {job.silentUrl && (
-                <a className="btn" href={job.silentUrl} download={`${name}-no-song.${job.ext}`} title="The same edit without the song, to add the sound in the app">
-                  <VolumeX size={15} /> Without the song
+                <a className="btn" href={job.silentUrl} download={`${name}-no-song.${job.ext}`} title={plan?.format === "story" ? "The same clip with only the voice, to add the song in the app" : "The same edit without the song, to add the sound in the app"}>
+                  <VolumeX size={15} /> {plan?.format === "story" ? "Voice only" : "Without the song"}
                 </a>
               )}
             </div>
