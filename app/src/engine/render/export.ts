@@ -28,6 +28,7 @@ import { drawLaptopCard } from "./card";
 import { loadFonts } from "./fonts";
 import { Compositor, type LayerDraw, type Rotation } from "./gl";
 import { mixPlan } from "./mix";
+import { audioDelay, shiftAudio } from "./avsync";
 
 export interface RenderOptions {
   /** bake the song into the file */
@@ -37,6 +38,8 @@ export interface RenderOptions {
   /** the screenshot on the card's laptop */
   cardImage?: CanvasImageSource & { width: number; height: number };
   prefer?: "mp4" | "webm";
+  /** tests only: force a container and codecs */
+  codecs?: { container: "mp4" | "webm"; video: VideoCodec; audio: AudioCodec };
   onProgress?: (done: number, stage: string) => void;
   signal?: AbortSignal;
 }
@@ -297,9 +300,16 @@ export async function renderPlan(plan: EditPlan, sources: Map<string, Source>, o
   const t0 = performance.now();
   const { width: W, height: H, fps } = plan;
   await loadFonts();
-  const codecs = await pickCodecs(W, H, opts.prefer);
+  const codecs = opts.codecs ?? (await pickCodecs(W, H, opts.prefer));
+  if (opts.codecs?.audio === "aac" && !(await canEncodeAudio("aac", { numberOfChannels: 2, sampleRate: 48000, bitrate: 192e3 })) && !aacRegistered) {
+    const { registerAacEncoder } = await import("@mediabunny/aac-encoder");
+    registerAacEncoder();
+    aacRegistered = true;
+  }
   opts.onProgress?.(0, "Mixing the sound");
-  const audio = await mixPlan(plan, sources, opts.music);
+  // Whatever the encoder adds in front of the sound is taken back off, so the song stays on the cuts.
+  const delay = await audioDelay(codecs.container, codecs.audio, codecs.audio === "aac" && aacRegistered ? 1024 / 48000 : 0);
+  const audio = shiftAudio(await mixPlan(plan, sources, opts.music), delay);
 
   const target = new BufferTarget();
   const output = new Output({ format: codecs.container === "mp4" ? new Mp4OutputFormat({ fastStart: "in-memory" }) : new WebMOutputFormat(), target });
@@ -345,7 +355,7 @@ export async function renderPlan(plan: EditPlan, sources: Map<string, Source>, o
     // The same pictures without the song: the encoded frames go straight into a second
     // file, with the footage's own voice if the edit has any, and nothing else.
     const hasVoice = plan.sourceAudio || plan.shots.some((s) => s.audio);
-    const voice = hasVoice ? await mixPlan(plan, sources, false) : null;
+    const voice = hasVoice ? shiftAudio(await mixPlan(plan, sources, false), delay) : null;
     const t2 = new BufferTarget();
     const out2 = new Output({ format: codecs.container === "mp4" ? new Mp4OutputFormat({ fastStart: "in-memory" }) : new WebMOutputFormat(), target: t2 });
     const src2 = new EncodedVideoPacketSource(codecs.video);

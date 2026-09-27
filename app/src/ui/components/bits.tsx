@@ -47,15 +47,21 @@ export function Switch({ checked, onChange, children, hint }: { checked: boolean
   );
 }
 
-/** A drop zone that also opens the file picker when clicked. */
+/** A drop zone that also opens the file picker when clicked (a label for the hidden input). */
 export function Drop({ accept, multiple, onFiles, tall, children }: { accept: string; multiple?: boolean; onFiles: (files: File[]) => void; tall?: boolean; children: ReactNode }) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   return (
-    <button
-      type="button"
+    <label
       className={`drop${tall ? " tall" : ""}${over ? " over" : ""}`}
-      onClick={() => input.current?.click()}
+      tabIndex={0}
+      role="button"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          input.current?.click();
+        }
+      }}
       onDragOver={(e) => {
         e.preventDefault();
         setOver(true);
@@ -80,7 +86,7 @@ export function Drop({ accept, multiple, onFiles, tall, children }: { accept: st
           if (files.length) onFiles(files);
         }}
       />
-    </button>
+    </label>
   );
 }
 

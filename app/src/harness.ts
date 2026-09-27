@@ -27,6 +27,13 @@ const round = (x: number, d = 3) => Math.round(x * 10 ** d) / 10 ** d;
 
 const harness = {
   montage,
+  async avsync() {
+    const { audioDelay } = await import("./engine/render/avsync");
+    return {
+      webmOpus: await audioDelay("webm", "opus"),
+      mp4Opus: await audioDelay("mp4", "opus"),
+    };
+  },
 
   async song(url: string, length = 14) {
     const src = await load(url);
@@ -91,6 +98,7 @@ export interface MontageRun {
   caption?: { style: "mood" | "pov"; text: string } | null;
   card?: Partial<CardSpec> | null;
   prefer?: "mp4" | "webm";
+  codecs?: { container: "mp4" | "webm"; video: "vp9" | "avc" | "av1"; audio: "aac" | "opus" };
   out?: string;
   /** only draw these moments (seconds, or "shots" for the middle of every shot) as PNGs */
   stills?: number[] | "shots";
@@ -139,7 +147,7 @@ async function montage(run: MontageRun) {
       results.push({ file: "", bytes: 0, silentBytes: 0, codecs: "", ms: 0, checks: plan.checks, shots: plan.shots.map((s) => [s.start.toFixed(2), s.source, s.srcStart.toFixed(2), s.role, s.score]) });
       continue;
     }
-    const res = await renderPlan(plan, sources, { music: !!plan.music, silentCopy: v === 0 && !!plan.music, cardImage: img, prefer: run.prefer });
+    const res = await renderPlan(plan, sources, { music: !!plan.music, silentCopy: v === 0 && !!plan.music, cardImage: img, prefer: run.prefer, codecs: run.codecs });
     lap(`render${v}`);
     const base = `${run.out ?? "montage"}-v${v + 1}`;
     await save(`${base}.${res.ext}`, res.blob);
