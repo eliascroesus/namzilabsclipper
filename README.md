@@ -13,7 +13,7 @@ A clipping machine that runs in the browser. Drop in footage and a sound, and it
 | **Twist** | Flex footage, plus a clip of the other side (the desk, the screen, the work) | "what they see vs... / what they don't...": a montage of the flex, a hard flip on a downbeat to one long shot of the real side (brezscales style) |
 | **Meme** | One clip | The clip held 8 to 11 seconds, faded up from black, a small block of text over it, the song carrying it (gillioniare, brezscales) |
 
-Every edit ends on **the demo card**: black, a laptop showing your product, the call to action above, the address below, and the hand-drawn arrow between them, slowly pulling out, exactly as the nio.trade Reels do it. Set the lines, the screenshot and the arrow colour once; they're remembered.
+Every edit ends on **the demo card**: black, a laptop showing your product (or a phone, for an app), the call to action above, the address below, and the hand-drawn arrow between them, slowly pulling out, exactly as the nio.trade Reels do it. Set the lines, the screenshot and the arrow colour once; they're remembered.
 
 Each result comes as an MP4 **with the song** and a copy **without it**, plus a post note. When the sound came from a Reel, the edit starts at that Reel's 0:00, so tapping the sound in Instagram and choosing **Use audio** lines every cut up with the beat.
 
