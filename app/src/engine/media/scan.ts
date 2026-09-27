@@ -1,0 +1,377 @@
+/**
+ * Looking at footage the way an editor skims it: a small frame several times a
+ * second, measured for sharpness, exposure, colour, movement and people, plus
+ * where in the frame the interest sits (for crops) and where the shots change.
+ */
+import { VideoSampleSink } from "mediabunny";
+import type { Source } from "./sources";
+
+/** Columns and rows in the saliency profiles. */
+export const PROFILE_BINS = 32;
+const HIST_BINS = 64; // 4 × 4 × 4 RGB
+const ANALYSIS_AREA = 192 * 108;
+
+export interface FrameStats {
+  /** sample times, seconds into the source */
+  t: Float32Array;
+  luma: Float32Array;
+  contrast: Float32Array;
+  /** log variance of the Laplacian */
+  sharp: Float32Array;
+  /** Hasler–Süsstrunk colourfulness / 100 */
+  color: Float32Array;
+  /** share of pixels in the skin-tone range */
+  skin: Float32Array;
+  /** mean absolute luma change from the previous sample, per second */
+  motion: Float32Array;
+  /** 4×4×4 RGB histogram per sample, normalised */
+  hist: Float32Array;
+  /** where the interest sits: per-column and per-row saliency, normalised per sample */
+  cols: Float32Array;
+  rows: Float32Array;
+  /** mean colour per sample, 0 to 1 */
+  rgb: Float32Array;
+}
+
+export interface Scan {
+  id: string;
+  kind: "video" | "image";
+  /** the first frame's time; every time in a scan is on the file's own clock */
+  start: number;
+  duration: number;
+  width: number;
+  height: number;
+  rate: number;
+  stats: FrameStats;
+  /** shot boundaries inside the source, in seconds (not including 0 and the end) */
+  cuts: number[];
+  /** set once every source is scanned, 0 to 1 (see scoreInterest) */
+  interest?: Float32Array;
+  /** a small JPEG of a representative frame */
+  thumb?: Blob;
+}
+
+/** How often to sample: dense for short clips, sparse for long videos. */
+export function sampleRate(duration: number): number {
+  if (duration <= 60) return 6;
+  if (duration <= 180) return 4;
+  if (duration <= 600) return 2;
+  return 1;
+}
+
+function analysisSize(w: number, h: number): [number, number] {
+  const k = Math.sqrt(ANALYSIS_AREA / (w * h));
+  return [Math.max(16, Math.round(w * k)), Math.max(16, Math.round(h * k))];
+}
+
+function allocStats(n: number): FrameStats {
+  return {
+    t: new Float32Array(n),
+    luma: new Float32Array(n),
+    contrast: new Float32Array(n),
+    sharp: new Float32Array(n),
+    color: new Float32Array(n),
+    skin: new Float32Array(n),
+    motion: new Float32Array(n),
+    hist: new Float32Array(n * HIST_BINS),
+    cols: new Float32Array(n * PROFILE_BINS),
+    rows: new Float32Array(n * PROFILE_BINS),
+    rgb: new Float32Array(n * 3),
+  };
+}
+
+/** Measure one RGBA frame into slot i. `prevY` holds the previous sample's luma (updated in place). */
+export function measureFrame(px: Uint8ClampedArray, w: number, h: number, s: FrameStats, i: number, prevY: Float32Array | null, dt: number): Float32Array {
+  const n = w * h;
+  const Y = new Float32Array(n);
+  let sumY = 0;
+  let sumY2 = 0;
+  let sumRg = 0;
+  let sumYb = 0;
+  let sumRg2 = 0;
+  let sumYb2 = 0;
+  let skin = 0;
+  let sr = 0;
+  let sg = 0;
+  let sb = 0;
+  const hist = s.hist.subarray(i * HIST_BINS, (i + 1) * HIST_BINS);
+  const skinMask = new Uint8Array(n);
+  for (let p = 0, q = 0; p < n; p++, q += 4) {
+    const r = px[q];
+    const g = px[q + 1];
+    const b = px[q + 2];
+    const y = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    Y[p] = y;
+    sumY += y;
+    sumY2 += y * y;
+    sr += r;
+    sg += g;
+    sb += b;
+    const rg = r - g;
+    const yb = 0.5 * (r + g) - b;
+    sumRg += rg;
+    sumYb += yb;
+    sumRg2 += rg * rg;
+    sumYb2 += yb * yb;
+    const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+    const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+    if (cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173 && y > 0.2 && y < 0.95) {
+      skin++;
+      skinMask[p] = 1;
+    }
+    hist[((r >> 6) << 4) | ((g >> 6) << 2) | (b >> 6)] += 1;
+  }
+  for (let k = 0; k < HIST_BINS; k++) hist[k] /= n;
+  const mY = sumY / n;
+  s.luma[i] = mY;
+  s.contrast[i] = Math.sqrt(Math.max(0, sumY2 / n - mY * mY));
+  const mRg = sumRg / n;
+  const mYb = sumYb / n;
+  const sdRg = Math.sqrt(Math.max(0, sumRg2 / n - mRg * mRg));
+  const sdYb = Math.sqrt(Math.max(0, sumYb2 / n - mYb * mYb));
+  s.color[i] = (Math.hypot(sdRg, sdYb) + 0.3 * Math.hypot(mRg, mYb)) / 100;
+  s.skin[i] = skin / n;
+  s.rgb[i * 3] = sr / n / 255;
+  s.rgb[i * 3 + 1] = sg / n / 255;
+  s.rgb[i * 3 + 2] = sb / n / 255;
+
+  // Sharpness and saliency from the luma gradients.
+  let lapSum = 0;
+  let lapSum2 = 0;
+  let lapN = 0;
+  const cols = s.cols.subarray(i * PROFILE_BINS, (i + 1) * PROFILE_BINS);
+  const rows = s.rows.subarray(i * PROFILE_BINS, (i + 1) * PROFILE_BINS);
+  const mr = s.rgb[i * 3] * 255;
+  const mg = s.rgb[i * 3 + 1] * 255;
+  const mb = s.rgb[i * 3 + 2] * 255;
+  for (let y = 1; y < h - 1; y++) {
+    const by = Math.min(PROFILE_BINS - 1, Math.floor((y * PROFILE_BINS) / h));
+    for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x;
+      const c = Y[p];
+      const lap = 4 * c - Y[p - 1] - Y[p + 1] - Y[p - w] - Y[p + w];
+      lapSum += lap;
+      lapSum2 += lap * lap;
+      lapN++;
+      const gx = Y[p + 1] - Y[p - 1];
+      const gy = Y[p + w] - Y[p - w];
+      const q = p * 4;
+      const dc = (Math.abs(px[q] - mr) + Math.abs(px[q + 1] - mg) + Math.abs(px[q + 2] - mb)) / 765;
+      const sal = Math.abs(gx) + Math.abs(gy) + 0.6 * skinMask[p] + 0.4 * dc;
+      cols[Math.min(PROFILE_BINS - 1, Math.floor((x * PROFILE_BINS) / w))] += sal;
+      rows[by] += sal;
+    }
+  }
+  const lapMean = lapSum / Math.max(1, lapN);
+  s.sharp[i] = Math.log(1e-6 + Math.max(0, lapSum2 / Math.max(1, lapN) - lapMean * lapMean));
+  let cs = 0;
+  let rs = 0;
+  for (let k = 0; k < PROFILE_BINS; k++) {
+    cs += cols[k];
+    rs += rows[k];
+  }
+  for (let k = 0; k < PROFILE_BINS; k++) {
+    cols[k] = cs > 0 ? cols[k] / cs : 1 / PROFILE_BINS;
+    rows[k] = rs > 0 ? rows[k] / rs : 1 / PROFILE_BINS;
+  }
+
+  if (prevY && prevY.length === n && dt > 0) {
+    let d = 0;
+    for (let p = 0; p < n; p++) d += Math.abs(Y[p] - prevY[p]);
+    s.motion[i] = d / n / dt;
+  }
+  return Y;
+}
+
+function histDistance(s: FrameStats, a: number, b: number): number {
+  let d = 0;
+  for (let k = 0; k < HIST_BINS; k++) d += Math.abs(s.hist[a * HIST_BINS + k] - s.hist[b * HIST_BINS + k]);
+  return d; // 0 to 2
+}
+
+/** Shot changes: a jump in the colour histogram together with a jump in the picture. */
+export function detectCuts(s: FrameStats): number[] {
+  const n = s.t.length;
+  const cuts: number[] = [];
+  const dist = new Float32Array(n);
+  for (let i = 1; i < n; i++) dist[i] = histDistance(s, i - 1, i);
+  for (let i = 1; i < n; i++) {
+    // Compare against the neighbourhood so steady fast motion doesn't read as cuts.
+    let local = 0;
+    let c = 0;
+    for (let k = Math.max(1, i - 3); k <= Math.min(n - 1, i + 3); k++) {
+      if (k === i) continue;
+      local += dist[k];
+      c++;
+    }
+    local /= Math.max(1, c);
+    const dt = s.t[i] - s.t[i - 1];
+    const jump = s.motion[i] * dt;
+    if (dist[i] > 0.45 && dist[i] > 2.2 * local && jump > 0.06) cuts.push((s.t[i - 1] + s.t[i]) / 2);
+  }
+  return cuts;
+}
+
+export interface ScanOptions {
+  rate?: number;
+  signal?: AbortSignal;
+  onProgress?: (p: number) => void;
+}
+
+/** Scan a video source. */
+export async function scanVideo(src: Source, opts: ScanOptions = {}): Promise<Scan> {
+  const { info, video } = src;
+  if (!video) throw new Error(`${info.name} has no video`);
+  const rate = opts.rate ?? sampleRate(info.duration);
+  const first = await video.getFirstTimestamp().catch(() => 0);
+  const count = Math.max(2, Math.floor(info.duration * rate));
+  const times: number[] = [];
+  for (let i = 0; i < count; i++) times.push(first + (i + 0.5) / rate);
+  const [w, h] = analysisSize(info.width, info.height);
+  const canvas = new OffscreenCanvas(w, h);
+  const ctx = canvas.getContext("2d", { willReadFrequently: true, alpha: false })!;
+  const stats = allocStats(times.length);
+  let prevY: Float32Array | null = null;
+  let prevT = 0;
+  let got = 0;
+  let thumbAt = -1;
+  let thumbScore = -Infinity;
+  let thumb: Blob | undefined;
+  const sink = new VideoSampleSink(video);
+  let i = 0;
+  for await (const sample of sink.samplesAtTimestamps(times)) {
+    if (opts.signal?.aborted) {
+      sample?.close();
+      throw new DOMException("Scan cancelled", "AbortError");
+    }
+    if (!sample) {
+      i++;
+      continue;
+    }
+    try {
+      sample.drawWithFit(ctx, { fit: "fill" });
+      const px = ctx.getImageData(0, 0, w, h).data;
+      stats.t[got] = times[i];
+      prevY = measureFrame(px, w, h, stats, got, prevY, got ? times[i] - prevT : 0);
+      prevT = times[i];
+      // The thumbnail: a sharp, well-lit frame from the middle stretch.
+      const pos = got / Math.max(1, times.length - 1);
+      const score = stats.sharp[got] + 4 * stats.color[got] - 6 * Math.abs(stats.luma[got] - 0.5) - (pos < 0.15 || pos > 0.85 ? 3 : 0);
+      if (score > thumbScore) {
+        thumbScore = score;
+        thumbAt = times[i];
+      }
+      got++;
+    } finally {
+      sample.close();
+    }
+    i++;
+    opts.onProgress?.(i / times.length);
+  }
+  const trimmed = trimStats(stats, got);
+  if (thumbAt >= 0) thumb = await grabThumb(src, thumbAt);
+  return { id: info.id, kind: "video", start: first, duration: info.duration, width: info.width, height: info.height, rate, stats: trimmed, cuts: detectCuts(trimmed), thumb };
+}
+
+function trimStats(s: FrameStats, n: number): FrameStats {
+  const out = allocStats(n);
+  for (const key of Object.keys(out) as (keyof FrameStats)[]) {
+    const per = s[key].length / Math.max(1, s.t.length);
+    out[key].set(s[key].subarray(0, n * per));
+  }
+  return out;
+}
+
+/** A 360px-wide JPEG of the frame at `t`. */
+export async function grabThumb(src: Source, t: number, width = 360): Promise<Blob | undefined> {
+  if (src.image) {
+    const h = Math.round((width * src.image.height) / src.image.width);
+    const c = new OffscreenCanvas(width, h);
+    c.getContext("2d")!.drawImage(src.image, 0, 0, width, h);
+    return c.convertToBlob({ type: "image/jpeg", quality: 0.8 });
+  }
+  if (!src.video) return undefined;
+  const sink = new VideoSampleSink(src.video);
+  const sample = await sink.getSample(t);
+  if (!sample) return undefined;
+  try {
+    const h = Math.round((width * src.info.height) / src.info.width);
+    const c = new OffscreenCanvas(width, h);
+    sample.drawWithFit(c.getContext("2d")!, { fit: "fill" });
+    return await c.convertToBlob({ type: "image/jpeg", quality: 0.8 });
+  } finally {
+    sample.close();
+  }
+}
+
+/** Scan a photo: one sample, measured the same way. */
+export async function scanImage(src: Source): Promise<Scan> {
+  const img = src.image!;
+  const [w, h] = analysisSize(img.width, img.height);
+  const canvas = new OffscreenCanvas(w, h);
+  const ctx = canvas.getContext("2d", { willReadFrequently: true, alpha: false })!;
+  ctx.drawImage(img, 0, 0, w, h);
+  const stats = allocStats(1);
+  measureFrame(ctx.getImageData(0, 0, w, h).data, w, h, stats, 0, null, 0);
+  return { id: src.info.id, kind: "image", start: 0, duration: 0, width: img.width, height: img.height, rate: 0, stats, cuts: [], thumb: await grabThumb(src, 0) };
+}
+
+const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+
+function pct(values: number[], p: number): number {
+  if (!values.length) return 0;
+  const s = [...values].sort((a, b) => a - b);
+  return s[Math.min(s.length - 1, Math.max(0, Math.round((p / 100) * (s.length - 1))))];
+}
+
+/**
+ * How good each sampled moment looks, 0 to 1, judged across every source together
+ * so a sharp, bright clip outranks a murky one: sharpness, exposure, colour,
+ * movement (lively, not shaky), people, and a nudge away from the fumbled first
+ * and last half-second of a phone clip.
+ */
+export function scoreInterest(scans: Scan[]): void {
+  const sharp: number[] = [];
+  const motion: number[] = [];
+  const color: number[] = [];
+  for (const sc of scans) {
+    for (let i = 0; i < sc.stats.t.length; i++) {
+      sharp.push(sc.stats.sharp[i]);
+      if (sc.kind === "video") motion.push(sc.stats.motion[i]);
+      color.push(sc.stats.color[i]);
+    }
+  }
+  const s10 = pct(sharp, 10);
+  const s90 = pct(sharp, 90);
+  const m50 = pct(motion, 50) || 0.02;
+  const m90 = pct(motion, 90) || 0.1;
+  const c90 = pct(color, 90) || 0.5;
+  for (const sc of scans) {
+    const n = sc.stats.t.length;
+    const out = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const st = sc.stats;
+      const qSharp = clamp01((st.sharp[i] - s10) / Math.max(1e-6, s90 - s10));
+      const qExpo = 1 - clamp01(Math.abs(st.luma[i] - 0.48) / 0.42) ** 2;
+      const qContrast = clamp01(st.contrast[i] / 0.22);
+      const qColor = clamp01(st.color[i] / c90);
+      let qMotion = 0.35;
+      if (sc.kind === "video") {
+        const m = st.motion[i];
+        // Lively is good up to the busiest tenth of the footage; beyond that it's shake or a whip.
+        qMotion = m <= m90 ? clamp01(0.25 + (0.75 * m) / m90) : clamp01(1 - (m - m90) / (2 * m90));
+        if (m < 0.25 * m50) qMotion *= 0.6; // frozen
+      }
+      const qPeople = clamp01(st.skin[i] * 6);
+      let q = 0.28 * qSharp + 0.18 * qExpo + 0.1 * qContrast + 0.16 * qColor + 0.2 * qMotion + 0.08 * qPeople;
+      if (sc.kind === "video") {
+        const t = st.t[i] - sc.start;
+        if (t < 0.4 || st.t[i] > sc.duration - 0.4) q *= 0.8;
+        // Too dark to use.
+        if (st.luma[i] < 0.06) q *= 0.3;
+      }
+      out[i] = clamp01(q);
+    }
+    sc.interest = out;
+  }
+}

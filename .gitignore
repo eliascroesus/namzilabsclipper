@@ -8,3 +8,10 @@ __pycache__/
 screenshots/private/
 
 .DS_Store
+test-media/
+app/tests/fixtures/
+
+# the web app's dependencies, builds and test output
+node_modules/
+app/dist/
+app/e2e-out/

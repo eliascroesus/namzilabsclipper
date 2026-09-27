@@ -1,0 +1,145 @@
+/**
+ * The soundtrack: the song (and, for story clips, the footage's own voice with
+ * the song ducked under it), faded with the picture, brought to −14 LUFS, the
+ * loudness Instagram and TikTok play at, and kept a decibel under full scale.
+ */
+import type { EditPlan } from "../plan/types";
+import { decodeAudioBuffer, type Source } from "../media/sources";
+
+export const MIX_RATE = 48000;
+
+/** Integrated loudness (ITU-R BS.1770 with gating) of a stereo or mono buffer at 48 kHz. */
+export function integratedLoudness(channels: Float32Array[], rate = MIX_RATE): number {
+  // K-weighting: a high shelf, then the RLB high-pass (coefficients for 48 kHz).
+  const kw = (x: Float32Array) => {
+    const y = new Float32Array(x.length);
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (let i = 0; i < x.length; i++) {
+      const v = 1.53512485958697 * x[i] - 2.69169618940638 * x1 + 1.19839281085285 * x2 + 1.69065929318241 * y1 - 0.73248077421585 * y2;
+      x2 = x1; x1 = x[i]; y2 = y1; y1 = v;
+      y[i] = v;
+    }
+    x1 = 0; x2 = 0; y1 = 0; y2 = 0;
+    for (let i = 0; i < y.length; i++) {
+      const v = y[i] - 2 * x1 + x2 + 1.99004745483398 * y1 - 0.99007225036621 * y2;
+      x2 = x1; x1 = y[i]; y2 = y1; y1 = v;
+      y[i] = v;
+    }
+    return y;
+  };
+  const weighted = channels.map(kw);
+  const block = Math.round(0.4 * rate);
+  const step = Math.round(0.1 * rate);
+  const powers: number[] = [];
+  for (let s = 0; s + block <= weighted[0].length; s += step) {
+    let p = 0;
+    for (const ch of weighted) {
+      let e = 0;
+      for (let i = s; i < s + block; i++) e += ch[i] * ch[i];
+      p += e / block;
+    }
+    powers.push(p);
+  }
+  const lufs = (p: number) => -0.691 + 10 * Math.log10(p + 1e-12);
+  const abs = powers.filter((p) => lufs(p) > -70);
+  if (!abs.length) return -70;
+  const rel = lufs(abs.reduce((a, b) => a + b, 0) / abs.length) - 10;
+  const gated = abs.filter((p) => lufs(p) > rel);
+  return lufs(gated.reduce((a, b) => a + b, 0) / Math.max(1, gated.length));
+}
+
+/**
+ * A look-ahead peak limiter: nothing above `ceiling`. The gain is the minimum
+ * needed over the next 5 ms, smoothed over the same 5 ms (so it is always
+ * low enough by the time a peak arrives, without a click), recovering over
+ * `release` seconds.
+ */
+export function limit(channels: Float32Array[], ceiling = 0.89, rate = MIX_RATE, release = 0.08) {
+  const n = channels[0].length;
+  const look = Math.max(1, Math.round(0.005 * rate));
+  const need = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let peak = 0;
+    for (const ch of channels) peak = Math.max(peak, Math.abs(ch[i]));
+    need[i] = peak > ceiling ? ceiling / peak : 1;
+  }
+  // Minimum over [i, i + look], with a monotonic queue.
+  const minAhead = new Float32Array(n);
+  const q = new Int32Array(n);
+  let h = 0;
+  let t = 0;
+  let j = 0;
+  for (let i = 0; i < n; i++) {
+    for (; j < n && j <= i + look; j++) {
+      while (t > h && need[q[t - 1]] >= need[j]) t--;
+      q[t++] = j;
+    }
+    while (q[h] < i) h++;
+    minAhead[i] = need[q[h]];
+  }
+  // Average over [i - look, i]: every term is at most need[i], so no overshoot.
+  const coef = Math.exp(-1 / (release * rate));
+  let sum = 0;
+  let g = 1;
+  for (let i = 0; i < n; i++) {
+    sum += minAhead[i];
+    if (i > look) sum -= minAhead[i - look - 1];
+    const smooth = sum / Math.min(i + 1, look + 1);
+    g = smooth < g ? smooth : smooth + (g - smooth) * coef;
+    for (const ch of channels) ch[i] *= g;
+  }
+}
+
+/** Render the plan's soundtrack. `withMusic: false` leaves the song out (you add it in the app). */
+export async function mixPlan(plan: EditPlan, sources: Map<string, Source>, withMusic: boolean): Promise<AudioBuffer> {
+  const length = Math.ceil(plan.duration * MIX_RATE);
+  const ctx = new OfflineAudioContext(2, length, MIX_RATE);
+  const master = ctx.createGain();
+  master.connect(ctx.destination);
+  const m = plan.music;
+  if (withMusic && m) {
+    const src = sources.get(m.source);
+    const buf = src ? await decodeAudioBuffer(src, m.songStart, m.songStart + (m.end - m.start), MIX_RATE) : null;
+    if (buf) {
+      const node = ctx.createBufferSource();
+      node.buffer = buf;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, m.start);
+      g.gain.linearRampToValueAtTime(m.gain, m.start + Math.max(0.005, m.fadeIn));
+      g.gain.setValueAtTime(m.gain, Math.max(m.start + m.fadeIn, m.end - m.fadeOut));
+      g.gain.linearRampToValueAtTime(0, m.end);
+      // Under dialogue the song sits back.
+      if (plan.sourceAudio) g.gain.value = m.gain * 0.28;
+      node.connect(g).connect(master);
+      node.start(m.start);
+    }
+  }
+  if (plan.sourceAudio) {
+    for (const s of plan.shots) {
+      const src = sources.get(s.source);
+      if (!src || s.kind !== "video" || !src.info.hasAudio) continue;
+      const dur = s.end - s.start;
+      const buf = await decodeAudioBuffer(src, s.srcStart, s.srcStart + dur * s.speed, MIX_RATE);
+      if (!buf) continue;
+      const node = ctx.createBufferSource();
+      node.buffer = buf;
+      const g = ctx.createGain();
+      // 6 ms fades so a jump cut doesn't click.
+      g.gain.setValueAtTime(0, s.start);
+      g.gain.linearRampToValueAtTime(1, s.start + 0.006);
+      g.gain.setValueAtTime(1, s.end - 0.006);
+      g.gain.linearRampToValueAtTime(0, s.end);
+      node.connect(g).connect(master);
+      node.start(s.start);
+    }
+  }
+  const out = await ctx.startRendering();
+  const channels = [out.getChannelData(0), out.getChannelData(1)];
+  const loud = integratedLoudness(channels);
+  if (loud > -69) {
+    const gain = Math.pow(10, (-14 - loud) / 20);
+    for (const ch of channels) for (let i = 0; i < ch.length; i++) ch[i] *= gain;
+    limit(channels, Math.pow(10, -1 / 20));
+  }
+  return out;
+}
