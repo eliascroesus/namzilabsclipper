@@ -1,0 +1,210 @@
+<!doctype html>
+<!--
+  The demo end card, in the style of the nio.trade Reels.
+
+  A black frame, a laptop showing the product, a call to action above it, the
+  address below it, and a hand-drawn arrow that runs from one to the other down
+  the laptop's left side. Measured from the reference edits (docs/edit-analysis.md):
+
+    - enters from black: a fade-in over 8 frames (0.27s)
+    - the whole card slowly zooms out while it holds (about 6% over the card)
+    - holds 3 to 5 seconds
+    - fades to black over the last 0.5s, with the music
+
+  Every frame is a pure function of time: window.__seek(t) puts everything where
+  it belongs at t seconds, so tools/render_html.py can step it frame by frame.
+  Open the file in a browser to watch it live.
+
+  Parameters (URL query):
+    shot      image shown on the laptop screen        (default: the Namzilabs dashboard)
+    top       text above the laptop                   (default: "start free")
+    bottom    text below the laptop                   (default: "namzilabs.co")
+    accent    arrow colour                            (default: #568CFF)
+    aspect    9x16 | 4x3 | 1x1 | 4x5                   (default: 9x16)
+    duration  seconds                                 (default: 4)
+    draw      1 to draw the arrow on instead of fading it in with the rest
+    bg        background colour                       (default: #000)
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face {
+    font-family: "Inter";
+    src: url("../../assets/fonts/inter-opsz.woff2") format("woff2");
+    font-weight: 100 900;
+    font-display: block;
+  }
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  #frame { position: relative; overflow: hidden; background: var(--bg, #000); }
+  /* The composition is laid out on the reference edit's own 960 x 720 grid and
+     scaled to the output, so the proportions are the measured ones. */
+  #stage { position: absolute; left: 0; top: 0; width: 960px; height: 720px; transform-origin: 0 0; }
+  #zoom { position: absolute; inset: 0; transform-origin: 482px 356px; }
+  .label {
+    position: absolute; left: 0; width: 960px; text-align: center; color: #fff;
+    font-family: "Inter", system-ui, sans-serif; font-weight: 500; letter-spacing: -0.01em;
+    white-space: nowrap; font-feature-settings: "ss01", "cv11";
+  }
+  #top { top: 152px; font-size: 34px; line-height: 40px; }
+  #bottom { top: 520px; font-size: 36px; line-height: 44px; }
+
+  /* A space-grey laptop, drawn rather than photographed so it scales cleanly. */
+  #laptop { position: absolute; left: 232px; top: 222px; width: 500px; }
+  #lid {
+    position: relative; margin: 0 auto; width: 420px; height: 246px; box-sizing: border-box;
+    padding: 7px 7px 9px; border-radius: 13px 13px 3px 3px;
+    background: #0c0c0e;
+    box-shadow: inset 0 0 0 1.5px #4a4b50, inset 0 0 0 3px #111114;
+  }
+  #screen {
+    position: relative; width: 100%; height: 100%; border-radius: 4px; overflow: hidden;
+    background: #111 center top / cover no-repeat;
+  }
+  #notch {
+    position: absolute; top: 7px; left: 50%; width: 46px; height: 6px; transform: translateX(-50%);
+    background: #0c0c0e; border-radius: 0 0 4px 4px;
+  }
+  #base {
+    position: relative; width: 500px; height: 12px; margin-top: -1px;
+    border-radius: 2px 2px 14px 14px / 2px 2px 10px 10px;
+    background: linear-gradient(180deg, #9a9ba1 0%, #6d6e74 22%, #4d4e53 60%, #2c2d30 100%);
+    box-shadow: 0 1px 0 #1b1b1d;
+  }
+  #lip {
+    position: absolute; top: 0; left: 50%; width: 70px; height: 5px; transform: translateX(-50%);
+    background: linear-gradient(180deg, #3b3c40, #5d5e63); border-radius: 0 0 6px 6px;
+  }
+  #arrow { position: absolute; left: 0; top: 0; overflow: visible; }
+  #arrow path { fill: none; stroke: var(--accent, #568CFF); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+  #fade { position: absolute; inset: 0; background: #000; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="frame">
+  <div id="stage">
+    <div id="zoom">
+      <div class="label" id="top"></div>
+      <div id="laptop">
+        <div id="lid"><div id="screen"></div><div id="notch"></div></div>
+        <div id="base"><div id="lip"></div></div>
+      </div>
+      <svg id="arrow" width="960" height="720" viewBox="0 0 960 720">
+        <!-- From the start of the call to action, out past the laptop's left
+             side and back in at the address: one stroke, drawn by hand. The
+             geometry is set in the script once the text has been measured. -->
+        <path id="stroke" d=""/>
+        <path id="head" d=""/>
+      </svg>
+      <div class="label" id="bottom"></div>
+    </div>
+  </div>
+  <div id="fade"></div>
+</div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const SIZES = { "9x16": [1080, 1920], "4x3": [1440, 1080], "1x1": [1080, 1080], "4x5": [1080, 1350] };
+  const [W, H] = SIZES[q.get("aspect") || "9x16"] || SIZES["9x16"];
+  const DURATION = Number(q.get("duration") || 4);
+  const FPS = Number(q.get("fps") || 30);
+  const DRAW = q.get("draw") === "1";
+
+  const frame = document.getElementById("frame");
+  frame.style.width = W + "px";
+  frame.style.height = H + "px";
+  frame.style.setProperty("--accent", q.get("accent") || "#568CFF");
+  frame.style.setProperty("--bg", q.get("bg") || "#000");
+  const topEl = document.getElementById("top");
+  const bottomEl = document.getElementById("bottom");
+  topEl.innerHTML = `<span></span>`;
+  bottomEl.innerHTML = `<span></span>`;
+  topEl.firstChild.textContent = q.get("top") ?? "start free";
+  bottomEl.firstChild.textContent = q.get("bottom") ?? "namzilabs.co";
+  const shot = q.get("shot") || "../../assets/demo/namzilabs-dashboard.jpg";
+  document.getElementById("screen").style.backgroundImage = `url("${shot}")`;
+
+  // The laptop and the two lines sit on the frame's centre line, as in the
+  // references, and the arrow hangs in the left margin. The scale matches the
+  // reference card: the composition is about 58% of the frame's height, unless
+  // a narrow frame runs out of width first.
+  const AXIS = 482;          // the laptop's centre on the 960-wide grid
+  const LEFT_REACH = 350;    // from the axis to the arrow's outer edge
+  const HEIGHT = 420;        // the call to action's top to the address's bottom
+  const k = Math.min((W * 0.47) / LEFT_REACH, (H * 0.58) / HEIGHT);
+  const cy = H * (H > W ? 0.46 : 0.5);
+  const stage = document.getElementById("stage");
+  stage.style.transform = `translate(${W / 2 - AXIS * k}px, ${cy - 360 * k}px) scale(${k})`;
+
+  const zoom = document.getElementById("zoom");
+  const fade = document.getElementById("fade");
+  const stroke = document.getElementById("stroke");
+  const head = document.getElementById("head");
+  let LEN = 1;
+
+  // Draw the arrow from the measured text: it starts just left of the call to
+  // action, swings out past the laptop, and lands just left of the address.
+  function layoutArrow() {
+    const toStage = (el) => {
+      const r = el.getBoundingClientRect(), s = stage.getBoundingClientRect();
+      return { left: (r.left - s.left) / k, top: (r.top - s.top) / k, height: r.height / k };
+    };
+    const t = toStage(topEl.firstChild), b = toStage(bottomEl.firstChild);
+    const sx = t.left - 14, sy = t.top + t.height * 0.55;
+    const ex = b.left - 18, ey = b.top + b.height * 0.55;
+    const bulge = 232 - 82;  // 82px outside the laptop's left edge
+    const midY = (sy + ey) / 2;
+    stroke.setAttribute("d",
+      `M ${sx} ${sy} C ${sx - (sx - bulge) * 0.55} ${sy + 2}, ${bulge} ${sy + 48}, ${bulge} ${midY} ` +
+      `C ${bulge} ${ey - 42}, ${ex - (ex - bulge) * 0.62} ${ey + 2}, ${ex} ${ey}`);
+    // The head follows the stroke's own direction where it lands.
+    const L = stroke.getTotalLength();
+    const p1 = stroke.getPointAtLength(L), p0 = stroke.getPointAtLength(L - 6);
+    const a = Math.atan2(p1.y - p0.y, p1.x - p0.x), len = 27, spread = 0.72;
+    const hx = (ang) => p1.x - len * Math.cos(a + ang), hy = (ang) => p1.y - len * Math.sin(a + ang);
+    head.setAttribute("d", `M ${hx(spread)} ${hy(spread)} L ${p1.x} ${p1.y} L ${hx(-spread)} ${hy(-spread)}`);
+    LEN = L;
+    stroke.style.strokeDasharray = `${LEN}`;
+  }
+
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+
+  // Everything at time t, and nothing else: the renderer calls this per frame.
+  window.__seek = (t) => {
+    const fadeIn = 0.27, fadeOut = 0.5;
+    const inA = clamp(t / fadeIn);
+    const outA = clamp((DURATION - t) / fadeOut);
+    fade.style.opacity = String(1 - Math.min(inA, outA));
+    // The slow pull-out the references hold under the card: about 6% across it.
+    const s = 1.06 - 0.06 * clamp(t / DURATION);
+    zoom.style.transform = `scale(${s})`;
+    if (DRAW) {
+      const d = easeOut(clamp((t - 0.15) / 0.55));
+      stroke.style.strokeDashoffset = String(LEN * (1 - d));
+      head.style.opacity = String(clamp((t - 0.62) / 0.08));
+    } else {
+      stroke.style.strokeDashoffset = "0";
+      head.style.opacity = "1";
+    }
+  };
+  window.__meta = { width: W, height: H, duration: DURATION, fps: FPS };
+
+  // Ready once the font and the screenshot have loaded: a frame rendered
+  // before then would show a fallback face or an empty screen.
+  const img = new Image();
+  img.src = shot;
+  Promise.all([document.fonts.ready, img.decode().catch(() => {})]).then(() => {
+    layoutArrow();
+    window.__seek(0);
+    window.__ready = true;
+  });
+
+  // Watching it live in a browser: play on a loop.
+  if (!q.has("capture")) {
+    const t0 = performance.now();
+    const tick = () => { window.__seek(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  }
+</script>
+</body>
+</html>
