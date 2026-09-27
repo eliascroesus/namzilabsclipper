@@ -2,69 +2,84 @@
 
 ## What it does
 
-Paste one or more YouTube links, or drop in videos, photos and screen recordings. The machine finds the best moments, makes several finished edits in the formats the reference edits use (see [edit-analysis.md](edit-analysis.md)), and ends each one on the product's demo card in the nio.trade style, or on a "check bio" card. You download the MP4s, each with a ready post caption and the sound to add. It runs for free on your own Mac.
+A website you open in Chrome. Drop in videos, photos and screen recordings (YouTube links come later, see below). It finds the best moments, makes several finished edits in the formats the reference edits use (see [edit-analysis.md](edit-analysis.md)), and ends each one on the product's demo card in the nio.trade style, or on a "check bio" card. You download the MP4s, each with a ready post caption and the sound to add.
+
+**Nothing to install, and no AI models on your Mac.** The video work runs inside the browser on the Mac's own hardware. The AI work runs on free cloud AI services.
+
+## How it splits
+
+| Runs in Chrome, on your Mac | Runs in free cloud AI |
+|---|---|
+| Reading and decoding the videos, on the Mac's media engine (the hardware Final Cut and QuickTime export with) | The transcript, with a time for every word |
+| Finding the shots, the beats and accents of the song, the faces | Picking the moments and writing the hooks, POV labels and meme text |
+| Laying out every frame: crops, the grade, captions, transitions, the card (GPU) | |
+| Mixing the audio, and encoding the finished MP4 (media engine) | |
+
+- The browser uses **WebCodecs** to decode and encode video on the media engine, and **WebGPU/WebGL** for everything drawn. On an M4 Pro a 30-second 1080p clip should export in seconds, not minutes.
+- Only the **audio** of what you clip goes to the transcript service, and only the **transcript** goes to the one that picks moments. The video stays on the Mac.
+- The free AI tiers each need a free API key, pasted once into the site's settings and kept in the browser. Free tiers have daily limits (plenty for one person) and may use what's sent to improve their models, so keep private client footage out of them.
+- The site itself is a static page, hosted free (Vercel works with a private repo).
+
+## Two things a browser can't do by itself
+
+1. **Pull a video from a YouTube link.** Browsers don't let a web page download YouTube's video streams, and YouTube blocks cloud servers that try. So:
+   - **First version:** drag the video file in.
+   - **Then:** a small companion Chrome extension that grabs the video from YouTube inside your own browser, where YouTube treats it like you watching (it installs into Chrome in one click, and saves nothing to your Mac). Built on YouTube.js (MIT).
+2. **Use the trending sound itself.** The apps license trending sounds for in-app use only; baked into an upload they get muted or held back, and business accounts only get the commercial library. So you drop in any Reel that uses the sound (you already save these), and the site reads the song's beats and accents from it and cuts to them. It exports the edit without the song, and the post note says "add <song> from 0:12". Add that sound in the app and the cuts land. For music baked in (a business account, say), use royalty-free libraries such as the YouTube Audio Library or Pixabay Music.
 
 ## The pipeline
 
-| # | Stage | What happens | Free tools |
+| # | Stage | What happens | Where, with what |
 |---|---|---|---|
-| 1 | **Ingest** | Download the best video and audio from each link, or take the uploads; make a clean 30fps working copy | yt-dlp, ffmpeg |
-| 2 | **Understand** | Transcript with a time for every word; where the speech is; every shot; faces; tags for the b-roll ("car", "jet", "trading screen", "crowd", "city at night"); loudness and energy | Whisper (whisper.cpp or faster-whisper), silero-vad, PySceneDetect, MediaPipe, OpenCLIP, librosa |
-| 3 | **Pick** | Candidate windows cut on sentence boundaries, scored for a hook (a question, a number, money, a contrast, "you"), a payoff nearby, energy, a face on screen and visual variety. A local model ranks the top ten and writes the hook caption, the POV label or the meme text in the references' voice. It never invents a number | Ollama with Qwen2.5 7B, running on the Mac |
-| 4 | **Assemble** | One of the four templates fills in: segment order, caption style, pacing and transitions, all taken from the measured rules. Dialogue gets its pauses (over about 0.2s) and filler words cut out, as jump cuts. Montage cuts and flex bursts snap to the song's accents to within a frame | our code |
-| 5 | **Render** | Cuts, crops, a warm grade (LUT), captions, transitions (dip to black, crossfade, film burn), and the audio mix (music under the speech, ducked, mastered to −14 LUFS). The cards and animated text come from the HTML renderer and are laid over the video | ffmpeg with libass, [`tools/render_html.py`](../tools/render_html.py) + Playwright |
-| 6 | **Check** | Every output goes back through [`tools/analyze_edit.py`](../tools/analyze_edit.py): the hook is on frame one, montage cuts sit within a frame of an accent, shot lengths fall in the reference ranges, the card is there, loudness is right. Anything off gets re-cut before you see it | our analyzer |
-| 7 | **Deliver** | MP4s in 9:16 and 4:3 (4:5 on request), 1080p, 30fps, plus a `post.txt` for each: the caption, hashtags, and which sound to add from which second | |
+| 1 | **Ingest** | Read the dropped files straight from disk, whatever their size, without copying them | Browser: Mediabunny (MPL-2.0), WebCodecs |
+| 2 | **Understand** | Every shot, speech versus music, faces, the song's beat grid, accents and drops, loudness. A transcript with word times | Browser: our own shot and beat detection (ported from the analyzer in `tools/`), Web Audio, MediaPipe face detection (Apache 2.0, a small file loaded with the page). Cloud: Whisper large-v3-turbo on Groq's free tier |
+| 3 | **Pick** | Candidate windows on sentence boundaries, scored for a hook (a question, a number, money, a contrast, "you"), a payoff nearby, energy and a face on screen. The AI ranks them and writes the hook caption, POV label or meme text in the references' voice. It never invents a number | Browser scores; cloud: Google's Gemini API free tier |
+| 4 | **Assemble** | One of the four templates: segment order, caption style, pacing and transitions, all from the measured rules. Dialogue loses its pauses (over about 0.2s) and filler words, as jump cuts. Montage cuts and flex bursts snap to the song's accents to within a frame | Browser |
+| 5 | **Render** | Crops (4:3 like Nio, or 9:16 following the speaker's face), a warm grade, captions in the six styles, dip to black, crossfade, film burn, the demo card. The audio mix: music under speech, ducked, mastered to −14 LUFS | Browser: WebGL/WebGPU compositor, WebCodecs H.264 + AAC encode on the media engine |
+| 6 | **Check** | Every edit is measured before you see it: hook on frame one, montage cuts within a frame of an accent, shot lengths in the reference ranges, the card present, loudness right. Anything off gets re-cut | Browser, the same measurements as `tools/analyze_edit.py` |
+| 7 | **Deliver** | MP4s in 9:16 and 4:3, 1080p, 30fps, and a post note for each: caption, hashtags, the sound to add and from which second | Browser download |
 
-## Frame shape: Nio's 4:3, and 9:16
+## Frame shape
 
-- **4:3 landscape** is how nio.trade posts. It crops a 16:9 YouTube frame without losing anyone, so it keeps the cinematic look and needs no reframing. This is the default for story clips.
-- **9:16** needs a moving crop: follow the speaker's face (MediaPipe, smoothed so it glides rather than jitters). Screen recordings fit the width over a blurred copy of themselves, and wide scenery gets a slow pan.
-
-## Music, and the rule that shapes the design
-
-- Instagram and TikTok license their trending sounds for use inside the apps only. A downloaded song baked into an upload gets muted, blocked or held back, and business accounts only get the commercial library.
-- So the machine keeps a **music folder** of the songs you want to use, for timing only. It maps each song's beats, accents and drops, cuts the edit to them, and exports two files: a preview with the song, and the upload file without it. `post.txt` says "add <song> from 0:12". Add that sound in the app and the cuts land where they should.
-- To bake music in (a business account, say), use royalty-free libraries such as the YouTube Audio Library or Pixabay Music.
-- Picking what's trending stays with you: the Reels audio page marks trending sounds, and no free API is reliable. You drop the songs into the folder, and the machine matches each clip to the song that fits its energy and length.
+- **4:3 landscape**, how nio.trade posts: it crops a 16:9 YouTube frame without losing anyone. The default for story clips.
+- **9:16**: a crop that follows the speaker's face, smoothed so it glides. Screen recordings fit the width over a blurred copy of themselves.
 
 ## Cards
 
-- **The demo card**, built: [`templates/endcard/laptop.html`](../templates/endcard/laptop.html). A laptop showing the product, the call to action above, the address below, and the hand-drawn arrow, with the entrance, pull-out and fade measured from the Nio clips. Each product gets a small brand kit: the screenshot, the call-to-action line, the address, the arrow colour.
-- **Next:** a screen recording playing on the laptop instead of a still, a phone version for app demos, a "check bio" card (your profile screenshot with the arrow landing on the link in bio), and "follow @handle".
+- **The demo card**, built as a template: [`templates/endcard/laptop.html`](../templates/endcard/laptop.html). The in-browser renderer draws the same design. Each product gets a brand kit: the screenshot or screen recording on the laptop, the call-to-action line, the address, the arrow colour.
+- **Next:** a screen recording playing on the laptop, a phone version for app demos, "check bio" (your profile with the arrow on the link in bio), "follow @handle".
 
-## Where it runs
-
-- **On your Mac, with a web page on localhost as the interface.** Paste links, drop files, pick the formats and how many variants, press Make, download. That's the only effort. Compute is free, YouTube downloads work from a home connection (YouTube often blocks downloads from cloud servers), and Apple silicon runs Whisper and the local model quickly. Queue a batch of links overnight and wake up to a folder of edits.
-- **A public website later** is possible, but not free: video processing needs paid servers, and YouTube blocks their addresses.
-- **In this cloud environment** I can build and test everything except the YouTube downloads and the Whisper models, until youtube.com, googlevideo.com and huggingface.co are added to the environment's allowed network domains.
-
-## The free stack
+## The stack
 
 | Job | Tool | Licence |
 |---|---|---|
-| Download from YouTube | yt-dlp | Unlicense |
-| Cut, crop, grade, mix, encode | ffmpeg (with libass for captions) | LGPL / GPL |
-| Transcript with word times | whisper.cpp or faster-whisper, Whisper large-v3-turbo | MIT |
-| Speech detection | silero-vad | MIT |
-| Shots | PySceneDetect | BSD-3 |
-| Beats, accents, drops, loudness | librosa | ISC |
-| Faces for the 9:16 crop | MediaPipe, OpenCV | Apache 2.0 |
-| B-roll tags | OpenCLIP | MIT |
-| Picking moments, writing hooks | Ollama + Qwen2.5 7B Instruct | MIT / Apache 2.0 |
-| Cards and animated text | HTML + Playwright (Chromium) | Apache 2.0 |
-| App | FastAPI + a plain web page | MIT |
+| The app | Vite + TypeScript, a static page | MIT |
+| Read and write MP4/WebM/MOV | Mediabunny | MPL-2.0 |
+| Decode and encode on the media engine | WebCodecs (built into Chrome) | |
+| Draw frames | WebGL2 / WebGPU (built into Chrome) | |
+| Audio: decode, mix, beats, accents | Web Audio (built in) + our own beat tracker | |
+| Faces | MediaPipe Tasks Vision | Apache 2.0 |
+| Transcript | Whisper large-v3-turbo on Groq (free tier) | MIT model |
+| Picking moments, writing hooks | Gemini API (free tier) | |
+| YouTube links (later) | a Chrome extension using YouTube.js | MIT |
+| Hosting | Vercel free tier | |
 | Fonts | Inter, Instrument Serif, Oswald, League Gothic | OFL |
+
+The Python tools in `tools/` stay as the lab bench: they measure reference edits and check the browser's output during development.
+
+## Building and testing it
+
+The cloud environment this repo is developed in has the same browser engine with WebCodecs and WebGPU, so the whole app gets built and tested here. That build has no H.264 or AAC (they're licensed codecs), so tests run in VP9 and Opus. Chrome on the Mac has both in hardware, and writes normal H.264 MP4s. Testing the cloud AI steps here needs their hosts allowed in the environment's network settings.
 
 ## Milestones
 
 | | Milestone | What it proves |
 |---|---|---|
 | **M0** | Done: the reference analysis, the analyzer, the demo card, the frame renderer | The look is reproducible |
-| **M1** | **Montage maker:** a folder of clips or photos, a song and a brand kit become a beat-synced montage with a mood caption and the demo card, in 9:16 and 4:3 | Music timing and the card, end to end |
-| **M2** | **Story clipper:** a YouTube link becomes 3 to 5 clips: the hook on black, cleaned dialogue with documentary subtitles, a flex burst from the same video's b-roll, the card | The hard part: picking the moment |
-| **M3** | **One-click app:** the localhost page, brand kits, the music folder, batches of links, a gallery with downloads | Paste and done |
-| **M4** | **The rest:** the reaction and text-meme templates, the POV-label variant, the check-bio card, film burns and grades, the automatic quality gate, overnight batches | Volume |
+| **M1** | **Montage maker, in the browser:** drop clips or photos, a Reel with the sound, and a brand kit; get a beat-synced montage with a mood caption and the demo card, in 9:16 and 4:3 | The in-browser engine, music timing and the card, end to end on your Mac |
+| **M2** | **Story clipper:** drop a long video; get 3 to 5 clips with the hook on black, cleaned dialogue with documentary subtitles, a flex burst from the same video's b-roll, the card | The hard part: picking the moment |
+| **M3** | **Links and batches:** the Chrome extension for YouTube links, a queue, a gallery | Paste and done |
+| **M4** | **The rest:** the reaction and text-meme templates, the POV-label variant, the check-bio card, film burns and grades, the quality gate | Volume |
 
 ## Rights, briefly
 

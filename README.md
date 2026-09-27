@@ -1,8 +1,8 @@
 # Namzilabs clipper
 
-A clipping machine: paste YouTube links or drop in footage, get finished short-form edits cut to the music, each ending on a demo card for the product it promotes.
+A clipping machine that runs in the browser: drop in footage (YouTube links come later), get finished short-form edits cut to the music, each ending on a demo card for the product it promotes. Nothing to install. The video work runs on the Mac's own hardware inside Chrome, and the AI steps use free cloud services.
 
-**Status:** research and first pieces. The reference edits are analysed and the demo card works; the pipeline itself is next ([build plan](docs/build-plan.md)).
+**Status:** research and first pieces. The reference edits are analysed and the demo card works; the in-browser engine is next ([build plan](docs/build-plan.md)).
 
 | | |
 |---|---|
