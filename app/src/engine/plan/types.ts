@@ -39,6 +39,8 @@ export interface ShotEvent {
   /** why it was picked, for the review panel */
   role?: "hook" | "drop" | "closer" | "build" | "body";
   score?: number;
+  /** play this shot's own sound (dialogue); defaults to the plan's sourceAudio */
+  audio?: boolean;
 }
 
 export type FxKind = "flash" | "burn" | "dip" | "fadein";
@@ -98,6 +100,8 @@ export interface MusicEvent {
   fadeOut: number;
   /** linear gain before loudness normalisation */
   gain: number;
+  /** the song's level over the edit, as [edit time, gain] points joined by straight ramps (ducking under dialogue) */
+  gainPoints?: [number, number][];
 }
 
 export interface Grade {

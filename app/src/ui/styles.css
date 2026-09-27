@@ -125,10 +125,10 @@ button { cursor: pointer; }
 .seg button:hover { color: var(--text); }
 .seg button[aria-pressed="true"] { background: var(--hover); color: var(--text); }
 
-.formats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.formats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .format {
   text-align: left; border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius);
-  padding: 10px; display: flex; flex-direction: column; gap: 4px; min-height: 76px;
+  padding: 10px; display: flex; flex-direction: column; gap: 4px; min-height: 64px;
   transition: border-color 120ms var(--ease), background 120ms var(--ease);
 }
 .format:hover { border-color: var(--rule); }
@@ -266,3 +266,18 @@ input[type="range"] { width: 100%; accent-color: var(--brand); }
 
 .spin { animation: spin 900ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── story moments ── */
+.moments { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.moment { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: start; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+.moment.on { border-color: rgba(86, 140, 255, 0.55); }
+.moment input[type="checkbox"] { width: 16px; height: 16px; margin-top: 8px; accent-color: var(--brand); }
+.moment .hook { font-weight: 600; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; margin: 0 0 0 -7px; width: 100%; }
+.moment .hook:hover { border-color: var(--line); }
+.moment .hook:focus { border-color: var(--brand); outline: none; background: var(--control); }
+.moment .why { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.moment .words { font-size: 13px; color: #b5b5b5; margin-top: 6px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.moment .when { font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.moment .score { font-size: 20px; font-weight: 600; color: var(--text); letter-spacing: -0.03em; }
+.story-status { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 20px; }
+.story-status .progress { width: 160px; }

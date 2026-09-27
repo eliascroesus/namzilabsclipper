@@ -132,6 +132,56 @@ function JobCard({ job, thumbs }: { job: Job; thumbs: Map<string, string | undef
   );
 }
 
+function Moments({ s }: { s: State }) {
+  const st = s.story;
+  if (s.style.format !== "story" || st.status === "idle") return null;
+  if (st.status === "working")
+    return (
+      <div className="story-status">
+        <LoaderCircle size={18} className="spin" />
+        <span>{st.stage}</span>
+        <div className="progress">
+          <i style={{ width: `${st.progress * 100}%` }} />
+        </div>
+      </div>
+    );
+  if (st.status === "error")
+    return (
+      <div className="banner bad">
+        <CircleAlert size={16} color="var(--danger)" />
+        <span>{st.error}</span>
+      </div>
+    );
+  const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+  return (
+    <div>
+      <div className="outputs-head">
+        <h1>Moments</h1>
+        <span className="muted num">{st.moments.filter((m) => m.selected).length} picked</span>
+      </div>
+      <div className="moments">
+        {st.moments.map((m) => (
+          <div key={m.id} className={`moment${m.selected ? " on" : ""}`}>
+            <input type="checkbox" checked={m.selected} onChange={() => studio.toggleMoment(m.id)} aria-label={`Clip this moment: ${m.hook}`} />
+            <div style={{ minWidth: 0 }}>
+              <input className="hook" value={m.hook} onChange={(e) => studio.setMomentHook(m.id, e.target.value)} aria-label="The hook on screen" />
+              <div className="why">{m.why}</div>
+              <div className="words">{m.text}</div>
+            </div>
+            <div className="when">
+              <div className="score">{m.score.toFixed(0)}</div>
+              <div>
+                {mmss(m.start)} to {mmss(m.end)}
+              </div>
+              <div>{Math.round(m.end - m.start)}s</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Empty() {
   return (
     <div className="empty">
@@ -187,8 +237,9 @@ export function Results({ s }: { s: State }) {
           <span>This browser can't write MP4, so edits come out as WebM. Chrome on a Mac writes MP4, which Instagram and TikTok want.</span>
         </div>
       )}
+      <Moments s={s} />
       {s.jobs.length === 0 ? (
-        <Empty />
+        s.style.format === "story" && s.story.status !== "idle" ? null : <Empty />
       ) : (
         <>
           <div className="outputs-head">

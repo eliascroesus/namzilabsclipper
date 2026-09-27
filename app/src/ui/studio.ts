@@ -8,6 +8,10 @@ import { analyzeSong, SR, type SongAnalysis } from "../engine/audio/song";
 import { scanImage, scanVideo, scoreInterest, type Scan } from "../engine/media/scan";
 import { decodeMono, openSource, type Source } from "../engine/media/sources";
 import { planMeme, planTwist } from "../engine/plan/formats";
+import { planStory } from "../engine/plan/story";
+import { detectSpeech, type Run } from "../engine/audio/speech";
+import { pickModel } from "../engine/ai/gemini";
+import { findMoments, transcribe, type Moment, type Transcript } from "../engine/story/story";
 import { planMontage, usedRanges } from "../engine/plan/montage";
 import type { Aspect, CardSpec, EditPlan } from "../engine/plan/types";
 import { pickCodecs, renderPlan } from "../engine/render/export";
@@ -52,7 +56,7 @@ export interface Kit extends KitFields {
   shotName: string;
 }
 
-export type Format = "montage" | "twist" | "meme";
+export type Format = "montage" | "twist" | "meme" | "story";
 
 export interface Style {
   format: Format;
@@ -81,6 +85,23 @@ export interface Job {
   error?: string;
 }
 
+export interface MomentView extends Moment {
+  selected: boolean;
+  /** the words, for the card */
+  text: string;
+}
+
+export interface StoryState {
+  status: "idle" | "working" | "ready" | "error";
+  stage: string;
+  progress: number;
+  error?: string;
+  /** the footage item being clipped */
+  sourceId?: string;
+  moments: MomentView[];
+  clipLength: "short" | "medium" | "long";
+}
+
 export interface Support {
   checked: boolean;
   webcodecs: boolean;
@@ -99,6 +120,8 @@ export interface State {
   notice?: string;
   /** bumps when the card's screenshot has loaded, so previews redraw */
   cardVersion: number;
+  story: StoryState;
+  geminiKey: string;
 }
 
 const DEFAULT_SHOT = `${import.meta.env.BASE_URL}demo-dashboard.jpg`;
@@ -115,7 +138,17 @@ const DEFAULT_STYLE: Style = {
   variants: 3,
 };
 
-const LENGTHS: Record<Format, number> = { montage: 14, twist: 18, meme: 9 };
+const LENGTHS: Record<Format, number> = { montage: 14, twist: 18, meme: 9, story: 30 };
+const CLIP_LENGTHS = { short: [12, 25], medium: [18, 40], long: [30, 60] } as const;
+const KEY_STORE = "clipper.gemini.v1";
+
+function loadKey(): string {
+  try {
+    return localStorage.getItem(KEY_STORE) ?? "";
+  } catch {
+    return "";
+  }
+}
 
 let nextId = 1;
 const newId = (p: string) => `${p}${nextId++}`;
@@ -129,6 +162,9 @@ class Studio {
   private cardImage: ImageBitmap | null = null;
   private scanQueue: Promise<void> = Promise.resolve();
   private abort: AbortController | null = null;
+  private readonly speech = new Map<string, Run[]>();
+  private readonly transcripts = new Map<string, Transcript>();
+  private model: string | null = null;
 
   constructor() {
     const fields = loadKit();
@@ -141,6 +177,8 @@ class Studio {
       busy: false,
       support: { checked: false, webcodecs: false, webgl2: false, mp4: false },
       cardVersion: 0,
+      story: { status: "idle", stage: "", progress: 0, moments: [], clipLength: "medium" },
+      geminiKey: loadKey(),
     };
     void this.init();
   }
@@ -334,11 +372,96 @@ class Studio {
     });
   }
 
+  // ── story ──
+
+  setGeminiKey(key: string) {
+    const k = key.trim();
+    this.model = null;
+    try {
+      localStorage.setItem(KEY_STORE, k);
+    } catch {
+      // not remembered
+    }
+    this.set({ geminiKey: k });
+  }
+
+  private patchStory(patch: Partial<StoryState>) {
+    this.set((s) => ({ story: { ...s.story, ...patch } }));
+  }
+
+  setClipLength(clipLength: StoryState["clipLength"]) {
+    this.patchStory({ clipLength });
+  }
+
+  /** The video to clip: the longest one with sound. */
+  private storySource() {
+    const vids = this.state.footage.filter((f) => f.status === "ready" && f.kind === "video" && this.sources.get(f.id)?.info.hasAudio);
+    return vids.sort((a, b) => b.duration - a.duration)[0];
+  }
+
+  async findMoments() {
+    const s = this.state;
+    if (s.busy) return;
+    const item = this.storySource();
+    if (!item) return this.patchStory({ status: "error", error: "Add a video with someone talking in it." });
+    if (!s.geminiKey) return this.patchStory({ status: "error", error: "Add your Gemini key first (free, below)." });
+    const src = this.sources.get(item.id)!;
+    this.abort = new AbortController();
+    const signal = this.abort.signal;
+    this.set({ busy: true });
+    this.patchStory({ status: "working", stage: "Listening", progress: 0, error: undefined, sourceId: item.id, moments: [] });
+    try {
+      let tr = this.transcripts.get(item.id);
+      if (!tr) {
+        const y = await decodeMono(src, 16000, 0, Infinity, (p) => this.patchStory({ progress: p * 0.25, stage: "Listening" }));
+        const runs = detectSpeech(y, 16000);
+        this.speech.set(item.id, runs);
+        if (!runs.length) throw new Error("Nobody seems to be talking in this video.");
+        this.model ??= await pickModel(s.geminiKey, signal);
+        tr = await transcribe(y, 16000, runs, { key: s.geminiKey, model: this.model, signal, onProgress: (p, label) => this.patchStory({ progress: 0.25 + p * 0.55, stage: label }) });
+        if (!tr.phrases.length) throw new Error("Gemini didn't hear any words in this video.");
+        this.transcripts.set(item.id, tr);
+      }
+      this.patchStory({ progress: 0.85, stage: "Picking the moments" });
+      this.model ??= await pickModel(s.geminiKey, signal);
+      const [minLen, maxLen] = CLIP_LENGTHS[this.state.story.clipLength];
+      const found = await findMoments(tr, Math.max(3, this.state.style.variants + 2), { key: s.geminiKey, model: this.model, signal, minLen, maxLen });
+      if (!found.length) throw new Error("Gemini didn't find a moment that stands on its own. Try a longer video.");
+      const moments = found.map((m, i) => ({
+        ...m,
+        selected: i < this.state.style.variants,
+        text: tr!.phrases.slice(m.first, m.last + 1).map((p) => p.text).join(" "),
+      }));
+      this.patchStory({ status: "ready", stage: "", progress: 1, moments });
+    } catch (e) {
+      const cancelled = e instanceof DOMException && e.name === "AbortError";
+      this.patchStory({ status: cancelled ? "idle" : "error", error: cancelled ? undefined : e instanceof Error ? e.message : String(e) });
+    } finally {
+      this.abort = null;
+      this.set({ busy: false });
+    }
+  }
+
+  toggleMoment(id: string) {
+    this.patchStory({ moments: this.state.story.moments.map((m) => (m.id === id ? { ...m, selected: !m.selected } : m)) });
+  }
+
+  setMomentHook(id: string, hook: string) {
+    this.patchStory({ moments: this.state.story.moments.map((m) => (m.id === id ? { ...m, hook } : m)) });
+  }
+
   // ── making edits ──
 
   canGenerate(): string | null {
     const s = this.state;
     if (s.busy) return "Working on it";
+    if (s.style.format === "story") {
+      if (!this.storySource()) return s.footage.some((f) => f.status === "reading" || f.status === "scanning") ? "Still reading the footage" : "Add a video with someone talking";
+      if (s.story.sourceId !== this.storySource()?.id || s.story.status !== "ready") return s.geminiKey ? null : "Add your Gemini key in Story (it's free)";
+      if (!s.story.moments.some((m) => m.selected)) return "Pick at least one moment";
+      if (s.sound && s.sound.status !== "ready" && s.sound.status !== "error") return "Still listening to the sound";
+      return null;
+    }
     const ready = s.footage.filter((f) => f.status === "ready");
     if (!ready.length) return s.footage.some((f) => f.status === "reading" || f.status === "scanning") ? "Still reading the footage" : "Add footage first";
     if (s.style.format !== "meme") {
@@ -360,8 +483,15 @@ class Studio {
     this.set({ jobs: [] });
   }
 
+  /** What the main button does next in the story format. */
+  storyNeedsMoments(): boolean {
+    const s = this.state;
+    return s.style.format === "story" && (s.story.status !== "ready" || s.story.sourceId !== this.storySource()?.id);
+  }
+
   async generate() {
     if (this.canGenerate()) return;
+    if (this.storyNeedsMoments()) return this.findMoments();
     const s = this.state;
     const ready = s.footage.filter((f) => f.status === "ready");
     const scans = ready.map((f) => this.scans.get(f.id)!).filter(Boolean);
@@ -370,8 +500,10 @@ class Studio {
     const style = s.style;
     const song = this.song && s.sound?.status === "ready" ? this.song : null;
     const fromReel = s.sound?.fromReel ?? true;
-    const label = style.format === "montage" ? "Montage" : style.format === "twist" ? "Twist" : "Meme";
-    const jobs: Job[] = Array.from({ length: style.variants }, (_, v) => ({ id: newId("j"), label: `${label} ${v + 1}`, status: "waiting", progress: 0, stage: "Waiting" }));
+    const label = style.format === "montage" ? "Montage" : style.format === "twist" ? "Twist" : style.format === "meme" ? "Meme" : "Clip";
+    const chosenMoments = style.format === "story" ? s.story.moments.filter((m) => m.selected) : [];
+    const count = style.format === "story" ? chosenMoments.length : style.variants;
+    const jobs: Job[] = Array.from({ length: count }, (_, v) => ({ id: newId("j"), label: style.format === "story" ? chosenMoments[v].hook || `${label} ${v + 1}` : `${label} ${v + 1}`, status: "waiting", progress: 0, stage: "Waiting" }));
     this.set((st) => ({ jobs: [...jobs, ...st.jobs], busy: true, notice: undefined }));
     this.abort = new AbortController();
     const signal = this.abort.signal;
@@ -387,7 +519,23 @@ class Studio {
         await new Promise((r) => setTimeout(r, 0));
         let plan: EditPlan;
         const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, scans, aspect: style.aspect, length: style.length, card, variant: v, avoid };
-        if (style.format === "twist") {
+        if (style.format === "story") {
+          const m = chosenMoments[v];
+          const srcId = s.story.sourceId!;
+          plan = planStory({
+            moment: m,
+            transcript: this.transcripts.get(srcId)!,
+            speech: this.speech.get(srcId) ?? [],
+            source: this.scans.get(srcId)!,
+            broll: scans,
+            song: song ?? undefined,
+            songSource: "song",
+            songName,
+            aspect: style.aspect,
+            card,
+            variant: v,
+          });
+        } else if (style.format === "twist") {
           const actB = new Set(ready.filter((f) => f.act === "b").map((f) => f.id));
           plan = planTwist({ ...common, actB, captionA: style.caption === "none" ? "" : style.text, captionB: style.caption === "none" ? "" : style.textB });
         } else if (style.format === "meme") {

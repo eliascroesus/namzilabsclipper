@@ -104,20 +104,34 @@ export async function mixPlan(plan: EditPlan, sources: Map<string, Source>, with
       const node = ctx.createBufferSource();
       node.buffer = buf;
       const g = ctx.createGain();
+      const level = (t: number) => {
+        const pts = m.gainPoints;
+        if (!pts?.length) return m.gain;
+        if (t <= pts[0][0]) return pts[0][1] * m.gain;
+        for (let i = 1; i < pts.length; i++) {
+          if (t <= pts[i][0]) {
+            const [t0, g0] = pts[i - 1];
+            const [t1, g1] = pts[i];
+            return (g0 + ((g1 - g0) * (t - t0)) / Math.max(1e-6, t1 - t0)) * m.gain;
+          }
+        }
+        return pts[pts.length - 1][1] * m.gain;
+      };
+      const fadeEnd = Math.max(m.start + m.fadeIn, m.end - m.fadeOut);
       g.gain.setValueAtTime(0, m.start);
-      g.gain.linearRampToValueAtTime(m.gain, m.start + Math.max(0.005, m.fadeIn));
-      g.gain.setValueAtTime(m.gain, Math.max(m.start + m.fadeIn, m.end - m.fadeOut));
+      g.gain.linearRampToValueAtTime(level(m.start + Math.max(0.005, m.fadeIn)), m.start + Math.max(0.005, m.fadeIn));
+      // The song ducks under dialogue and comes up for the burst and the card.
+      for (const [t, v] of m.gainPoints ?? []) if (t > m.start + m.fadeIn && t < fadeEnd) g.gain.linearRampToValueAtTime(v * m.gain, t);
+      g.gain.linearRampToValueAtTime(level(fadeEnd), fadeEnd);
       g.gain.linearRampToValueAtTime(0, m.end);
-      // Under dialogue the song sits back.
-      if (plan.sourceAudio) g.gain.value = m.gain * 0.28;
       node.connect(g).connect(master);
       node.start(m.start);
     }
   }
-  if (plan.sourceAudio) {
+  if (plan.sourceAudio || plan.shots.some((s) => s.audio)) {
     for (const s of plan.shots) {
       const src = sources.get(s.source);
-      if (!src || s.kind !== "video" || !src.info.hasAudio) continue;
+      if (!(s.audio ?? plan.sourceAudio) || !src || s.kind !== "video" || !src.info.hasAudio) continue;
       const dur = s.end - s.start;
       const buf = await decodeAudioBuffer(src, s.srcStart, s.srcStart + dur * s.speed, MIX_RATE);
       if (!buf) continue;

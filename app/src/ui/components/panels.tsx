@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { AudioWaveform, Clapperboard, Film, ImagePlus, Music, Plus, RotateCcw, Shuffle, Type, X } from "lucide-react";
+import { AudioWaveform, Clapperboard, Eye, EyeOff, Film, ImagePlus, MessageSquareQuote, Music, Plus, RotateCcw, Shuffle, Type, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { drawLaptopCard } from "../../engine/render/card";
 import { loadFonts } from "../../engine/render/fonts";
 import { FRAME_SIZE, type Aspect } from "../../engine/plan/types";
@@ -8,6 +8,7 @@ import { Drop, fmtTime, Section, Segmented, Switch } from "./bits";
 
 const FORMATS: { value: Format; name: string; desc: string; icon: typeof Film }[] = [
   { value: "montage", name: "Montage", desc: "Your best moments, cut to the beat", icon: Film },
+  { value: "story", name: "Story", desc: "The best bits of a long video, subtitled", icon: MessageSquareQuote },
   { value: "twist", name: "Twist", desc: "What they see vs what they don't", icon: Shuffle },
   { value: "meme", name: "Meme", desc: "One clip, a line of text, the song", icon: Type },
 ];
@@ -246,6 +247,47 @@ export function CardPanel({ s }: { s: State }) {
       ) : (
         <p className="hint" style={{ margin: 0 }}>The edits end without a promo.</p>
       )}
+    </Section>
+  );
+}
+
+export function StoryPanel({ s }: { s: State }) {
+  const [show, setShow] = useState(false);
+  const st = s.story;
+  return (
+    <Section title="Story">
+      <p className="hint" style={{ margin: 0 }}>
+        It listens to the longest video you dropped, finds the moments that stand on their own, and cuts each into a clip: the hook on frame one, the pauses cut, subtitles, a burst of the best shots to the song, then your card.
+      </p>
+      <div className="field">
+        <label htmlFor="gkey">Gemini key</label>
+        <div className="row">
+          <input id="gkey" className="input" type={show ? "text" : "password"} autoComplete="off" spellCheck={false} placeholder="AIza..." value={s.geminiKey} onChange={(e) => studio.setGeminiKey(e.target.value)} />
+          <button type="button" className="btn icon" aria-label={show ? "Hide the key" : "Show the key"} onClick={() => setShow(!show)}>
+            {show ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        </div>
+        <span className="hint">
+          Free from{" "}
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" style={{ color: "var(--brand)" }}>
+            Google AI Studio
+          </a>
+          , no card. It stays in this browser. Only the video's sound goes to Gemini, never the picture.
+        </span>
+      </div>
+      <div className="field">
+        <span className="label">Clip length</span>
+        <Segmented label="Clip length" value={st.clipLength} options={[{ value: "short", label: "12 to 25s" }, { value: "medium", label: "18 to 40s" }, { value: "long", label: "30 to 60s" }]} onChange={(v) => studio.setClipLength(v)} />
+      </div>
+      <div className="field">
+        <span className="label">How many clips</span>
+        <Segmented label="Number of clips" value={s.style.variants} options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: String(n) }))} onChange={(v) => studio.setStyle({ variants: v })} />
+      </div>
+      <div className="field">
+        <span className="label">Frame</span>
+        <Segmented label="Frame" value={s.style.aspect} options={[{ value: "4x3", label: "4:3" }, { value: "9x16", label: "9:16" }, { value: "1x1", label: "1:1" }, { value: "4x5", label: "4:5" }]} onChange={(v) => studio.setStyle({ aspect: v })} />
+        <span className="hint">nio.trade posts story clips in 4:3, keeping the YouTube frame whole.</span>
+      </div>
     </Section>
   );
 }
