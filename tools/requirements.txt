@@ -1,0 +1,10 @@
+# tools/analyze_edit.py and tools/render_html.py
+# pip install -r tools/requirements.txt
+imageio-ffmpeg     # a static ffmpeg build, no system install needed
+numpy
+librosa
+soundfile
+opencv-python-headless
+scenedetect
+matplotlib
+playwright         # then: playwright install chromium (or pass --chromium / CHROMIUM_PATH)
