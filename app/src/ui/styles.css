@@ -138,8 +138,10 @@ button { cursor: pointer; }
 .format .name { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 6px; }
 .format .desc { font-size: 12px; color: var(--muted); line-height: 1.35; }
 
-.switch { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; user-select: none; }
-.switch input { position: absolute; opacity: 0; pointer-events: none; }
+.switch { position: relative; display: flex; align-items: flex-start; gap: 10px; cursor: pointer; user-select: none; }
+/* The real checkbox, invisible, kept inside its switch: positioned against the page instead, a
+   switch low in the scrolling column put it below the window, and focusing it scrolled the page. */
+.switch input { position: absolute; left: 0; top: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
 .switch .track {
   flex: none; width: 30px; height: 18px; border-radius: 9px; background: var(--hover); position: relative; margin-top: 1px;
   transition: background 120ms var(--ease);
