@@ -45,6 +45,8 @@ export interface Scan {
   width: number;
   height: number;
   rate: number;
+  /** the video's own frame rate */
+  fps?: number;
   stats: FrameStats;
   /** shot boundaries inside the source, in seconds (not including 0 and the end) */
   cuts: number[];
@@ -389,7 +391,7 @@ export async function scanVideo(src: Source, opts: ScanOptions = {}): Promise<Sc
   }
   const trimmed = trimStats(stats, got);
   if (thumbAt >= 0) thumb = await grabThumb(src, thumbAt);
-  return { id: info.id, kind: "video", start: first, duration: info.duration, width: info.width, height: info.height, rate, stats: trimmed, cuts: detectCuts(trimmed), thumb, sheets: await sheets.finish() };
+  return { id: info.id, kind: "video", start: first, duration: info.duration, width: info.width, height: info.height, rate, fps: info.fps, stats: trimmed, cuts: detectCuts(trimmed), thumb, sheets: await sheets.finish() };
 }
 
 function trimStats(s: FrameStats, n: number): FrameStats {

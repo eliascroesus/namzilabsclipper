@@ -141,10 +141,12 @@ export interface MontageRun {
   prefer?: "mp4" | "webm";
   codecs?: { container: "mp4" | "webm"; video: "vp9" | "avc" | "av1"; audio: "aac" | "opus" };
   out?: string;
-  /** only draw these moments (seconds, or "shots" for the middle of every shot) as PNGs */
-  stills?: number[] | "shots";
+  /** only draw these moments (seconds, "shots" for the middle of every shot, "fx" around each effect's peak) as PNGs */
+  stills?: number[] | "shots" | "fx";
   /** follow faces through each shot before drawing */
   faces?: boolean;
+  /** speed ramps (a velocity edit) */
+  velocity?: boolean;
   /** draw each shot's first, middle and last frame instead of one per shot */
   thirds?: boolean;
 }
@@ -174,7 +176,7 @@ async function montage(run: MontageRun) {
   const results = [];
   const avoid: Ranges = new Map();
   for (let v = 0; v < (run.variants ?? 1); v++) {
-    const common = { song: song ?? undefined, songSource: "song", songName: run.song?.split("/").pop() ?? "", fromStart: run.fromStart ?? true, scans, aspect: run.aspect ?? "9x16", length: run.length ?? 14, card, variant: v, avoid };
+    const common = { song: song ?? undefined, songSource: "song", songName: run.song?.split("/").pop() ?? "", fromStart: run.fromStart ?? true, scans, aspect: run.aspect ?? "9x16", length: run.length ?? 14, card, variant: v, avoid, velocity: run.velocity };
     const plan =
       run.format === "twist"
         ? planTwist({ ...common, actB: new Set((run.actB ?? []).map((i) => `clip${i}`)), captionA: run.caption?.text ?? "what they see vs...", captionB: run.captionB ?? "what they don't..." })
@@ -189,7 +191,12 @@ async function montage(run: MontageRun) {
     }
     if (run.stills) {
       const inShot = (s: { start: number; end: number }) => (run.thirds ? [s.start + 0.5 / 30, (s.start + s.end) / 2, s.end - 1.5 / 30] : [(s.start + s.end) / 2]);
-      const times = run.stills === "shots" ? [...plan.shots.flatMap(inShot), ...(plan.card ? [plan.card.start + 2] : [])] : run.stills;
+      const times =
+        run.stills === "shots"
+          ? [...plan.shots.flatMap(inShot), ...(plan.card ? [plan.card.start + 2] : [])]
+          : run.stills === "fx"
+            ? plan.fx.filter((f) => f.kind !== "dip").flatMap((f) => [-3, -1, 0, 2, 5].map((k) => Math.max(0, (f.at ?? f.start) + k / 30)))
+            : run.stills;
       const pngs = await renderStills(plan, sources, times, img);
       for (const [k, png] of pngs.entries()) await save(`${run.out ?? "still"}-v${v + 1}-${String(k).padStart(2, "0")}.png`, png);
       await save(`${run.out ?? "still"}-v${v + 1}.plan.json`, new Blob([JSON.stringify(plan, null, 1)]));

@@ -51,10 +51,53 @@ export interface ShotEvent {
   score?: number;
   /** play this shot's own sound (dialogue); defaults to the plan's sourceAudio */
   audio?: boolean;
+  /** a speed ramp in place of the steady speed (velocity edits) */
+  ramp?: Ramp;
 }
 
-/** flash, film burn, dip to black, fade up; a punch-in (a quick zoom on a hit) and a shake */
-export type FxKind = "flash" | "burn" | "dip" | "fadein" | "punch" | "shake";
+/**
+ * A velocity edit's speed ramp: the shot plays at `slow` for its first `hold`
+ * seconds (slow motion on the hit), then speeds up smoothly to `fast` by its
+ * end, rushing into the next cut.
+ */
+export interface Ramp {
+  slow: number;
+  fast: number;
+  hold: number;
+}
+
+/** Seconds of source a shot has played `tau` seconds into it (from its srcStart). */
+export function sourceAt(shot: Pick<ShotEvent, "start" | "end" | "speed" | "ramp">, tau: number): number {
+  const d = shot.end - shot.start;
+  const r = shot.ramp;
+  if (!r) return tau * shot.speed;
+  const t = Math.min(d, Math.max(0, tau));
+  if (t <= r.hold) return t * r.slow;
+  const span = Math.max(1e-6, d - r.hold);
+  const u = (t - r.hold) / span;
+  // The speed eases along a smoothstep; its integral from 0 to u is u^3 - u^4 / 2.
+  return r.hold * r.slow + span * (r.slow * u + (r.fast - r.slow) * (u ** 3 - u ** 4 / 2));
+}
+
+/** Seconds of source a whole shot plays. */
+export const sourceSpan = (shot: Pick<ShotEvent, "start" | "end" | "speed" | "ramp">) => sourceAt(shot, shot.end - shot.start);
+
+/** The moment into a shot (edit seconds) that shows source second `offset` past its srcStart. */
+export function outputAt(shot: Pick<ShotEvent, "start" | "end" | "speed" | "ramp">, offset: number): number {
+  const d = shot.end - shot.start;
+  if (!shot.ramp) return offset / Math.max(1e-6, shot.speed);
+  let lo = 0;
+  let hi = d;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (sourceAt(shot, mid) < offset) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/** flash, film burn, dip to black, fade up; a punch-in (a quick zoom on a hit), a shake, and a zoom blur across a cut */
+export type FxKind = "flash" | "burn" | "dip" | "fadein" | "punch" | "shake" | "zoomblur";
 
 export interface FxEvent {
   kind: FxKind;

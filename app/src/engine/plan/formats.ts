@@ -27,6 +27,8 @@ interface Common {
   card: CardSpec | null;
   variant: number;
   avoid?: Ranges;
+  /** speed ramps on the shots before the flip */
+  velocity?: boolean;
 }
 
 function silentWindow(length: number, hold: number): MusicWindow {
@@ -85,7 +87,7 @@ export function planTwist(o: TwistOptions): EditPlan {
   const cutsA = o.song ? planCuts(o.song, win.songStart, switchAt + CUT_LEAD, { pace: 1.45 * variantPace(o.variant), dropAt: dropA }).map((t) => frame(t - CUT_LEAD)).filter((t) => t > 0.2 && t < switchAt - 0.25) : [];
   const slotsA = slotsBetween([0, ...cutsA, switchAt], dropA !== undefined ? frame(dropA - CUT_LEAD) : undefined).map((s) => (s.role === "closer" ? { ...s, role: "body" as const } : s));
   const used: Ranges = new Map();
-  const shotsA = assignShots(slotsA, poolA.length ? poolA : o.scans, { song: o.song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, used });
+  const shotsA = assignShots(slotsA, poolA.length ? poolA : o.scans, { song: o.song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, used, velocity: o.velocity });
 
   // Act two: one long shot of the other side (running across the clip's own cuts if it
   // has any), split on downbeats only when no clip is long enough even at half speed.

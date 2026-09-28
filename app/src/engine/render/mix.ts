@@ -3,7 +3,7 @@
  * the song ducked under it), faded with the picture, brought to −14 LUFS, the
  * loudness Instagram and TikTok play at, and kept a decibel under full scale.
  */
-import type { EditPlan } from "../plan/types";
+import { sourceSpan, type EditPlan } from "../plan/types";
 import { decodeAudioBuffer, type Source } from "../media/sources";
 
 export const MIX_RATE = 48000;
@@ -133,7 +133,7 @@ export async function mixPlan(plan: EditPlan, sources: Map<string, Source>, with
       const src = sources.get(s.source);
       if (!(s.audio ?? plan.sourceAudio) || !src || s.kind !== "video" || !src.info.hasAudio) continue;
       const dur = s.end - s.start;
-      const buf = await decodeAudioBuffer(src, s.srcStart, s.srcStart + dur * s.speed, MIX_RATE);
+      const buf = await decodeAudioBuffer(src, s.srcStart, s.srcStart + (s.ramp ? sourceSpan(s) : dur * s.speed), MIX_RATE);
       if (!buf) continue;
       const node = ctx.createBufferSource();
       node.buffer = buf;

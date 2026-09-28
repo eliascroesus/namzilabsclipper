@@ -94,6 +94,8 @@ export interface Style {
   faces: boolean;
   /** smart picks: Gemini looks at stills of the footage to find the flex (needs the key) */
   smart: boolean;
+  /** velocity edits: speed ramps, slow motion on each hit then a rush into the next cut */
+  velocity: boolean;
 }
 
 export interface Job {
@@ -165,6 +167,7 @@ const DEFAULT_STYLE: Style = {
   look: "warm",
   faces: true,
   smart: true,
+  velocity: false,
 };
 const STYLE_STORE = "clipper.style.v1";
 
@@ -632,11 +635,15 @@ class Studio {
           ps.look = { flex: Float32Array.of(r.flex / 10), wow: Float32Array.of(r.wow / 10), kind: Uint8Array.of(KINDS.indexOf(r.kind)) };
           this.patchFootage(item.pid, { look: "done", lookProgress: 1, ...heatOf(ps) });
         }
+      } else {
+        // Nothing to show Gemini (no frames logged): judged by how it looks.
+        this.patchFootage(id, { look: undefined });
       }
     } catch (e) {
       const cancelled = e instanceof DOMException && e.name === "AbortError";
       for (const pid of photos) this.patchFootage(pid, { look: cancelled ? undefined : "failed" });
-      if (!cancelled) this.set({ notice: `Smart picks couldn't look at ${f.name}: ${e instanceof Error ? e.message : String(e)} It uses its own judgement for that one.` });
+      const msg = (e instanceof Error ? e.message : String(e)).trim().replace(/([^.!?])$/, "$1.");
+      if (!cancelled) this.set({ notice: `Smart picks couldn't look at ${f.name}: ${msg} It judges that one by how it looks.` });
     } finally {
       if (this.lookAbort?.ctl === ctl) this.lookAbort = null;
     }
@@ -849,7 +856,7 @@ class Studio {
           this.patchJob(job.id, { status: "planning", stage: "Picking the moments" });
           await new Promise((r) => setTimeout(r, 0));
           let plan: EditPlan;
-          const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, songStart: songStart ?? undefined, scans, aspect: style.aspect, length: style.length, card, variant: base + v, avoid };
+          const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, songStart: songStart ?? undefined, scans, aspect: style.aspect, length: style.length, card, variant: base + v, avoid, velocity: style.velocity };
           if (style.format === "story") {
             if (!story?.transcript || !story.scan) throw new Error("The video for this clip was taken out. Find the moments again.");
             plan = planStory({

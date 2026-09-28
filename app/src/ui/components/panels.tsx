@@ -441,6 +441,13 @@ export function StylePanel({ s }: { s: State }) {
         <Segmented label="Look" value={st.look} options={[{ value: "warm", label: "Warm film" }, { value: "natural", label: "As shot" }]} onChange={(v) => studio.setStyle({ look: v })} />
         <span className="hint">{st.look === "warm" ? "The nio.trade grade: warm highlights, soft contrast, a little grain and vignette." : "No grade: for footage that's already graded."}</span>
       </div>
+      {st.format !== "meme" && (
+        <div className="field">
+          <Switch checked={st.velocity} onChange={(v) => studio.setStyle({ velocity: v })} hint={st.velocity ? "Each shot hits in slow motion on the beat, then rushes into the next cut (smoothest with 60 fps footage)." : "Off: shots play at their own speed."}>
+            Velocity (speed ramps)
+          </Switch>
+        </div>
+      )}
       <div className="field">
         <span className="label">How many edits</span>
         <Segmented label="Number of edits" value={st.variants} options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: String(n) }))} onChange={(v) => studio.setStyle({ variants: v })} />

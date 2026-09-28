@@ -20,11 +20,12 @@ Each result comes as an MP4 **with the song** and a copy **without it**, plus a 
 ## How it picks and frames
 
 - **Smart picks.** With a free Gemini key, Gemini looks at contact sheets of your footage (small numbered stills, one every few seconds, never the video) and rates every moment for how much it sells the life (supercars, jets, watches, views) and how striking it is, and says what's in it. The edits open on the Lamborghini and skip the coffee-shop chat; titles, end screens and talking heads stay out while anything better is left. A strip under each clip shows where its flex is. The answers are remembered per file, so the same video is never rated twice.
-- **Every edit in a batch is different.** Each opens on a different moment, never reuses one, cuts at its own pace, and favours different scenes, so five edits from one 40 minute video don't share their clips.
+- **Every edit in a batch is different.** Each opens on a different moment, never reuses one, favours different scenes, and cuts at its own rhythm (one busier, the next calmer, about a quarter more or fewer cuts), so five edits from one 40 minute video don't share their clips.
 - **Face tracking** (on by default, one switch). When wide footage is cropped to 9:16, the crop follows the person in the shot: it holds still while they stay near the middle, glides when they move, and never lets the face slip out of frame. A 230 KB face detector (YuNet) runs in the page for this.
 - **Black bars are left out.** A letterboxed film or a phone video inside a YouTube frame is cropped from the picture itself, so no black bars end up in the edit.
 - **YouTube videos skip the sponsor read.** If the file name carries the video's ID (as `yt-dlp` names files: `Title [dQw4w9WgXcQ].mp4`), the sponsor reads, intro and outro that SponsorBlock's viewers marked are left out. A long video's first seconds and its end screen are avoided either way.
 - **Hits on the drop.** The drop gets a flash and a punch-in, a film burn, or a punch-in with a shake, turning over through a batch; the music's strongest hits get a small punch-in. Story clips punch in on every other jump cut so the cuts read as deliberate.
+- **Velocity** (a switch, off by default): speed ramps, the car-edit look. Each shot hits in slow motion on the beat and rushes into the next cut, slowest on the drop, and the cuts that open a four-bar phrase get a zoom blur. Footage shot at 60 fps slows down smoothly; 30 fps footage gets a gentler ramp.
 
 ## How to use it
 

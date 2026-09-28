@@ -245,6 +245,8 @@ export interface FrameOptions {
   faces?: FaceSample[];
   /** source seconds per second of the edit (to time the path) */
   speed?: number;
+  /** edit seconds into the shot for a source time, when the speed isn't steady (a ramp) */
+  toOut?: (t: number) => number;
   zoom0?: number;
   zoom1?: number;
 }
@@ -311,7 +313,8 @@ export function frameShot(o: FrameOptions): Crop {
     hiY.push(m.y + m.h * 0.6);
   }
   const speed = o.speed ?? 1;
-  const span = (o.b - o.a) / speed;
+  const toOut = o.toOut ?? ((x: number) => (x - o.a) / speed);
+  const span = toOut(o.b);
   const axis = (target: number[], l: number[], h: number[], size: number): number[] => {
     if (size >= 0.999) return target.map(() => 0.5);
     const reach = Math.max(...h) - Math.min(...l);
@@ -337,7 +340,7 @@ export function frameShot(o: FrameOptions): Crop {
   const crop: Crop = { ...base, cx: xs[0], cy: ys[0] };
   if (!still) {
     const path: number[] = [];
-    for (let i = 0; i < t.length; i++) path.push(Math.max(0, (t[i] - o.a) / speed), xs[i], ys[i]);
+    for (let i = 0; i < t.length; i++) path.push(Math.max(0, toOut(t[i])), xs[i], ys[i]);
     crop.path = path;
     crop.cx = xs[0];
     crop.cy = ys[0];

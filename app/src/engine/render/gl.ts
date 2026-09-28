@@ -37,6 +37,8 @@ export interface FrameDraw {
   seed: number;
   /** the picture knocked sideways and up or down this much (a shake), in frame widths and heights */
   shake?: [number, number];
+  /** a zoom blur, 0 to 1 */
+  zoomBlur?: number;
 }
 
 const VERT = `#version 300 es
@@ -118,7 +120,7 @@ uniform sampler2D uOverlay;
 uniform bool uHasOverlay;
 uniform vec2 uOut;
 uniform float uWarm, uContrast, uSat, uVig, uGrain;
-uniform float uFlash, uBurn, uBurnPhase, uDim, uTime, uSeed;
+uniform float uFlash, uBurn, uBurnPhase, uDim, uTime, uSeed, uZoomBlur;
 out vec4 outColor;
 float hash(vec2 p) { p = fract(p * vec2(443.897, 441.423)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }
 float noise(vec2 p) {
@@ -134,6 +136,12 @@ float fbm(vec2 p) {
 void main() {
   vec2 o = vec2(vPos.x, 1.0 - vPos.y);
   vec3 c = texture(uScene, vPos).rgb;
+  // A zoom blur across a cut: the picture smeared out from the middle.
+  if (uZoomBlur > 0.001) {
+    vec3 acc = vec3(0.0);
+    for (int i = 0; i < 16; i++) acc += texture(uScene, mix(vec2(0.5), vPos, 1.0 - 0.14 * uZoomBlur * float(i) / 15.0)).rgb;
+    c = acc / 16.0;
+  }
   // White balance towards warm.
   c *= vec3(1.0 + 0.07 * uWarm, 1.0 + 0.012 * uWarm, 1.0 - 0.1 * uWarm);
   // A soft filmic S-curve.
@@ -378,6 +386,7 @@ export class Compositor {
     gl.uniform1f(p.loc("uDim"), f.dim);
     gl.uniform1f(p.loc("uTime"), f.time);
     gl.uniform1f(p.loc("uSeed"), f.seed);
+    gl.uniform1f(p.loc("uZoomBlur"), f.zoomBlur ?? 0);
     this.quad(null);
   }
 

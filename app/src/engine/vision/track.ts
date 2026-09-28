@@ -8,7 +8,7 @@ import { VideoSampleSink } from "mediabunny";
 import type { Scan } from "../media/scan";
 import type { Source } from "../media/sources";
 import { frameShot, kenBurns, windowSize, type FaceSample } from "../plan/framing";
-import { FRAME_SIZE, type EditPlan } from "../plan/types";
+import { FRAME_SIZE, outputAt, sourceAt, sourceSpan, type EditPlan } from "../plan/types";
 import { FaceFinder } from "./faces";
 
 export interface FollowOptions {
@@ -48,9 +48,11 @@ export async function followFaces(plan: EditPlan, sources: Map<string, Source>, 
     }
     if (!src.video) continue;
     const a = shot.srcStart;
-    const b = a + (shot.end - shot.start) * shot.speed;
-    const n = Math.max(3, Math.min(48, Math.round((b - a) * rate)));
-    const times = Array.from({ length: n }, (_, i) => a + ((i + 0.5) * (b - a)) / n);
+    const b = a + sourceSpan(shot);
+    const d = shot.end - shot.start;
+    // Evenly through the shot as it plays (a speed ramp spends longer on some of the footage).
+    const n = Math.max(3, Math.min(48, Math.round(d * rate)));
+    const times = Array.from({ length: n }, (_, i) => a + sourceAt(shot, ((i + 0.5) * d) / n));
     let sink = sinks.get(shot.source);
     if (!sink) sinks.set(shot.source, (sink = new VideoSampleSink(src.video)));
     const samples: FaceSample[] = [];
@@ -66,7 +68,7 @@ export async function followFaces(plan: EditPlan, sources: Map<string, Source>, 
         sample.close();
       }
     }
-    const framed = frameShot({ scan, a, b, aspect: plan.aspect, faces: samples, speed: shot.speed, zoom0: shot.crop.zoom0, zoom1: shot.crop.zoom1 });
+    const framed = frameShot({ scan, a, b, aspect: plan.aspect, faces: samples, speed: shot.speed, toOut: (t) => outputAt(shot, t - a), zoom0: shot.crop.zoom0, zoom1: shot.crop.zoom1 });
     shot.crop = { ...framed, zoom0: shot.crop.zoom0, zoom1: shot.crop.zoom1 };
   }
   opts.onProgress?.(1);

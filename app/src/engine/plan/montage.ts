@@ -8,7 +8,7 @@
 import { pickSection, type SongAnalysis } from "../audio/song";
 import type { Scan } from "../media/scan";
 import { frameShot, kenBurns } from "./framing";
-import { FPS, FRAME_SIZE, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type Crop, type EditPlan, type FxEvent, type ShotEvent } from "./types";
+import { FPS, FRAME_SIZE, sourceSpan, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type Crop, type EditPlan, type FxEvent, type Ramp, type ShotEvent } from "./types";
 
 /**
  * Cuts sit this far ahead of the beat. Measured on the reference montage: mico's
@@ -148,6 +148,8 @@ export interface CutOptions {
   pace?: number;
   maxShot?: number;
   dropAt?: number;
+  /** how readily it cuts: below 1 more cuts (every beat that has anything on it), above 1 fewer */
+  busy?: number;
 }
 
 /**
@@ -171,9 +173,11 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, opt
     if (dropAt !== undefined) target *= b <= dropAt + 0.05 ? 1.25 : 0.85;
     return (-0.5 * Math.log(L / clamp(target, 0.38, 1.6 * pace)) ** 2) / (2 * 0.5 ** 2);
   };
-  // Each cut has to earn its place: only accents stronger than a typical beat pay for themselves.
+  // Each cut has to earn its place: only accents stronger than a typical beat pay for
+  // themselves (a busier edit lets weaker ones in, a calmer one only the strongest).
   const ws = cands.slice(1, -1).map((c) => c.w).sort((a, b) => a - b);
-  const cost = ws.length ? ws[Math.floor(ws.length * 0.3)] : 0;
+  const q = clamp(0.3 * (opts.busy ?? 1) ** 3, 0.08, 0.65);
+  const cost = ws.length ? ws[Math.floor(ws.length * q)] : 0;
   // best[j] maps a predecessor i to the best score of a path ending ..., i, j.
   const best: Map<number, { score: number; prev: number }>[] = Array.from({ length: n }, () => new Map());
   for (let j = 1; j < n; j++) {
@@ -403,6 +407,27 @@ export interface AssignContext {
   used?: Ranges;
   /** what the slots want (default: the flex) */
   purpose?: Purpose;
+  /** velocity edit: shots ramp from slow motion on the hit to a rush into the next cut */
+  velocity?: boolean;
+}
+
+/** A velocity ramp takes this much more footage than the slot is long. */
+const RAMP_FOOTAGE = 1.1;
+/** Shots shorter than this just cut (a ramp needs room to read). */
+const RAMP_MIN = 0.45;
+
+/**
+ * The ramp for a shot `d` seconds long playing `need` seconds of footage: slow
+ * motion on the hit (slower, and held longer, on the drop; slower still with
+ * 50 or 60 fps footage, which slows down smoothly), then easing up to a rush.
+ */
+export function rampFor(d: number, need: number, fps: number, drop: boolean): Ramp {
+  const hold = drop ? Math.min(0.5 * d, 0.6) : Math.min(0.35 * d, 0.4);
+  const smooth = fps >= 48;
+  const slow = drop ? (smooth ? 0.25 : 0.4) : smooth ? 0.35 : 0.5;
+  // Whatever's left of the footage plays over the rest of the shot, ending at `fast`.
+  const fast = Math.min(4, Math.max(1.2, (2 * (need - hold * slow)) / Math.max(1e-6, d - hold) - slow));
+  return { slow, fast, hold };
 }
 
 /**
@@ -431,7 +456,8 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
     const slot = slots[i];
     const d = slot.end - slot.start;
     const key = Math.round(d * FPS);
-    if (!cache.has(key)) cache.set(key, candidatesFor(scans, d, motionScale, ctx.purpose));
+    const need = ctx.velocity && d >= RAMP_MIN ? d * RAMP_FOOTAGE : d;
+    if (!cache.has(key)) cache.set(key, candidatesFor(scans, need, motionScale, ctx.purpose));
     const { segs, len } = cache.get(key)!;
     const energy = ctx.song ? loudnessOver(ctx.song, ctx.songStart, slot.start, slot.end) : 0.5;
     const r = slot.role;
@@ -498,10 +524,12 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
   return slots.map((slot, i) => {
     const seg = chosen[i];
     const d = slot.end - slot.start;
-    // A stretch shorter than the slot plays slower to fill it (down to half speed; past
-    // that its last frame holds).
-    const speed = seg.scan.kind === "video" && seg.len < d - 1e-6 ? Math.max(0.5, seg.len / d) : 1;
-    let crop = cropFor(seg.scan, seg.start, seg.start + d * speed, ctx.aspect);
+    // A velocity edit ramps the shot when there's footage for it; otherwise a stretch
+    // shorter than the slot plays slower to fill it (down to half speed; past that its
+    // last frame holds).
+    const ramp = ctx.velocity && seg.scan.kind === "video" && d >= RAMP_MIN && seg.len >= d * RAMP_FOOTAGE - 1e-6 ? rampFor(d, seg.len, seg.scan.fps ?? 30, slot.role === "drop") : undefined;
+    const speed = !ramp && seg.scan.kind === "video" && seg.len < d - 1e-6 ? Math.max(0.5, seg.len / d) : 1;
+    let crop = cropFor(seg.scan, seg.start, seg.start + (ramp ? seg.len : d * speed), ctx.aspect);
     if (seg.scan.kind === "image") {
       // Ken Burns: a slow push, alternating in and out, drifting towards the subject.
       crop = kenBurns(crop, [crop.cx, crop.cy], kb++ % 2 === 0);
@@ -510,7 +538,7 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
       if (ctx.variant % 2) crop.zoom0 = 1.045;
       else crop.zoom1 = 1.04;
     }
-    return { start: slot.start, end: slot.end, source: seg.scan.id, kind: seg.scan.kind, srcStart: seg.start, speed, crop, role: slot.role, score: Math.round(seg.score * 100) / 100 };
+    return { start: slot.start, end: slot.end, source: seg.scan.id, kind: seg.scan.kind, srcStart: seg.start, speed, ...(ramp ? { ramp } : {}), crop, role: slot.role, score: Math.round(seg.score * 100) / 100 };
   });
 }
 
@@ -548,6 +576,8 @@ export interface FinishOptions {
   flourishAt?: number;
   /** strong hits in the music (edit time) that get a small punch-in */
   hits?: number[];
+  /** cuts that open a new phrase of the music (edit time): a zoom blur across them */
+  phrases?: number[];
   fadeIn?: number;
   bpm?: number;
 }
@@ -568,6 +598,8 @@ export function finishPlan(o: FinishOptions): EditPlan {
   if (at !== undefined && flourish !== "burn") fx.push({ kind: "punch", start: at - 1 / FPS, end: at + 9 / FPS, strength: 1, at });
   if (at !== undefined && flourish === "shake") fx.push({ kind: "shake", start: at, end: at + 8 / FPS, strength: 1, at });
   if (flourish !== "burn") for (const h of o.hits ?? []) fx.push({ kind: "punch", start: h - 1 / FPS, end: h + 8 / FPS, strength: 0.5, at: h });
+  // A zoom blur across the cuts that open a phrase: six frames either side, peaking on the cut.
+  for (const p of o.phrases ?? []) fx.push({ kind: "zoomblur", start: p - 6 / FPS, end: p + 6 / FPS, strength: 1, at: p });
   if (o.card) fx.push({ kind: "dip", start: cardAt - 4 / FPS, end: cardAt, strength: 1 });
   const fadeOut = o.card ? Math.min(0.8, cardHold * 0.2) : 0.6;
   const lengths = o.shots.map((s) => s.end - s.start).sort((a, b) => a - b);
@@ -617,7 +649,7 @@ export function finishPlan(o: FinishOptions): EditPlan {
 export function usedRanges(plan: EditPlan, into: Ranges = new Map()): Ranges {
   for (const s of plan.shots) {
     if (!into.has(s.source)) into.set(s.source, []);
-    into.get(s.source)!.push([s.srcStart, s.srcStart + (s.end - s.start) * s.speed, s.role === "hook" || s.role === "drop"]);
+    into.get(s.source)!.push([s.srcStart, s.srcStart + sourceSpan(s), s.role === "hook" || s.role === "drop"]);
   }
   return into;
 }
@@ -648,17 +680,22 @@ export interface MontageOptions {
   caption: { style: "mood" | "pov" | "meme"; text: string } | null;
   variant: number;
   avoid?: Ranges;
+  /** speed ramps on every shot long enough (a velocity edit) */
+  velocity?: boolean;
 }
 
 export function planMontage(o: MontageOptions): EditPlan {
   const win = musicWindow(o.song, o.length, o.card ? o.card.hold : 0, o.fromStart, o.songStart);
-  const cuts = planCuts(o.song, win.songStart, win.cardAt, { dropAt: win.dropAt, pace: variantPace(o.variant) }).map((t) => frame(Math.max(1 / FPS, t - CUT_LEAD)));
+  const pace = variantPace(o.variant);
+  const cuts = planCuts(o.song, win.songStart, win.cardAt, { dropAt: win.dropAt, pace, busy: pace }).map((t) => frame(Math.max(1 / FPS, t - CUT_LEAD)));
   const dropCut = win.dropAt !== undefined ? frame(win.dropAt - CUT_LEAD) : undefined;
   const slots = slotsBetween([0, ...cuts, win.cardAt], dropCut);
-  const shots = assignShots(slots, o.scans, { song: o.song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid });
+  const shots = assignShots(slots, o.scans, { song: o.song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, velocity: o.velocity });
   const drop = shots.find((s) => s.role === "drop");
   const captions: CaptionEvent[] = o.caption?.text.trim() ? [{ style: o.caption.style, text: o.caption.text.trim(), start: 0, end: o.card ? win.cardAt - 4 / FPS : win.duration }] : [];
   const hits = strongHits(o.song, win.songStart, 0.8, win.cardAt - 0.6, drop?.start);
+  // A velocity edit also zoom-blurs across the cuts that open a four-bar phrase.
+  const phrases = o.velocity ? phraseCuts(o.song, win.songStart, shots, drop?.start) : [];
   return finishPlan({
     id: "montage",
     label: `Montage ${o.variant + 1}`,
@@ -674,8 +711,23 @@ export function planMontage(o: MontageOptions): EditPlan {
     variant: o.variant,
     flourishAt: drop?.start,
     hits,
+    phrases,
     bpm: o.song.bpm,
   });
+}
+
+/** Cuts that fall on the first beat of a four-bar phrase (not the first cut, not the drop's), at most three. */
+export function phraseCuts(song: SongAnalysis, songStart: number, shots: ShotEvent[], drop?: number): number[] {
+  if (song.downbeats.length < 5) return [];
+  const first = song.downbeats.findIndex((d) => d >= songStart - 0.05);
+  if (first < 0) return [];
+  const starts = song.downbeats.filter((_, i) => i >= first && (i - first) % 4 === 0).map((d) => d - songStart - CUT_LEAD);
+  const out: number[] = [];
+  for (const s of shots.slice(1)) {
+    if (drop !== undefined && Math.abs(s.start - drop) < 1.5) continue;
+    if (starts.some((p) => Math.abs(p - s.start) <= 1.5 / FPS)) out.push(s.start);
+  }
+  return out.slice(0, 3);
 }
 
 /**

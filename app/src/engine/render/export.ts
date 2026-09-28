@@ -23,7 +23,7 @@ import {
 } from "mediabunny";
 import type { Source } from "../media/sources";
 import { centreAt } from "../plan/framing";
-import type { EditPlan, FxEvent, ShotEvent } from "../plan/types";
+import { sourceAt, sourceSpan, type EditPlan, type FxEvent, type ShotEvent } from "../plan/types";
 import { drawCaption } from "./captions";
 import { drawCard } from "./card";
 import { loadFonts } from "./fonts";
@@ -129,6 +129,7 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
   let burnPhase = 0;
   let dim = 0;
   let punch = 1;
+  let zoomBlur = 0;
   const shake: [number, number] = [0, 0];
   for (const e of fx) {
     if (t < e.start - 1e-6 || t >= e.end - 1e-6) continue;
@@ -150,6 +151,10 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
       const at = e.at ?? e.start;
       const env = t < at ? (t - e.start + 1 / fps) / Math.max(1e-6, at - e.start + 1 / fps) : (1 - (t - at) / Math.max(1e-6, e.end - at)) ** 2;
       punch = Math.max(punch, 1 + 0.14 * e.strength * Math.min(1, Math.max(0, env)));
+    } else if (e.kind === "zoomblur") {
+      const at = e.at ?? (e.start + e.end) / 2;
+      const half = Math.max(1e-6, Math.max(at - e.start, e.end - at));
+      zoomBlur = Math.max(zoomBlur, e.strength * Math.max(0, 1 - Math.abs(t - at) / half) ** 1.5);
     } else if (e.kind === "shake") {
       // A few frames of hard, decaying jolts (the same every render), with a touch of zoom so no edge shows.
       const k = Math.round((t - e.start) * fps);
@@ -160,7 +165,7 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
       punch = Math.max(punch, 1 + 0.06 * e.strength * decay);
     }
   }
-  return { flash, burn, burnPhase, dim, punch, shake };
+  return { flash, burn, burnPhase, dim, punch, shake, zoomBlur };
 }
 
 async function blobToBase64Parts(blob: Blob, chunk = 6 * 1024 * 1024): Promise<string[]> {
@@ -212,7 +217,7 @@ export class FramePainter {
         if (!v) return null;
         this.sinks.set(shot.source, (sink = new VideoSampleSink(v)));
       }
-      r = new ShotReader(sink, shot.srcStart, shot.srcStart + (shot.end - shot.start) * shot.speed);
+      r = new ShotReader(sink, shot.srcStart, shot.srcStart + sourceSpan(shot));
       this.readers.set(i, r);
     }
     return r;
@@ -258,7 +263,7 @@ export class FramePainter {
           layers.push({ slot: 0, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1 });
         }
       } else {
-        const sample = await this.reader(idx)?.at(shot.srcStart + (t - shot.start) * shot.speed);
+        const sample = await this.reader(idx)?.at(shot.srcStart + sourceAt(shot, t - shot.start));
         if (sample) {
           const key = `${shot.source}@${sample.timestamp}`;
           if (this.lastUpload !== key) {
@@ -286,7 +291,7 @@ export class FramePainter {
       comp.uploadOverlay(this.overlay);
       this.overlayKey = key;
     }
-    comp.draw({ layers, grade: plan.grade, flash: e.flash, burn: e.burn, burnPhase: e.burnPhase, dim: inCard ? 0 : e.dim, overlay: !!key, time: t, seed: 1.37, shake: e.shake });
+    comp.draw({ layers, grade: plan.grade, flash: e.flash, burn: e.burn, burnPhase: e.burnPhase, dim: inCard ? 0 : e.dim, overlay: !!key, time: t, seed: 1.37, shake: e.shake, zoomBlur: inCard ? 0 : e.zoomBlur });
   }
 
   async close() {

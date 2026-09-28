@@ -5,7 +5,7 @@ import { analyzeSong, type SongAnalysis } from "../src/engine/audio/song";
 import { PROFILE_BINS, type Scan } from "../src/engine/media/scan";
 import { CUT_LEAD, mulberry32, planMontage, spread, usedRanges, type Ranges } from "../src/engine/plan/montage";
 import { planMeme, planTwist } from "../src/engine/plan/formats";
-import { FPS, type CardSpec } from "../src/engine/plan/types";
+import { FPS, outputAt, sourceAt, sourceSpan, type CardSpec } from "../src/engine/plan/types";
 
 /** A stand-in for a scanned clip: interest and motion that wander, one colour cast. */
 function fakeScan(id: string, duration: number, seed: number, kind: "video" | "image" = "video"): Scan {
@@ -184,6 +184,42 @@ describe("planners on a synthetic song (runs everywhere)", () => {
     expect(kinds[1]).toContain("burn");
     expect(kinds[1]).not.toContain("punch");
     expect(kinds[2]).toEqual(expect.arrayContaining(["punch", "shake"]));
+  });
+
+  it("velocity: shots long enough ramp from slow motion into a rush, on the same cuts", () => {
+    const plain = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans, aspect: "9x16", length: 12, card, caption: null, variant: 0 });
+    const fast = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans, aspect: "9x16", length: 12, card, caption: null, variant: 0, velocity: true });
+    expect(fast.shots.map((s) => s.start)).toEqual(plain.shots.map((s) => s.start));
+    const ramped = fast.shots.filter((s) => s.ramp);
+    expect(ramped.length).toBeGreaterThan(fast.shots.length / 2);
+    for (const s of ramped) {
+      const d = s.end - s.start;
+      expect(sourceSpan(s)).toBeCloseTo(d * 1.1, 4);
+      expect(s.ramp!.slow).toBeLessThan(1);
+      expect(s.ramp!.fast).toBeGreaterThan(1);
+      // The time map runs forwards and inverts.
+      for (const tau of [0, d * 0.2, d * 0.5, d * 0.9, d]) {
+        expect(outputAt(s, sourceAt(s, tau))).toBeCloseTo(tau, 3);
+        if (tau > 0) expect(sourceAt(s, tau)).toBeGreaterThan(sourceAt(s, tau * 0.9));
+      }
+    }
+    // The drop gets the slowest, longest hold.
+    const drop = fast.shots.find((s) => s.role === "drop");
+    if (drop?.ramp) for (const s of ramped) expect(drop.ramp.slow).toBeLessThanOrEqual(s.ramp!.slow);
+    // Velocity also zoom-blurs across cuts that open a four-bar phrase (never on the drop's cut).
+    const blurs = fast.fx.filter((f) => f.kind === "zoomblur");
+    expect(blurs.length).toBeGreaterThan(0);
+    for (const b of blurs) {
+      expect(fast.shots.some((s) => Math.abs(s.start - b.at!) < 1e-6)).toBe(true);
+      if (drop) expect(Math.abs(b.at! - drop.start)).toBeGreaterThan(1);
+    }
+    expect(plain.fx.some((f) => f.kind === "zoomblur")).toBe(false);
+    // No stretch of footage is used twice, counting what the ramps play.
+    const ranges = usedRanges(fast);
+    for (const [, rs] of ranges) {
+      const sorted = [...rs].sort((a, b) => a[0] - b[0]);
+      for (let i = 1; i < sorted.length; i++) expect(sorted[i][0]).toBeGreaterThanOrEqual(sorted[i - 1][1] - 1e-6);
+    }
   });
 
   it("twist and meme plan without fixtures", () => {

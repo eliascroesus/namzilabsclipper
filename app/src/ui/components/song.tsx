@@ -71,8 +71,12 @@ export function SongTimeline({ s }: { s: State }) {
   };
   const up = () => {
     if (drag === null) return;
-    if (story) studio.setPayoff(drag);
-    else studio.setSongStart(drag);
+    // A click that didn't move anything leaves an automatic choice automatic.
+    const moved = Math.abs(drag - (story ? (win.payoff ?? 0) : win.start)) > 0.01;
+    if (moved || !win.auto) {
+      if (story) studio.setPayoff(drag);
+      else studio.setSongStart(drag);
+    }
     setDrag(null);
   };
   const key = (e: KeyboardEvent<HTMLDivElement>) => {

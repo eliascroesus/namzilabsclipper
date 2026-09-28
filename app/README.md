@@ -40,9 +40,9 @@ Story adds a listening step first: `audio/speech` finds where people talk and pa
 |---|---|
 | `src/engine/audio/` | `dsp` (FFT, mel, onset strength), `rhythm` (tempo, beats, onsets: librosa 0.11 exactly), `song` (bar lines, accents, drops, best section), `resample` (streaming sinc), `speech` (voice detection, pause cutting, MP3) |
 | `src/engine/media/` | `sources` (open files, decode audio), `scan` (per-frame measurements, shot changes, black bars, interest scores) |
-| `src/engine/plan/` | `types` (the edit plan), `montage` (music window, cut grid, slot filling and variety across a batch, finishing; the montage format), `formats` (twist, meme), `story`, `framing` (black bars, following faces, the camera path) |
+| `src/engine/plan/` | `types` (the edit plan, and the speed-ramp time map), `montage` (music window, cut grid, slot filling and variety across a batch, velocity ramps, finishing; the montage format), `formats` (twist, meme), `story`, `framing` (black bars, following faces, the camera path) |
 | `src/engine/vision/` | `faces` (YuNet face detector), `track` (face tracking through a plan's shots), `sheets` (contact sheets), `look` (smart picks: Gemini's ratings, remembered per file) |
-| `src/engine/render/` | `gl` (the WebGL2 compositor and its shaders), `card` (the demo card), `captions` (six styles), `mix` (soundtrack, loudness, limiter), `export` (FramePainter, stills, the encode loop) |
+| `src/engine/render/` | `gl` (the WebGL2 compositor and its shaders: crop, grade, flash, burn, shake, zoom blur), `card` (the demo card), `captions` (six styles), `mix` (soundtrack, loudness, limiter), `export` (FramePainter, punch-ins, stills, the encode loop) |
 | `src/engine/ai/`, `src/engine/story/` | The Gemini client and SponsorBlock; transcription and moment picking |
 | `src/ui/` | `studio` (state and actions), `App` and `components/` (panels, results), `kit` (brand kit storage), `styles.css` |
 | `src/harness.ts`, `harness.html` | A bare page the browser tests drive |
@@ -51,7 +51,7 @@ Story adds a listening step first: `audio/speech` finds where people talk and pa
 
 - `npm test` runs the unit tests: DSP parity with librosa (on the reference songs, when their fixtures are present), the resampler, loudness and limiter, the planners (including five edits from one 40 minute video staying apart), framing (black bars, following a face), smart picks and SponsorBlock with the network stubbed, speech detection.
 - `node e2e/run.mjs montage '<json>' --out DIR` renders edits through the harness in headless Chromium (plan, stills, or full renders; `"faces": true` follows faces). `node e2e/run.mjs faces '["<video>", [times]]'` runs the face detector on frames. Set `CHROMIUM_PATH` if Chromium isn't at `/opt/pw-browsers/chromium`, and `E2E_DIST=<a vite build>` to run against a built copy (an edit to the sources then can't reload a long run halfway).
-- `node e2e/ui.mjs`, `node e2e/story.mjs` and `node e2e/smart.mjs` use the real UI like a person would and screenshot each step; the story and smart picks tests answer Gemini's calls with a stand-in, so no key is needed.
+- `node e2e/ui.mjs`, `node e2e/story.mjs`, `node e2e/smart.mjs` and `node e2e/manage.mjs` use the real UI like a person would and screenshot each step; the story and smart picks tests answer Gemini's calls with a stand-in, so no key is needed, and the manage test drives the song timeline and deletes edits (waiting, being made, finished).
 
 The librosa fixtures and the test footage are other creators' media, so they stay out of git (`tests/fixtures/`, `test-media/`). To rebuild the fixtures, decode a song to 22,050 Hz mono float32 and save librosa's `onset_strength`, `feature.tempo`, `beat.beat_track`, `onset.onset_detect` and `feature.rms` output next to it (see `tests/audio.test.ts` for the fields).
 
