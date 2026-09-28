@@ -292,6 +292,11 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, opt
   };
   const longest = (a: number, b: number) => maxShot + silence(a, b);
   const { dropAt } = opts;
+  // What a build builds to: the drop, or, when the song drops out just before it, the
+  // moment it drops out (the silence is the held breath; the shot on the last hit
+  // holds through it and the drop lands on the return).
+  let peak = dropAt;
+  if (dropAt !== undefined) for (const [s0] of song.structure?.breaks ?? []) if (s0 - songStart < dropAt && dropAt - (s0 - songStart) < 8 * song.period) peak = Math.min(peak!, s0 - songStart);
   const cands = [{ t: from, w: 0, down: true, drop: false }, ...candidates(song, songStart, from, end - MIN_SHOT, dropAt), { t: end, w: 0, down: true, drop: false }];
   const n = cands.length;
   const pref = (a: number, b: number) => {
@@ -303,12 +308,13 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, opt
     // beats at least (a sung chorus over the full kit still cuts at the chorus's pace).
     if (energy < 0.6 && vocalOver(song, songStart, a, b) >= 0.5) beats = Math.max(beats, 2);
     // Into the drop the shots get shorter and shorter (a build: two beats, one, half),
-    // as far as there are hits to cut on; unless the song drops out before it, when
-    // the shot holds through the silence instead.
-    if (dropAt !== undefined && b <= dropAt + 0.05 && !silence(b, dropAt)) {
-      const bars = (dropAt - b) / (4 * song.period);
-      if (bars < 2) beats = Math.min(beats, bars < 0.5 ? 0.75 : bars < 1 ? 1 : 2);
-    }
+    // as far as there are hits to cut on, right up to the moment the song drops out;
+    // the shot on the last hit before the silence sounds for about a beat of it.
+    // (Into a silence it stays on the beat: the flurry between beats is for a drop that hits.)
+    if (peak !== undefined && b <= peak + 0.05) {
+      const bars = (peak - b) / (4 * song.period);
+      if (bars < 2) beats = Math.min(beats, bars < 0.5 && peak === dropAt ? 0.75 : bars < 1 ? 1 : 2);
+    } else if (peak !== undefined && peak !== dropAt && a < peak - 0.05) beats = Math.min(beats, 1);
     const target = beats * song.period * pace;
     return (-0.5 * Math.log(L / clamp(target, 0.38, 2.2 * pace)) ** 2) / (2 * 0.5 ** 2);
   };
@@ -334,7 +340,10 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, opt
         let skipsDrop = false;
         for (let m = j + 1; m < k; m++) if (cands[m].drop) skipsDrop = true;
         if (skipsDrop) continue;
-        const same = Math.abs(L - Lp) < 0.06 ? 0.2 : 0;
+        // Shots of one length after another read as mechanical, except in a build,
+        // where a run of the same short length is the build.
+        const inBuild = peak !== undefined && cands[k].t <= peak + 0.05 && peak - cands[k].t < 2 * 4 * song.period;
+        const same = Math.abs(L - Lp) < 0.06 && !inBuild ? 0.2 : 0;
         const score = st.score + (k === n - 1 ? 0 : cands[k].w - cost) + pref(cands[j].t, cands[k].t) - same;
         const cur = best[k].get(j);
         if (!cur || score > cur.score) best[k].set(j, { score, prev: i });
@@ -453,12 +462,48 @@ function lookAlike(a: Scan, i: number, b: Scan, j: number): number {
  */
 const cutMargin = (scan: Scan) => Math.max(0.08, 0.5 / scan.rate);
 
+/** A shot boundary in a source, and how far a shot keeps from it. */
+interface Bound {
+  t: number;
+  margin: number;
+}
+
+const boundCache = new WeakMap<Scan, { key: string; bounds: Bound[] }>();
+
+/**
+ * A source's shot boundaries, from its start to its end, each with the berth a shot
+ * keeps from it: the cuts the skim found (known only to within a sample or two, so
+ * a wide berth), except inside stretches since looked at frame by frame, and the
+ * cuts found that way (exact, so two frames').
+ */
+export function boundsOf(scan: Scan): Bound[] {
+  let sum = 0;
+  for (const [a, b] of scan.checked ?? []) sum += a + 2 * b;
+  for (const t of scan.exactCuts ?? []) sum += 3 * t;
+  const key = `${scan.cuts.length}|${scan.exactCuts?.length ?? 0}|${scan.checked?.length ?? 0}|${sum}`;
+  const hit = boundCache.get(scan);
+  if (hit && hit.key === key) return hit.bounds;
+  const checked = scan.checked ?? [];
+  const inner: Bound[] = [];
+  for (const t of scan.cuts) if (!checked.some(([a, b]) => t >= a && t <= b)) inner.push({ t, margin: cutMargin(scan) });
+  for (const t of scan.exactCuts ?? []) inner.push({ t, margin: 0.07 });
+  inner.sort((x, y) => x.t - y.t);
+  const bounds = [{ t: scan.start, margin: 0.08 }, ...inner.filter((b) => b.t > scan.start && b.t < scan.duration), { t: scan.duration, margin: 0.08 }];
+  boundCache.set(scan, { key, bounds });
+  return bounds;
+}
+
+const wholeSource = (scan: Scan): Bound[] => [
+  { t: scan.start, margin: 0.08 },
+  { t: scan.duration, margin: 0.08 },
+];
+
 /** The longest stretch of a source without a cut in it (or at all, `acrossCuts`). */
 export function longestStretch(scan: Scan, acrossCuts = false): number {
   if (scan.kind === "image") return Infinity;
-  const bounds = acrossCuts ? [scan.start, scan.duration] : [scan.start, ...scan.cuts, scan.duration];
+  const bounds = acrossCuts ? wholeSource(scan) : boundsOf(scan);
   let best = 0;
-  for (let i = 0; i + 1 < bounds.length; i++) best = Math.max(best, bounds[i + 1] - bounds[i] - 2 * cutMargin(scan));
+  for (let i = 0; i + 1 < bounds.length; i++) best = Math.max(best, bounds[i + 1].t - bounds[i + 1].margin - (bounds[i].t + bounds[i].margin));
   return best;
 }
 
@@ -475,11 +520,11 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
       out.push({ scan, start: 0, score: interest[0], peak: interest[0], motion: 0, rgb: [st.rgb[0], st.rgb[1], st.rgb[2]], flex: scan.look?.flex[0], wow: scan.look?.wow[0], emb: scan.look?.embs?.[scan.look.cell?.[0] ?? 0], scene: 0 });
       continue;
     }
-    const bounds = acrossCuts ? [scan.start, scan.duration] : [scan.start, ...scan.cuts, scan.duration];
+    const bounds = acrossCuts ? wholeSource(scan) : boundsOf(scan);
     const step = 1 / scan.rate;
     for (let s = 0; s + 1 < bounds.length; s++) {
-      const lo = bounds[s] + cutMargin(scan);
-      const hi = bounds[s + 1] - cutMargin(scan);
+      const lo = bounds[s].t + bounds[s].margin;
+      const hi = bounds[s + 1].t - bounds[s + 1].margin;
       if (hi - lo < d - 1e-6) continue;
       // Where a slot can start: an even grid, or, when the samples are sparser than
       // the slot is long (a long video skimmed by its key frames), centred on each
@@ -513,9 +558,13 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
         };
         for (let i = 0; i < st.t.length; i++) if (st.t[i] >= start && st.t[i] <= start + d) take(i);
         if (!c) {
-          // No sample inside: judge it by the nearest one.
+          // No sample inside: judge it by the nearest one in the same shot of the source
+          // (one across a cut shows something else); with none, there's no telling.
           let near = -1;
-          for (let i = 0; i < st.t.length; i++) if (near < 0 || Math.abs(st.t[i] - start - d / 2) < Math.abs(st.t[near] - start - d / 2)) near = i;
+          for (let i = 0; i < st.t.length; i++) {
+            if (st.t[i] < bounds[s].t || st.t[i] > bounds[s + 1].t) continue;
+            if (near < 0 || Math.abs(st.t[i] - start - d / 2) < Math.abs(st.t[near] - start - d / 2)) near = i;
+          }
           if (near < 0) continue;
           take(near);
         }
@@ -604,21 +653,21 @@ function nearness(ranges: Range[] | undefined, a: number, b: number, scale: numb
  */
 function momentOf(scan: Scan, t: number, scene?: number): string {
   if (scan.kind === "image") return scan.id;
-  const bounds = [scan.start, ...scan.cuts, scan.duration];
+  const bounds = boundsOf(scan);
   let k = scene ?? -1;
   if (k < 0) {
     k = 0;
-    while (k + 2 < bounds.length && t >= bounds[k + 1]) k++;
+    while (k + 2 < bounds.length && t >= bounds[k + 1].t) k++;
   }
-  return `${scan.id}|${k}|${Math.floor((t - bounds[k]) / Math.max(6, 2 * spread(scan)))}`;
+  return `${scan.id}|${k}|${Math.floor((t - bounds[k].t) / Math.max(6, 2 * spread(scan)))}`;
 }
 
 /** The source's shot a segment is in, as [start, end) seconds (the whole source when it runs across cuts). */
 function sceneOf(seg: Segment): [number, number] {
   const scan = seg.scan;
   if (seg.scene < 0 || scan.kind === "image") return [-Infinity, Infinity];
-  const bounds = [scan.start, ...scan.cuts, scan.duration];
-  return [bounds[seg.scene] ?? -Infinity, bounds[seg.scene + 1] ?? Infinity];
+  const bounds = boundsOf(scan);
+  return [bounds[seg.scene]?.t ?? -Infinity, bounds[seg.scene + 1]?.t ?? Infinity];
 }
 
 const dot = (a: ArrayLike<number>, b: ArrayLike<number>) => {

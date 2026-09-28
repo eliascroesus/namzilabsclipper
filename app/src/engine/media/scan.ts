@@ -48,8 +48,12 @@ export interface Scan {
   /** the video's own frame rate */
   fps?: number;
   stats: FrameStats;
-  /** shot boundaries inside the source, in seconds (not including 0 and the end) */
+  /** shot boundaries inside the source, in seconds (not including 0 and the end), as the skim found them */
   cuts: number[];
+  /** cuts found to the frame by looking at every frame of a stretch (media/cuts.ts): the first frame of each new shot */
+  exactCuts?: number[];
+  /** the stretches looked at frame by frame so far, [start, end] in seconds: inside them, exactCuts are all the cuts there are */
+  checked?: [number, number][];
   /** set once every source is scanned, 0 to 1 (see scoreInterest) */
   interest?: Float32Array;
   /** how well each sample shows the other side of the life (the desk, the screens, the grind), 0 to 1; with smart picks */

@@ -75,6 +75,8 @@ Done:
 - Moments picked by what they show: a picture model in the page (TinyCLIP) tells supercars, jets, villas and views from desks, charts, talking heads and title cards, without a key; Gemini sharpens it when there is one.
 - Selects, the way an editor pulls them: each edit comes from the best moments of all the footage (about 1.75 for every shot it has), its hook and drop from the three best no other edit in the batch opened or dropped on, and filler (a room, people with nothing to show off, a blur) only once the flex runs out. Variety comes from what the shots show, not which file they're in: the picture model's view of every shot already in the edit makes a look-alike less welcome.
 - Flow between shots: no jump cuts (two shots of one subject back to back have to change the framing: the colours and where the subject sits), related shots within a section, a clear change where a new section starts, cuts into movement, darker shots before the drop and a brighter one on it.
+- No cuts but the edit's own: every frame of what an edit takes from a long video is checked for the video's own cuts, and the edit is planned around them, so a shot never flashes to another scene off the beat.
+- A build that builds even when the song drops out before the drop: two beats a shot, then one on every beat of the last bar, then one shot held through the silence and the drop on the return.
 
 Next: visual beats (land a car's arrival on the hit), screen direction across cuts, shot size from faces, a beat model with downbeats (Beat This!), and lyric-matched shots.
 

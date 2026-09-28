@@ -6,6 +6,8 @@
 import { useSyncExternalStore } from "react";
 import { analyzeSong, SR, withVocals, type SongAnalysis } from "../engine/audio/song";
 import { findVocals } from "../engine/audio/vocals";
+import { cutFinder } from "../engine/media/cuts";
+import { settlePlan } from "../engine/plan/settle";
 import { scanImage, scanVideo, scoreInterest, type Scan } from "../engine/media/scan";
 import { decodeMono, openSource, type Source } from "../engine/media/sources";
 import { planMeme, planTwist } from "../engine/plan/formats";
@@ -952,34 +954,37 @@ class Studio {
         try {
           this.patchJob(job.id, { status: "planning", stage: "Picking the moments" });
           await new Promise((r) => setTimeout(r, 0));
-          let plan: EditPlan;
           const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, songStart: songStart ?? undefined, scans, aspect: style.aspect, length: style.length, card, variant: base + v, avoid, velocity: style.velocity };
-          if (style.format === "story") {
-            if (!story?.transcript || !story.scan) throw new Error("The video for this clip was taken out. Find the moments again.");
-            plan = planStory({
-              moment: chosenMoments[v],
-              transcript: story.transcript,
-              speech: story.speech,
-              source: story.scan,
-              broll: scans,
-              song: song ?? undefined,
-              songSource: "song",
-              songName,
-              aspect: style.aspect,
-              card,
-              variant: base + v,
-              avoid,
-              payoff: payoff ?? undefined,
-            });
-          } else if (style.format === "twist") {
-            const actB = new Set(ready.filter((f) => f.act === "b").map((f) => f.id));
-            plan = planTwist({ ...common, actB, captionA: style.caption === "none" ? "" : style.text, captionB: style.caption === "none" ? "" : style.textB });
-          } else if (style.format === "meme") {
-            plan = planMeme({ ...common, text: style.memeText, position: style.memePosition });
-          } else {
+          const make = (): EditPlan => {
+            if (style.format === "story") {
+              if (!story?.transcript || !story.scan) throw new Error("The video for this clip was taken out. Find the moments again.");
+              return planStory({
+                moment: chosenMoments[v],
+                transcript: story.transcript,
+                speech: story.speech,
+                source: story.scan,
+                broll: scans,
+                song: song ?? undefined,
+                songSource: "song",
+                songName,
+                aspect: style.aspect,
+                card,
+                variant: base + v,
+                avoid,
+                payoff: payoff ?? undefined,
+              });
+            } else if (style.format === "twist") {
+              const actB = new Set(ready.filter((f) => f.act === "b").map((f) => f.id));
+              return planTwist({ ...common, actB, captionA: style.caption === "none" ? "" : style.text, captionB: style.caption === "none" ? "" : style.textB });
+            } else if (style.format === "meme") {
+              return planMeme({ ...common, text: style.memeText, position: style.memePosition });
+            }
             if (!song) throw new Error("Add a sound first");
-            plan = planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text } });
-          }
+            return planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text } });
+          };
+          // Planned, then planned again until no shot runs over one of a long video's own
+          // cuts (media/cuts.ts: every frame of what the edit uses gets looked at).
+          const plan = await settlePlan(make, scanMap, cutFinder(sources, jobSignal));
           plan.grade = style.look === "natural" ? NO_GRADE : WARM_GRADE;
           usedRanges(plan, avoid);
           if (style.faces && plan.shots.some((sh) => sh.crop.fit === "cover")) {

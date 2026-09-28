@@ -3,6 +3,8 @@
  * URLs, runs one part of the engine for real in Chrome, and returns plain data.
  */
 import { analyzeSong, pickSection, SR, withVocals } from "./engine/audio/song";
+import { cutFinder } from "./engine/media/cuts";
+import { settlePlan } from "./engine/plan/settle";
 import { findVocals } from "./engine/audio/vocals";
 import { decodeMono, openSource, type Source } from "./engine/media/sources";
 import { KINDS, scanImage, scanVideo, scoreInterest, type Scan } from "./engine/media/scan";
@@ -186,6 +188,8 @@ export interface MontageRun {
   sense?: boolean;
   /** save the analysed song and footage (and the contact sheets) for tuning the planner outside the page */
   dump?: boolean;
+  /** look at every frame the edit uses for the footage's own cuts, and plan again around them (default on) */
+  settle?: boolean;
 }
 
 /** JSON for the analysis: typed arrays as { $ta, d }, blobs left out. */
@@ -237,12 +241,14 @@ async function montage(run: MontageRun) {
   const avoid: Ranges = new Map();
   for (let v = 0; v < (run.variants ?? 1); v++) {
     const common = { song: song ?? undefined, songSource: "song", songName: run.song?.split("/").pop() ?? "", fromStart: run.fromStart ?? true, songStart: run.songStart, scans, aspect: run.aspect ?? "9x16", length: run.length ?? 14, card, variant: v, avoid, velocity: run.velocity };
-    const plan =
+    const make = () =>
       run.format === "twist"
         ? planTwist({ ...common, actB: new Set((run.actB ?? []).map((i) => `clip${i}`)), captionA: run.caption?.text ?? "what they see vs...", captionB: run.captionB ?? "what they don't..." })
         : run.format === "meme"
           ? planMeme({ ...common, text: run.memeText ?? "", position: run.memePosition ?? "upper" })
           : planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption });
+    // As the app does: planned again until no shot runs over one of the footage's own cuts.
+    const plan = run.settle === false ? make() : await settlePlan(make, new Map(scans.map((sc) => [sc.id, sc])), cutFinder(sources));
     usedRanges(plan, avoid);
     lap(`plan${v}`);
     if (run.faces) {
@@ -272,7 +278,7 @@ async function montage(run: MontageRun) {
     await save(`${base}.plan.json`, new Blob([JSON.stringify(plan, null, 1)]));
     results.push({ file: `${base}.${res.ext}`, bytes: res.blob.size, silentBytes: res.silent?.size, codecs: `${res.videoCodec}/${res.audioCodec}`, ms: res.ms, checks: plan.checks, shots: plan.shots.map((s) => [s.start.toFixed(2), s.source, s.srcStart.toFixed(2), s.role, s.score]) });
   }
-  return { timing, bpm: song?.bpm, results };
+  return { timing, bpm: song?.bpm, results, found: scans.filter((sc) => sc.checked).map((sc) => ({ id: sc.id, exactCuts: sc.exactCuts, checked: sc.checked })) };
 }
 
 declare global {
