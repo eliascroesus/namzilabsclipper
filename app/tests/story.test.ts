@@ -129,3 +129,13 @@ describe("story subtitles at the edges of the kept talk", () => {
     expect(said).toContain("november");
   });
 });
+
+describe("a story clip without a hook", () => {
+  it("shows subtitles from the first word", () => {
+    const speech: Run[] = [{ start: 1, end: 4 }];
+    const tr: Transcript = { model: "t", phrases: [{ start: 1, end: 4, speaker: "A", text: "one two three four five six", tone: "normal" }] };
+    const plan = planStory({ moment: { id: "m", first: 0, last: 0, start: 1, end: 4, hook: "  ", why: "", caption: "", score: 1 }, transcript: tr, speech, source: fakeScan("s", 10, 2), broll: [], aspect: "4x3", card: null, variant: 0 });
+    expect(plan.captions[0].start).toBeLessThan(0.3);
+    expect(plan.captions.map((c) => c.text).join(" ")).toContain("one");
+  });
+});

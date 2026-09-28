@@ -156,6 +156,23 @@ function loadKey(): string {
 let nextId = 1;
 const newId = (p: string) => `${p}${nextId++}`;
 
+/** At most one call every `ms` (the last one, at p = 1, always goes through). */
+function throttled(fn: (p: number) => void, ms = 100) {
+  let last = 0;
+  return (p: number) => {
+    const now = performance.now();
+    if (p >= 1 || now - last >= ms) {
+      last = now;
+      fn(p);
+    }
+  };
+}
+
+function closeSource(src: Source | undefined) {
+  src?.input?.dispose();
+  src?.image?.close();
+}
+
 class Studio {
   private state: State;
   private readonly listeners = new Set<() => void>();
@@ -166,6 +183,11 @@ class Studio {
   private scanQueue: Promise<void> = Promise.resolve();
   private abort: AbortController | null = null;
   private readonly speech = new Map<string, Run[]>();
+  /** batches in flight (making edits, finding moments) that may still read the files */
+  private inFlight = 0;
+  /** files taken out while a batch was using them, closed once it's done */
+  private retired: Source[] = [];
+  private readonly scanAborts = new Map<string, AbortController>();
   /** edits made so far with this footage and sound: the next batch continues from here */
   private made = 0;
   private madeAvoid = new Map<string, [number, number][]>();
@@ -263,29 +285,61 @@ class Studio {
 
   private async readFootage(id: string, file: File) {
     if (!this.state.footage.some((f) => f.id === id)) return;
+    const abort = new AbortController();
+    this.scanAborts.set(id, abort);
     try {
       const src = await openSource(id, file, file.name);
+      // Taken out while it was opening: close it and move on.
+      if (!this.state.footage.some((f) => f.id === id)) {
+        closeSource(src);
+        return;
+      }
       if (src.info.kind === "audio") {
         // A sound dropped with the footage: use it as the sound.
+        closeSource(src);
         this.set((s) => ({ footage: s.footage.filter((f) => f.id !== id) }));
         void this.setSound(file);
         return;
       }
       this.sources.set(id, src);
       this.patchFootage(id, { kind: src.info.kind === "image" ? "image" : "video", duration: src.info.duration, width: src.info.width, height: src.info.height, status: "scanning" });
-      const scan = src.info.kind === "image" ? await scanImage(src) : await scanVideo(src, { onProgress: (p) => this.patchFootage(id, { progress: p }) });
+      const progress = throttled((p) => this.patchFootage(id, { progress: p }));
+      const scan = src.info.kind === "image" ? await scanImage(src) : await scanVideo(src, { onProgress: progress, signal: abort.signal });
       if (!this.state.footage.some((f) => f.id === id)) return;
       this.scans.set(id, scan);
       this.patchFootage(id, { status: "ready", progress: 1, thumb: scan.thumb ? URL.createObjectURL(scan.thumb) : undefined });
     } catch (e) {
+      if (abort.signal.aborted) return;
       this.patchFootage(id, { status: "error", error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      this.scanAborts.delete(id);
+    }
+  }
+
+  /** Close a file now, or once the batch using it is done. */
+  private retire(src: Source | undefined) {
+    if (!src) return;
+    if (this.inFlight > 0) this.retired.push(src);
+    else closeSource(src);
+  }
+
+  private batchStarted() {
+    this.inFlight++;
+  }
+
+  private batchDone() {
+    this.inFlight = Math.max(0, this.inFlight - 1);
+    if (this.inFlight === 0) {
+      for (const src of this.retired) closeSource(src);
+      this.retired = [];
     }
   }
 
   removeFootage(id: string) {
     const f = this.state.footage.find((x) => x.id === id);
     if (f?.thumb) URL.revokeObjectURL(f.thumb);
-    this.sources.get(id)?.input?.dispose();
+    this.scanAborts.get(id)?.abort();
+    this.retire(this.sources.get(id));
     this.sources.delete(id);
     this.scans.delete(id);
     this.set((s) => ({ footage: s.footage.filter((x) => x.id !== id) }));
@@ -302,14 +356,25 @@ class Studio {
     this.song = null;
     this.set({ sound: { id, name: file.name, duration: 0, status: "reading", progress: 0, fromReel: true } });
     try {
-      const src = await openSource(id, file, file.name);
-      if (!src.info.hasAudio) throw new Error(`${file.name} has no sound in it.`);
+      const src = await openSource(id, file, file.name, { audioOnly: true });
+      // Another sound was dropped while this one opened: that one wins.
+      if (this.state.sound?.id !== id) {
+        closeSource(src);
+        return;
+      }
+      if (!src.info.hasAudio) {
+        closeSource(src);
+        throw new Error(`${file.name} has no sound in it.`);
+      }
+      this.retire(this.sources.get("song"));
       this.sources.set("song", src);
       // A short sound is almost always a Reel's: keep its start so "Use audio" lines up.
       const fromReel = src.info.duration < 75;
       this.set((s) => ({ sound: s.sound && s.sound.id === id ? { ...s.sound, duration: src.info.duration, status: "analyzing", fromReel } : s.sound }));
-      const y = await decodeMono(src, SR, 0, Infinity, (p) => this.set((s) => ({ sound: s.sound && s.sound.id === id ? { ...s.sound, progress: p * 0.8 } : s.sound })));
+      const progress = throttled((p) => this.set((s) => ({ sound: s.sound && s.sound.id === id ? { ...s.sound, progress: p * 0.8 } : s.sound })));
+      const y = await decodeMono(src, SR, 0, Infinity, progress);
       await new Promise((r) => setTimeout(r, 0));
+      if (this.state.sound?.id !== id) return;
       const song = analyzeSong(y);
       if (this.state.sound?.id !== id) return;
       this.song = song;
@@ -335,7 +400,7 @@ class Studio {
   }
 
   clearSound() {
-    this.sources.get("song")?.input?.dispose();
+    this.retire(this.sources.get("song"));
     this.sources.delete("song");
     this.song = null;
     this.set({ sound: null });
@@ -416,11 +481,13 @@ class Studio {
     this.abort = new AbortController();
     const signal = this.abort.signal;
     this.set({ busy: true });
+    this.batchStarted();
     this.patchStory({ status: "working", stage: "Listening", progress: 0, error: undefined, sourceId: item.id, moments: [] });
     try {
       let tr = this.transcripts.get(item.id);
       if (!tr) {
-        const y = await decodeMono(src, 16000, 0, Infinity, (p) => this.patchStory({ progress: p * 0.25, stage: "Listening" }));
+        const listening = throttled((p) => this.patchStory({ progress: p * 0.25, stage: "Listening" }));
+        const y = await decodeMono(src, 16000, 0, Infinity, listening, signal);
         const runs = detectSpeech(y, 16000);
         this.speech.set(item.id, runs);
         if (!runs.length) throw new Error("Nobody seems to be talking in this video.");
@@ -445,6 +512,7 @@ class Studio {
       this.patchStory({ status: cancelled ? "idle" : "error", error: cancelled ? undefined : e instanceof Error ? e.message : String(e) });
     } finally {
       this.abort = null;
+      this.batchDone();
       this.set({ busy: false });
     }
   }
@@ -500,21 +568,27 @@ class Studio {
     if (this.canGenerate()) return;
     if (this.storyNeedsMoments()) return this.findMoments();
     const s = this.state;
+    const style = s.style;
     const ready = s.footage.filter((f) => f.status === "ready");
     const scans = ready.map((f) => this.scans.get(f.id)!).filter(Boolean);
-    scoreInterest(scans);
-    const card: CardSpec | null = s.kit.enabled ? { kind: s.kit.kind, top: s.kit.top, bottom: s.kit.bottom, accent: s.kit.accent, hold: s.kit.hold, draw: s.kit.draw } : null;
-    const style = s.style;
+    // The batch keeps what it started with (files, analyses, the story's transcript),
+    // even if the panels change while it renders; anything taken out meanwhile is
+    // closed once the batch is done.
+    const sources = new Map(this.sources);
     const song = this.song && s.sound?.status === "ready" ? this.song : null;
+    const storyId = s.story.sourceId;
+    const story =
+      style.format === "story" && storyId
+        ? { transcript: this.transcripts.get(storyId), speech: this.speech.get(storyId) ?? [], scan: this.scans.get(storyId) }
+        : null;
+    const card: CardSpec | null = s.kit.enabled ? { kind: s.kit.kind, top: s.kit.top, bottom: s.kit.bottom, accent: s.kit.accent, hold: s.kit.hold, draw: s.kit.draw } : null;
+    const cardImage = this.cardImage ?? undefined;
     const fromReel = s.sound?.fromReel ?? true;
+    const songName = s.sound?.name ?? "the song";
     const label = style.format === "montage" ? "Montage" : style.format === "twist" ? "Twist" : style.format === "meme" ? "Meme" : "Clip";
     const chosenMoments = style.format === "story" ? s.story.moments.filter((m) => m.selected) : [];
     const count = style.format === "story" ? chosenMoments.length : style.variants;
-    const first = this.madeKey === [style.format, style.aspect, ready.map((f) => f.id).join(","), s.sound?.id ?? ""].join("|") ? this.made : 0;
-    const jobs: Job[] = Array.from({ length: count }, (_, v) => ({ id: newId("j"), label: style.format === "story" ? chosenMoments[v].hook || `${label} ${first + v + 1}` : `${label} ${first + v + 1}`, status: "waiting", progress: 0, stage: "Waiting" }));
-    this.set((st) => ({ jobs: [...jobs, ...st.jobs], busy: true, notice: undefined }));
-    this.abort = new AbortController();
-    const signal = this.abort.signal;
+
     // Another batch with the same footage and sound picks up where the last left off.
     const key = [style.format, style.aspect, ready.map((f) => f.id).join(","), s.sound?.id ?? ""].join("|");
     if (key !== this.madeKey) {
@@ -525,76 +599,90 @@ class Studio {
     const avoid = this.madeAvoid;
     const base = this.made;
     this.made += count;
-    const songName = s.sound?.name ?? "the song";
-    for (const [v, job] of jobs.entries()) {
-      if (signal.aborted) {
-        this.patchJob(job.id, { status: "error", error: "Cancelled", stage: "Cancelled" });
-        continue;
-      }
-      try {
-        this.patchJob(job.id, { status: "planning", stage: "Picking the moments" });
-        await new Promise((r) => setTimeout(r, 0));
-        let plan: EditPlan;
-        const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, scans, aspect: style.aspect, length: style.length, card, variant: base + v, avoid };
-        if (style.format === "story") {
-          const m = chosenMoments[v];
-          const srcId = s.story.sourceId!;
-          plan = planStory({
-            moment: m,
-            transcript: this.transcripts.get(srcId)!,
-            speech: this.speech.get(srcId) ?? [],
-            source: this.scans.get(srcId)!,
-            broll: scans,
-            song: song ?? undefined,
-            songSource: "song",
-            songName,
-            aspect: style.aspect,
-            card,
-            variant: base + v,
-          });
-        } else if (style.format === "twist") {
-          const actB = new Set(ready.filter((f) => f.act === "b").map((f) => f.id));
-          plan = planTwist({ ...common, actB, captionA: style.caption === "none" ? "" : style.text, captionB: style.caption === "none" ? "" : style.textB });
-        } else if (style.format === "meme") {
-          plan = planMeme({ ...common, text: style.memeText, position: style.memePosition });
-        } else {
-          if (!song) throw new Error("Add a sound first");
-          plan = planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text } });
+    const jobs: Job[] = Array.from({ length: count }, (_, v) => ({
+      id: newId("j"),
+      label: style.format === "story" ? chosenMoments[v].hook || `${label} ${base + v + 1}` : `${label} ${base + v + 1}`,
+      status: "waiting",
+      progress: 0,
+      stage: "Waiting",
+    }));
+    this.abort = new AbortController();
+    const signal = this.abort.signal;
+    this.batchStarted();
+    this.set((st) => ({ jobs: [...jobs, ...st.jobs], busy: true, notice: undefined }));
+    try {
+      scoreInterest(scans);
+      for (const [v, job] of jobs.entries()) {
+        if (signal.aborted) {
+          this.patchJob(job.id, { status: "error", error: "Cancelled", stage: "Cancelled" });
+          continue;
         }
-        plan.grade = style.look === "natural" ? NO_GRADE : WARM_GRADE;
-        usedRanges(plan, avoid);
-        this.patchJob(job.id, { plan, status: "rendering", stage: "Rendering" });
-        let last = 0;
-        const res = await renderPlan(plan, this.sources, {
-          music: !!plan.music,
-          silentCopy: !!plan.music,
-          cardImage: this.cardImage ?? undefined,
-          signal,
-          onProgress: (p, stage) => {
-            const now = performance.now();
-            if (now - last > 120 || p >= 1) {
-              last = now;
-              this.patchJob(job.id, { progress: p, stage });
-            }
-          },
-        });
-        this.patchJob(job.id, {
-          status: "done",
-          progress: 1,
-          stage: "Done",
-          url: URL.createObjectURL(res.blob),
-          silentUrl: res.silent ? URL.createObjectURL(res.silent) : undefined,
-          ext: res.ext,
-          bytes: res.blob.size,
-          ms: res.ms,
-        });
-      } catch (e) {
-        const cancelled = e instanceof DOMException && e.name === "AbortError";
-        this.patchJob(job.id, { status: "error", stage: cancelled ? "Cancelled" : "Failed", error: cancelled ? "Cancelled" : e instanceof Error ? e.message : String(e) });
+        try {
+          this.patchJob(job.id, { status: "planning", stage: "Picking the moments" });
+          await new Promise((r) => setTimeout(r, 0));
+          let plan: EditPlan;
+          const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, scans, aspect: style.aspect, length: style.length, card, variant: base + v, avoid };
+          if (style.format === "story") {
+            if (!story?.transcript || !story.scan) throw new Error("The video for this clip was taken out. Find the moments again.");
+            plan = planStory({
+              moment: chosenMoments[v],
+              transcript: story.transcript,
+              speech: story.speech,
+              source: story.scan,
+              broll: scans,
+              song: song ?? undefined,
+              songSource: "song",
+              songName,
+              aspect: style.aspect,
+              card,
+              variant: base + v,
+            });
+          } else if (style.format === "twist") {
+            const actB = new Set(ready.filter((f) => f.act === "b").map((f) => f.id));
+            plan = planTwist({ ...common, actB, captionA: style.caption === "none" ? "" : style.text, captionB: style.caption === "none" ? "" : style.textB });
+          } else if (style.format === "meme") {
+            plan = planMeme({ ...common, text: style.memeText, position: style.memePosition });
+          } else {
+            if (!song) throw new Error("Add a sound first");
+            plan = planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text } });
+          }
+          plan.grade = style.look === "natural" ? NO_GRADE : WARM_GRADE;
+          usedRanges(plan, avoid);
+          this.patchJob(job.id, { plan, status: "rendering", stage: "Rendering" });
+          let stage = "Rendering";
+          const progress = throttled((p) => this.patchJob(job.id, { progress: p, stage }), 120);
+          const res = await renderPlan(plan, sources, {
+            music: !!plan.music,
+            silentCopy: !!plan.music,
+            cardImage,
+            signal,
+            onProgress: (p, st) => {
+              if (st !== stage) {
+                stage = st;
+                this.patchJob(job.id, { progress: p, stage });
+              } else progress(p);
+            },
+          });
+          this.patchJob(job.id, {
+            status: "done",
+            progress: 1,
+            stage: "Done",
+            url: URL.createObjectURL(res.blob),
+            silentUrl: res.silent ? URL.createObjectURL(res.silent) : undefined,
+            ext: res.ext,
+            bytes: res.blob.size,
+            ms: res.ms,
+          });
+        } catch (e) {
+          const cancelled = e instanceof DOMException && e.name === "AbortError";
+          this.patchJob(job.id, { status: "error", stage: cancelled ? "Cancelled" : "Failed", error: cancelled ? "Cancelled" : e instanceof Error ? e.message : String(e) });
+        }
       }
+    } finally {
+      this.abort = null;
+      this.batchDone();
+      this.set({ busy: false });
     }
-    this.abort = null;
-    this.set({ busy: false });
   }
 }
 

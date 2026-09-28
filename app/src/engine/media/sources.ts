@@ -38,17 +38,42 @@ export function isImage(file: Blob, name: string): boolean {
 
 export class UnsupportedFileError extends Error {}
 
-export async function openSource(id: string, file: Blob, name: string): Promise<Source> {
+/**
+ * A photo at a size the edit can use: enough for a 1080 × 1920 frame with room to
+ * zoom (2,560 px on the long side, or 1,920 on the short one for a panorama), and
+ * never past 8,192 px, where GPUs stop taking textures. A 48 MP photo would
+ * otherwise hold 190 MB for the whole session.
+ */
+async function loadPhoto(file: Blob, name: string): Promise<ImageBitmap> {
+  let full: ImageBitmap;
+  try {
+    full = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    throw new UnsupportedFileError(`${name} isn't an image Chrome can read.`);
+  }
+  const long = Math.max(full.width, full.height);
+  const short = Math.min(full.width, full.height);
+  const k = Math.min(1, Math.max(2560 / long, 1920 / short), 8192 / long);
+  if (k >= 0.999) return full;
+  try {
+    return await createImageBitmap(full, { resizeWidth: Math.round(full.width * k), resizeHeight: Math.round(full.height * k), resizeQuality: "high" });
+  } finally {
+    full.close();
+  }
+}
+
+export interface OpenOptions {
+  /** only the sound is wanted (the sound for an edit): don't require the video to decode */
+  audioOnly?: boolean;
+}
+
+export async function openSource(id: string, file: Blob, name: string, opts: OpenOptions = {}): Promise<Source> {
   if (isImage(file, name)) {
+    if (opts.audioOnly) throw new UnsupportedFileError(`${name} is a picture, not a sound.`);
     if (/\.(heic|heif)$/i.test(name) || /heic|heif/.test(file.type)) {
       throw new UnsupportedFileError(`${name} is HEIC, which Chrome can't open. Export it as JPEG (Photos: File, Export) and drop that.`);
     }
-    let image: ImageBitmap;
-    try {
-      image = await createImageBitmap(file, { imageOrientation: "from-image" });
-    } catch {
-      throw new UnsupportedFileError(`${name} isn't an image Chrome can read.`);
-    }
+    const image = await loadPhoto(file, name);
     return {
       file,
       image,
@@ -57,12 +82,21 @@ export async function openSource(id: string, file: Blob, name: string): Promise<
   }
 
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
-  if (!(await input.canRead())) throw new UnsupportedFileError(`${name} isn't a video or audio file this browser can read.`);
-  const video = await input.getPrimaryVideoTrack();
+  if (!(await input.canRead())) {
+    input.dispose();
+    throw new UnsupportedFileError(`${name} isn't a video or audio file this browser can read.`);
+  }
+  // For a sound, the picture doesn't matter: a clip whose video this browser can't
+  // decode (HEVC on some PCs, ProRes) still gives its audio.
+  const video = opts.audioOnly ? null : await input.getPrimaryVideoTrack();
   const audio = await input.getPrimaryAudioTrack();
-  if (!video && !audio) throw new UnsupportedFileError(`${name} has no video or audio in it.`);
+  if (!video && !audio) {
+    input.dispose();
+    throw new UnsupportedFileError(opts.audioOnly ? `${name} has no sound in it.` : `${name} has no video or audio in it.`);
+  }
   if (video && !(await video.canDecode())) {
     const codec = await video.getCodec();
+    input.dispose();
     throw new UnsupportedFileError(`${name} uses ${codec ?? "a video codec"} that this browser can't decode.`);
   }
   const duration = await input.computeDuration();
@@ -92,12 +126,14 @@ export async function openSource(id: string, file: Blob, name: string): Promise<
  * speech), from `start` to `end` seconds of the file. Gaps in the track are
  * filled with silence so sample k is always at start + k / rate.
  */
-export async function decodeMono(src: Source, rate: number, start = 0, end = Infinity, onProgress?: (p: number) => void): Promise<Float32Array> {
+export async function decodeMono(src: Source, rate: number, start = 0, end = Infinity, onProgress?: (p: number) => void, signal?: AbortSignal): Promise<Float32Array> {
   const track = await src.input?.getPrimaryAudioTrack();
   if (!track) return new Float32Array(0);
-  const inRate = await track.getSampleRate();
   const until = Math.min(end, src.info.duration);
-  const rs = new Resampler(inRate, rate);
+  // The rate comes from the decoded audio, not the container: HE-AAC declared at
+  // 22.05 kHz decodes at 44.1 kHz.
+  let inRate = 0;
+  let rs: Resampler | null = null;
   const parts: Float32Array[] = [];
   let length = 0;
   const push = (a: Float32Array) => {
@@ -110,6 +146,11 @@ export async function decodeMono(src: Source, rate: number, start = 0, end = Inf
   const sink = new AudioSampleSink(track);
   for await (const sample of sink.samples(start, until)) {
     try {
+      if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+      if (!rs) {
+        inRate = sample.sampleRate;
+        rs = new Resampler(inRate, rate);
+      }
       const n = sample.numberOfFrames;
       const ch = sample.numberOfChannels;
       let offset = 0;
@@ -135,7 +176,7 @@ export async function decodeMono(src: Source, rate: number, start = 0, end = Inf
       sample.close();
     }
   }
-  push(rs.end());
+  if (rs) push(rs.end());
   const want = Math.max(0, Math.round((until - start) * rate));
   const out = new Float32Array(Number.isFinite(want) && want > 0 ? want : length);
   let o = 0;

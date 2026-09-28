@@ -93,7 +93,7 @@ void main() {
     s += texture(uTex, vPos + uStep * float(i)) * w[i];
     s += texture(uTex, vPos - uStep * float(i)) * w[i];
   }
-  outColor = s / 0.8274;
+  outColor = s / 0.8402; // the weights' own sum, so the blur neither brightens nor darkens
 }`;
 
 const COPY = `#version 300 es

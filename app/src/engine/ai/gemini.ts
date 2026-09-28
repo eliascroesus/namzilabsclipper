@@ -111,27 +111,69 @@ export async function generateJSON<T>(o: GenerateOptions): Promise<T> {
     } catch (e) {
       const retryable = e instanceof GeminiError ? e.retryable : e instanceof TypeError; // TypeError: the network
       if (!retryable || attempt >= 3 || o.signal?.aborted) throw e;
-      await new Promise((r) => setTimeout(r, wait));
+      await pause(wait, o.signal);
       wait *= 2.5;
     }
   }
 }
 
-/** JSON from a model, tolerating a code fence or a cut-off tail. */
+/** Wait, unless cancelled first. */
+function pause(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new DOMException("Cancelled", "AbortError"));
+    const t = setTimeout(() => {
+      signal?.removeEventListener("abort", stop);
+      resolve();
+    }, ms);
+    const stop = () => {
+      clearTimeout(t);
+      reject(new DOMException("Cancelled", "AbortError"));
+    };
+    signal?.addEventListener("abort", stop, { once: true });
+  });
+}
+
+/**
+ * JSON from a model, tolerating a code fence or a cut-off tail. A long answer can
+ * stop mid-array: it's cut back to the last complete value and the brackets still
+ * open are closed, reading strings properly so a "[" or "}" said inside a phrase
+ * doesn't count.
+ */
 export function parseJSON<T>(text: string): T {
   const t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   try {
     return JSON.parse(t) as T;
   } catch {
-    // A long answer can stop mid-array: close what was open and keep what came through.
-    const cut = t.slice(0, t.lastIndexOf("}") + 1);
-    const opens = (cut.match(/\[/g) ?? []).length - (cut.match(/\]/g) ?? []).length;
-    const braces = (cut.match(/\{/g) ?? []).length - (cut.match(/\}/g) ?? []).length;
-    try {
-      return JSON.parse(cut + "]".repeat(Math.max(0, opens)) + "}".repeat(Math.max(0, braces))) as T;
-    } catch {
-      throw new GeminiError("Gemini's answer wasn't readable. Try again.", 500, true);
+    let inString = false;
+    let escaped = false;
+    const stack: string[] = [];
+    let cut = -1;
+    let openAtCut: string[] = [];
+    for (let i = 0; i < t.length; i++) {
+      const c = t[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (c === "\\") escaped = true;
+        else if (c === '"') inString = false;
+        continue;
+      }
+      if (c === '"') inString = true;
+      else if (c === "{" || c === "[") stack.push(c);
+      else if (c === "}" || c === "]") {
+        stack.pop();
+        cut = i;
+        openAtCut = [...stack];
+      }
     }
+    if (cut >= 0) {
+      const closers = openAtCut.reverse().map((c) => (c === "{" ? "}" : "]")).join("");
+      try {
+        return JSON.parse(t.slice(0, cut + 1) + closers) as T;
+      } catch {
+        // fall through
+      }
+    }
+    throw new GeminiError("Gemini's answer wasn't readable. Try again.", 500, true);
   }
 }
 

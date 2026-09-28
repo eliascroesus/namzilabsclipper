@@ -150,10 +150,13 @@ export function planStory(o: StoryOptions): EditPlan {
     .map((w) => ({ ...w, out: toOut(w.start), outEnd: toOut(w.end) }))
     .filter((w): w is Word & { out: number; outEnd: number } => w.out !== null && w.outEnd !== null);
   let subs = subtitleLines(words);
-  const hookEnd = Math.min(dialogueEnd, Math.max(1.4, subs.find((s) => s.start > 0.9)?.start ?? 1.6));
-  subs = subs.filter((s) => s.end > hookEnd + 0.15).map((s) => (s.start < hookEnd ? { ...s, start: hookEnd } : s));
   const captions: CaptionEvent[] = [];
-  if (o.moment.hook.trim()) captions.push({ style: "doc", text: o.moment.hook.trim(), start: 0, end: hookEnd });
+  if (o.moment.hook.trim()) {
+    // The hook holds the screen for the opening; subtitles take over after it.
+    const hookEnd = Math.min(dialogueEnd, Math.max(1.4, subs.find((s) => s.start > 0.9)?.start ?? 1.6));
+    subs = subs.filter((s) => s.end > hookEnd + 0.15).map((s) => (s.start < hookEnd ? { ...s, start: hookEnd } : s));
+    captions.push({ style: "doc", text: o.moment.hook.trim(), start: 0, end: hookEnd });
+  }
   captions.push(...subs.map((s) => ({ ...s, end: Math.min(s.end, dialogueEnd) })));
 
   // 3. The payoff: the video's best-looking moments, cut fast to the song.

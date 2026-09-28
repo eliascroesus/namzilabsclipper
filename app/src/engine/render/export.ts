@@ -306,34 +306,41 @@ export async function renderPlan(plan: EditPlan, sources: Map<string, Source>, o
     registerAacEncoder();
     aacRegistered = true;
   }
+  const cancelled = () => {
+    if (opts.signal?.aborted) throw new DOMException("Render cancelled", "AbortError");
+  };
   opts.onProgress?.(0, "Mixing the sound");
   // Whatever the encoder adds in front of the sound is taken back off, so the song stays on the cuts.
   const delay = await audioDelay(codecs.container, codecs.audio, codecs.audio === "aac" && aacRegistered ? 1024 / 48000 : 0);
+  cancelled();
   const audio = shiftAudio(await mixPlan(plan, sources, opts.music), delay);
+  cancelled();
 
   const target = new BufferTarget();
   const output = new Output({ format: codecs.container === "mp4" ? new Mp4OutputFormat({ fastStart: "in-memory" }) : new WebMOutputFormat(), target });
-  const painter = new FramePainter(plan, sources, opts.cardImage);
   const packets: { packet: EncodedPacket; meta?: EncodedVideoChunkMetadata }[] = [];
-  const video = new CanvasSource(painter.canvas, {
-    codec: codecs.video,
-    bitrate: bitrateFor(W, H),
-    keyFrameInterval: 2,
-    latencyMode: "quality",
-    hardwareAcceleration: "no-preference",
-    onEncodedPacket: opts.silentCopy ? (packet, meta) => void packets.push({ packet, meta }) : undefined,
-  });
-  output.addVideoTrack(video, { frameRate: fps });
-  const audioSource = new AudioBufferSource({ codec: codecs.audio, bitrate: 192e3 });
-  output.addAudioTrack(audioSource);
-  await output.start();
-  await audioSource.add(audio);
-  audioSource.close();
-
-  const frames = Math.round(plan.duration * fps);
+  let painter: FramePainter | null = null;
+  let finished = false;
   try {
+    painter = new FramePainter(plan, sources, opts.cardImage);
+    const video = new CanvasSource(painter.canvas, {
+      codec: codecs.video,
+      bitrate: bitrateFor(W, H),
+      keyFrameInterval: 2,
+      latencyMode: "quality",
+      hardwareAcceleration: "no-preference",
+      onEncodedPacket: opts.silentCopy ? (packet, meta) => void packets.push({ packet, meta }) : undefined,
+    });
+    output.addVideoTrack(video, { frameRate: fps });
+    const audioSource = new AudioBufferSource({ codec: codecs.audio, bitrate: 192e3 });
+    output.addAudioTrack(audioSource);
+    await output.start();
+    await audioSource.add(audio);
+    audioSource.close();
+
+    const frames = Math.round(plan.duration * fps);
     for (let f = 0; f < frames; f++) {
-      if (opts.signal?.aborted) throw new DOMException("Render cancelled", "AbortError");
+      cancelled();
       const t = f / fps;
       await painter.paint(t);
       await video.add(t, 1 / fps);
@@ -341,35 +348,42 @@ export async function renderPlan(plan: EditPlan, sources: Map<string, Source>, o
     }
     video.close();
     await output.finalize();
-  } catch (err) {
-    await output.cancel().catch(() => undefined);
-    throw err;
+    finished = true;
   } finally {
-    await painter.close();
+    if (!finished) await output.cancel().catch(() => undefined);
+    await painter?.close();
   }
   const mime = codecs.container === "mp4" ? "video/mp4" : "video/webm";
   const blob = new Blob([target.buffer!], { type: mime });
 
   let silent: Blob | undefined;
   if (opts.silentCopy && packets.length) {
+    cancelled();
     // The same pictures without the song: the encoded frames go straight into a second
     // file, with the footage's own voice if the edit has any, and nothing else.
     const hasVoice = plan.sourceAudio || plan.shots.some((s) => s.audio);
     const voice = hasVoice ? shiftAudio(await mixPlan(plan, sources, false), delay) : null;
+    cancelled();
     const t2 = new BufferTarget();
     const out2 = new Output({ format: codecs.container === "mp4" ? new Mp4OutputFormat({ fastStart: "in-memory" }) : new WebMOutputFormat(), target: t2 });
-    const src2 = new EncodedVideoPacketSource(codecs.video);
-    out2.addVideoTrack(src2, { frameRate: fps });
-    const aud2 = voice ? new AudioBufferSource({ codec: codecs.audio, bitrate: 192e3 }) : null;
-    if (aud2) out2.addAudioTrack(aud2);
-    await out2.start();
-    if (aud2 && voice) {
-      await aud2.add(voice);
-      aud2.close();
+    let done2 = false;
+    try {
+      const src2 = new EncodedVideoPacketSource(codecs.video);
+      out2.addVideoTrack(src2, { frameRate: fps });
+      const aud2 = voice ? new AudioBufferSource({ codec: codecs.audio, bitrate: 192e3 }) : null;
+      if (aud2) out2.addAudioTrack(aud2);
+      await out2.start();
+      if (aud2 && voice) {
+        await aud2.add(voice);
+        aud2.close();
+      }
+      for (const { packet, meta } of packets) await src2.add(packet, meta);
+      src2.close();
+      await out2.finalize();
+      done2 = true;
+    } finally {
+      if (!done2) await out2.cancel().catch(() => undefined);
     }
-    for (const { packet, meta } of packets) await src2.add(packet, meta);
-    src2.close();
-    await out2.finalize();
     silent = new Blob([t2.buffer!], { type: mime });
   }
   return { blob, silent, mime, ext: codecs.container, videoCodec: codecs.video, audioCodec: codecs.audio, ms: Math.round(performance.now() - t0) };

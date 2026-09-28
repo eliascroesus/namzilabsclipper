@@ -84,8 +84,10 @@ export function chunkBounds(duration: number, runs: Run[], every = 300): number[
       const gapEnd = runs[i + 1].start;
       const mid = (gapStart + gapEnd) / 2;
       if (Math.abs(mid - mark) > 30) continue;
-      if (gapEnd - gapStart > bestGap) {
-        bestGap = gapEnd - gapStart;
+      // The longest pause; between equally long ones, the one nearest the mark.
+      const score = gapEnd - gapStart - 0.001 * Math.abs(mid - mark);
+      if (score > bestGap) {
+        bestGap = score;
         best = mid;
       }
     }
@@ -119,7 +121,7 @@ export async function transcribe(y: Float32Array, rate: number, runs: Run[], o: 
   const chunks = bounds.slice(0, -1).map((a, i) => ({ a, b: bounds[i + 1], i }));
   const results: Phrase[][] = new Array(chunks.length);
   let done = 0;
-  const work = async (c: { a: number; b: number; i: number }) => {
+  const work = async (c: { a: number; b: number; i: number }, signal: AbortSignal) => {
     const mp3 = await encodeMp3(y.subarray(Math.floor(c.a * rate), Math.floor(c.b * rate)), rate);
     const data = toBase64(new Uint8Array(await mp3.arrayBuffer()));
     const r = await generateJSON<{ phrases: Phrase[] }>({
@@ -128,21 +130,39 @@ export async function transcribe(y: Float32Array, rate: number, runs: Run[], o: 
       parts: [{ inlineData: { mimeType: "audio/mp3", data } }, { text: TRANSCRIBE_PROMPT }],
       schema: TRANSCRIBE_SCHEMA,
       temperature: 0,
-      signal: o.signal,
+      signal,
       // Newer models allow long answers; older ones cap at 8,192 and would refuse a bigger ask.
       maxOutputTokens: Number(/gemini-(\d+(?:\.\d+)?)/.exec(o.model)?.[1] ?? 0) >= 2.5 ? 32768 : undefined,
     });
+    if (signal.aborted) return;
     results[c.i] = cleanPhrases(r.phrases ?? [], c.a, c.b - c.a);
     done++;
     o.onProgress?.(done / chunks.length, `Transcribing ${done} of ${chunks.length}`);
   };
   o.onProgress?.(0, chunks.length > 1 ? `Transcribing 0 of ${chunks.length}` : "Transcribing");
   const queue = [...chunks];
-  await Promise.all(
-    Array.from({ length: Math.min(2, queue.length) }, async () => {
-      while (queue.length) await work(queue.shift()!);
-    }),
-  );
+  // One chunk failing stops the rest: no more calls, and the one in flight is cancelled.
+  const stop = new AbortController();
+  const onAbort = () => stop.abort();
+  o.signal?.addEventListener("abort", onAbort, { once: true });
+  try {
+    await Promise.all(
+      Array.from({ length: Math.min(2, queue.length) }, async () => {
+        while (queue.length && !stop.signal.aborted) {
+          try {
+            await work(queue.shift()!, stop.signal);
+          } catch (e) {
+            queue.length = 0;
+            stop.abort();
+            throw e;
+          }
+        }
+      }),
+    );
+  } finally {
+    o.signal?.removeEventListener("abort", onAbort);
+  }
+  if (o.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
   const phrases = results.flat().sort((p, q) => p.start - q.start);
   return { phrases, model: o.model };
 }
