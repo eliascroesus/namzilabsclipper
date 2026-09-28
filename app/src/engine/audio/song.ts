@@ -4,7 +4,8 @@
  * drops, and which stretch of it makes the best edit.
  */
 import { melFilterbank, melSpectrogram, onsetStrength, percentile, powerSpectrogram, powerToDb, rms, smooth } from "./dsp";
-import { beatTrack, detectOnsets } from "./rhythm";
+import { steadyGrid } from "./grid";
+import { beatTrack, detectOnsets, estimateTempo } from "./rhythm";
 
 export const SR = 22050;
 export const HOP = 512;
@@ -18,6 +19,8 @@ export interface Accent {
   s: number;
   /** how much of it is low end (kick, 808), 0 to 1 */
   kick: number;
+  /** how much of it is in the middle (snare, clap, voice, a stab), 0 to 1 */
+  mid: number;
   /** position on the beat grid, fractional (3.5 = halfway between beats 3 and 4) */
   beat: number;
 }
@@ -33,6 +36,8 @@ export interface SongAnalysis {
   hop: number;
   duration: number;
   bpm: number;
+  /** the beats are a steady grid measured to the exact tempo (not the tracker's own) */
+  steady: boolean;
   /** seconds per beat */
   period: number;
   beats: number[];
@@ -63,8 +68,13 @@ function zscore(a: number[]): number[] {
   return a.map((v) => (v - m) / sd);
 }
 
+export interface AnalyzeOptions {
+  /** look for a steady grid (default); false keeps the tracker's beats, for comparison */
+  steady?: boolean;
+}
+
 /** Analyse mono audio at 22,050 Hz. */
-export function analyzeSong(y: Float32Array, sr = SR): SongAnalysis {
+export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {}): SongAnalysis {
   const hop = HOP;
   const spec = powerSpectrogram(y, N_FFT, hop);
   const bank = melFilterbank(sr, N_FFT, N_MELS);
@@ -74,6 +84,12 @@ export function analyzeSong(y: Float32Array, sr = SR): SongAnalysis {
   let kickBands = 0;
   while (kickBands < N_MELS && bank.centres[kickBands] < 150) kickBands++;
   const kick = onsetStrength(melDb, frames, N_MELS, N_FFT, hop, [0, Math.max(2, kickBands)]);
+  // The middle of the spectrum: snare, clap, voice, stabs.
+  let midLo = 0;
+  while (midLo < N_MELS && bank.centres[midLo] < 200) midLo++;
+  let midHi = midLo;
+  while (midHi < N_MELS && bank.centres[midHi] < 2000) midHi++;
+  const mid = onsetStrength(melDb, frames, N_MELS, N_FFT, hop, [midLo, Math.max(midLo + 2, midHi)]);
   const level = rms(y, N_FFT, hop);
   const duration = y.length / sr;
 
@@ -88,11 +104,28 @@ export function analyzeSong(y: Float32Array, sr = SR): SongAnalysis {
 
   const envRef = Math.max(1e-6, percentile(env, 99.5));
   const kickRef = Math.max(1e-6, percentile(kick, 99.5));
+  const midRef = Math.max(1e-6, percentile(mid, 99.5));
 
   const track = beatTrack(env, sr, hop);
   let beatFrames = track.beats;
   let bpm = track.bpm;
-  if (beatFrames.length < 4) {
+  // A song made at one exact tempo gets a steady grid at that tempo, on the kick and
+  // snare; anything else keeps the tracker's beats.
+  let grid: ReturnType<typeof steadyGrid> = null;
+  if (opts.steady !== false && track.beats.length >= 8) {
+    // A second guess at the tempo from the kick and snare alone, without the hats.
+    const drums = new Float32Array(frames);
+    for (let i = 0; i < frames; i++) drums[i] = kick[i] + mid[i];
+    const drumBpm = estimateTempo(drums, sr, hop);
+    grid = steadyGrid(env, kick, mid, (60 / track.bpm) * (sr / hop), sr / hop, [(60 / drumBpm) * (sr / hop)]);
+  }
+  let exact: number[] | null = null;
+  if (grid) {
+    exact = [];
+    for (let f = grid.phase; f < frames - 1; f += grid.period) exact.push((f * hop) / sr);
+    beatFrames = exact.map((t) => Math.round((t * sr) / hop));
+    bpm = (60 * sr) / hop / grid.period;
+  } else if (beatFrames.length < 4) {
     // No usable pulse (speech, ambience): a nominal 120 bpm grid keeps the planner working.
     bpm = 120;
     const step = (0.5 * sr) / hop;
@@ -102,7 +135,7 @@ export function analyzeSong(y: Float32Array, sr = SR): SongAnalysis {
   // The tracker (like librosa) trims weak beats off both ends of the song; an
   // editor still feels the pulse through a quiet intro or outro, so carry the
   // grid on at the tracked spacing.
-  if (track.beats.length >= 4) {
+  if (!grid && track.beats.length >= 4) {
     const gaps = beatFrames.slice(1).map((f, i) => f - beatFrames[i]).sort((x, y) => x - y);
     const step = gaps[Math.floor(gaps.length / 2)];
     const head: number[] = [];
@@ -112,7 +145,7 @@ export function analyzeSong(y: Float32Array, sr = SR): SongAnalysis {
     beatFrames = [...head, ...beatFrames, ...tail];
   }
   const period = 60 / bpm;
-  const beats = beatFrames.map((f) => (f * hop) / sr);
+  const beats = exact ?? beatFrames.map((f) => (f * hop) / sr);
 
   const peakNear = (a: Float32Array, f: number, r: number) => {
     let m = 0;
@@ -181,7 +214,7 @@ export function analyzeSong(y: Float32Array, sr = SR): SongAnalysis {
   };
   const accents: Accent[] = detectOnsets(env, sr, hop).map((f) => {
     const t = (f * hop) / sr;
-    return { t, s: Math.min(1, env[f] / envRef), kick: Math.min(1, peakNear(kick, f, 1) / kickRef), beat: beatPos(t) };
+    return { t, s: Math.min(1, env[f] / envRef), kick: Math.min(1, peakNear(kick, f, 1) / kickRef), mid: Math.min(1, peakNear(mid, f, 1) / midRef), beat: beatPos(t) };
   });
 
   // Drops: bar lines where the next two bars are clearly louder and heavier than the last two.
@@ -204,10 +237,22 @@ export function analyzeSong(y: Float32Array, sr = SR): SongAnalysis {
     const { i, s } = scores[j];
     const prev = j > 0 ? scores[j - 1].s : -Infinity;
     const next = j + 1 < scores.length ? scores[j + 1].s : -Infinity;
-    if (s > 0.12 && s >= prev && s > next) drops.push({ t: beats[i], strength: Math.min(1, s / 0.5) });
+    if (s <= 0.12 || s < prev || s <= next) continue;
+    // The drop is the beat it actually hits on: usually the bar line, but a section
+    // can come in on beat 3, or a beat early with a pickup.
+    let at = i;
+    let jump = -Infinity;
+    for (let k = Math.max(1, i - 1); k <= Math.min(beats.length - 1, i + 3); k++) {
+      const step = beatLoudness[k] - beatLoudness[k - 1] + (k === i ? 0.02 : 0);
+      if (step > jump) {
+        jump = step;
+        at = k;
+      }
+    }
+    drops.push({ t: beats[at], strength: Math.min(1, s / 0.5) });
   }
 
-  return { sr, hop, duration, bpm, period, beats, beatInBar, downbeats, beatStrength, beatLoudness, accents, drops, env, kick, loudness, rms: level };
+  return { sr, hop, duration, bpm, steady: !!grid, period, beats, beatInBar, downbeats, beatStrength, beatLoudness, accents, drops, env, kick, loudness, rms: level };
 }
 
 export interface Section {

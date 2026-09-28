@@ -3,8 +3,9 @@
 
 For one video this writes, into its own folder:
 
-  summary.json   duration, format, every cut, shot lengths, tempo, beats, how
-                 tightly the cuts sit on the music, zoom and flash events
+  summary.json   duration, format, every cut, shot lengths, tempo, beats (librosa's,
+                 and the steady grid the app uses when the music keeps one exact
+                 tempo), how tightly the cuts sit on the music, zoom and flash events
   frames.csv     per-frame luma, change from the previous frame, and camera
                  motion (scale, pan, rotation) estimated from tracked points
   timeline.png   onset strength with the beat grid, cuts, motion and luma on
@@ -37,6 +38,130 @@ FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 
 # ── audio ────────────────────────────────────────────────────────────────────
 
+def _acf(x: np.ndarray) -> np.ndarray:
+    x = x - x.mean()
+    n = len(x)
+    f = np.fft.rfft(x, 2 * n)
+    a = np.fft.irfft(f * np.conj(f))[:n]
+    return a / (a[0] or 1.0)
+
+
+def _peak_between(a: np.ndarray, lo: float, hi: float):
+    i0, i1 = max(1, math.floor(lo)), min(len(a) - 2, math.ceil(hi))
+    if i1 <= i0:
+        return None
+    i = i0 + int(np.argmax(a[i0:i1 + 1]))
+    if (i == i0 and a[i - 1] > a[i]) or (i == i1 and a[i + 1] > a[i]):
+        return None  # on the slope up to a peak outside the window
+    y0, y1, y2 = a[i - 1], a[i], a[i + 1]
+    den = y0 - 2 * y1 + y2
+    d = max(-0.5, min(0.5, 0.5 * (y0 - y2) / den)) if den < 0 else 0.0
+    return i + d, y1
+
+
+def _profile(x: np.ndarray, period: float, bins: int = 64, a: int = 0, b: int | None = None) -> np.ndarray:
+    b = len(x) if b is None else b
+    i = np.arange(a, b)
+    idx = np.minimum(bins - 1, ((i % period) / period * bins).astype(int))
+    p = np.bincount(idx, weights=x[a:b], minlength=bins) / np.maximum(1, np.bincount(idx, minlength=bins))
+    return (np.roll(p, 1) + 2 * p + np.roll(p, -1)) / 4
+
+
+def _z(p: np.ndarray) -> np.ndarray:
+    return (p - p.mean()) / (p.std() or 1.0)
+
+
+def _pull(low: np.ndarray, mid: np.ndarray, period: float, phase: float, a: int, b: int) -> tuple[float, float]:
+    i = np.arange(a, b)
+    v = low[a:b] + mid[a:b]
+    z = np.sum(v * np.exp(1j * 4 * np.pi * (i - phase) / period))
+    w = v.sum()
+    return (abs(z) / w if w > 0 else 0.0), float(np.angle(z) / (2 * np.pi))
+
+
+def _weight(low: np.ndarray, mid: np.ndarray, period: float, phase: float) -> float:
+    ml, mm = low.mean() or 1.0, mid.mean() or 1.0
+    vals = []
+    f = phase
+    while f < len(low):
+        c = int(round(f))
+        vals.append(low[max(0, c - 1):c + 4].max() / ml + mid[max(0, c - 1):c + 3].max() / mm)
+        f += period
+    return float(np.mean(vals)) if vals else 0.0
+
+
+def _grid_at(env: np.ndarray, low: np.ndarray, mid: np.ndarray, rough: float):
+    a = _acf(env)
+    period, lags, k = rough, [], 1
+    while k * period < len(a) * 0.45:
+        w = 0.04 * period + 1 if k == 1 else 0.1 * period
+        p = _peak_between(a, k * period - w, k * period + w)
+        if p is None:
+            break
+        period = p[0] / k
+        lags.append((k, period, p[1]))
+        k *= 2
+    long = [l for l in lags if l[0] >= 4]
+    if len(long) < 2:
+        return None
+    if max(abs(l[1] - period) / period for l in long) > 0.0035 or np.mean([l[2] for l in long]) < 0.12:
+        return None
+    bins, half = 64, 32
+    score = _z(_profile(low, period)) + _z(_profile(mid, period)) + 0.5 * _z(_profile(env, period))
+    folded = score[:half] + score[half:]
+    j = int(np.argmax(folded))
+    y0, y1, y2 = folded[j - 1], folded[j], folded[(j + 1) % half]
+    den = y0 - 2 * y1 + y2
+    d = max(-0.5, min(0.5, 0.5 * (y0 - y2) / den)) if den < 0 else 0.0
+    at = ((j + 0.5 + d) / bins * period + period) % (period / 2)
+    phase = at if _weight(low, mid, period, at) >= _weight(low, mid, period, at + period / 2) else at + period / 2
+    r, off = _pull(low, mid, period, phase, 0, len(env))
+    if r < 0.05:
+        return None
+    span = int(round(16 * period))
+    level = (low + mid).mean()
+    checked = held = 0
+    for s0 in range(0, len(env) - span + 1, span):
+        if (low[s0:s0 + span] + mid[s0:s0 + span]).mean() < 0.5 * level:
+            continue
+        rr, oo = _pull(low, mid, period, phase, s0, s0 + span)
+        checked += 1
+        if rr >= 0.4 * r and abs((oo - off + 1.5) % 1 - 0.5) <= 0.2:
+            held += 1
+    if checked >= 3 and held < checked * 0.7:
+        return None
+    return period, phase
+
+
+def steady_grid(y: np.ndarray, sr: int, hop: int, env: np.ndarray, tracker_bpm: float):
+    """The song's beat grid as the app finds it (app/src/engine/audio/grid.ts): the
+    exact tempo from where the onset envelope repeats 4, 8, 16... beats later, the beat
+    on the kick and snare rather than the hats. (period s, first beat s) or None when
+    the music doesn't keep one steady tempo."""
+    mdb = librosa.power_to_db(librosa.feature.melspectrogram(y=y, sr=sr, n_fft=2048, hop_length=hop, n_mels=128))
+    centres = librosa.mel_frequencies(n_mels=130, fmax=sr / 2)[1:-1]
+    k_hi = max(2, int(np.sum(centres < 150)))
+    m_lo = int(np.sum(centres < 200))
+    m_hi = max(m_lo + 2, int(np.sum(centres < 2000)))
+    low = librosa.onset.onset_strength(S=mdb[:k_hi], sr=sr)
+    mid = librosa.onset.onset_strength(S=mdb[m_lo:m_hi], sr=sr)
+    fps = sr / hop
+    drum_bpm = float(np.atleast_1d(librosa.feature.tempo(onset_envelope=low + mid, sr=sr, hop_length=hop))[0])
+    bpm = lambda p: 60 * fps / p
+    beat_like = lambda p: p > 2 and 60 <= bpm(p) <= 200 and len(env) >= p * 12
+    guesses = [60 * fps / tracker_bpm, 60 * fps / drum_bpm]
+    levels = sorted((p * m for p in guesses for m in (2 / 3, 3 / 2, 1 / 2, 2)), key=lambda p: abs(math.log2(bpm(p) / 120)))
+    tried: list[float] = []
+    for p in guesses + levels:
+        if not beat_like(p) or any(abs(q - p) < 0.02 * p for q in tried):
+            continue
+        tried.append(p)
+        g = _grid_at(env, low, mid, p)
+        if g:
+            return float(g[0]) / fps, float(g[1]) / fps
+    return None
+
+
 def audio_analysis(video: Path, work: Path) -> dict:
     wav = work / "audio.wav"
     subprocess.run(
@@ -48,6 +173,7 @@ def audio_analysis(video: Path, work: Path) -> dict:
     env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop)
     env_t = librosa.times_like(env, sr=sr, hop_length=hop)
     tempo, beats = librosa.beat.beat_track(onset_envelope=env, sr=sr, hop_length=hop, units="time")
+    grid = steady_grid(y, sr, hop, env, float(np.atleast_1d(tempo)[0])) if len(beats) >= 8 else None
     onsets = librosa.onset.onset_detect(onset_envelope=env, sr=sr, hop_length=hop, units="time", backtrack=False)
     onset_strength = np.interp(onsets, env_t, env) if len(onsets) else np.array([])
     rms = librosa.feature.rms(y=y, hop_length=hop)[0]
@@ -56,6 +182,7 @@ def audio_analysis(video: Path, work: Path) -> dict:
     return {
         "tempo_bpm": float(np.atleast_1d(tempo)[0]),
         "beats": [round(float(b), 3) for b in beats],
+        "grid": {"bpm": round(60 / grid[0], 3), "period_s": round(grid[0], 5), "first_beat_s": round(grid[1], 4)} if grid else None,
         "onsets": [round(float(o), 3) for o in onsets],
         "strong_onsets": [round(float(o), 3) for o in strong],
         "_env": env, "_env_t": env_t, "_rms": rms,
@@ -153,13 +280,18 @@ def flash_events(rows: list[dict]) -> list[dict]:
     return out
 
 
-def sync_stats(cuts: list[float], beats: list[float], onsets: list[float], strong: list[float], fps: float) -> dict:
+def sync_stats(cuts: list[float], beats: list[float], onsets: list[float], strong: list[float], fps: float,
+               grid: dict | None = None) -> dict:
     b, o, s = np.array(beats), np.array(onsets), np.array(strong)
     frame = 1.0 / fps
     per_cut = []
     for c in cuts:
         per_cut.append({"t": c, "to_beat_ms": round(nearest(b, c) * 1000), "to_onset_ms": round(nearest(o, c) * 1000),
                         "to_strong_ms": round(nearest(s, c) * 1000)})
+        if grid:
+            # Signed: below zero, the cut comes before the beat (as editors cut).
+            T = grid["period_s"]
+            per_cut[-1]["to_grid_ms"] = round((((c - grid["first_beat_s"]) + T / 2) % T - T / 2) * 1000)
     def share(key: str, tol: float) -> float:
         return round(sum(1 for p in per_cut if p[key] <= tol * 1000) / len(per_cut), 3) if per_cut else 0.0
     beat_period = float(np.median(np.diff(b))) if len(b) > 1 else math.nan
@@ -167,7 +299,17 @@ def sync_stats(cuts: list[float], beats: list[float], onsets: list[float], stron
     for a1, a2 in zip(cuts, cuts[1:]):
         if beat_period and not math.isnan(beat_period):
             gaps_in_beats.append(round((a2 - a1) / beat_period, 2))
+    on_grid = None
+    if grid and per_cut:
+        g = np.array([p["to_grid_ms"] for p in per_cut], float)
+        T = grid["period_s"] * 1000
+        on = np.abs(g) < T / 4
+        on_grid = {"bpm": grid["bpm"], "within_1_frame": round(float(np.mean(np.abs(g) <= frame * 1500)), 3),
+                   "within_3_frames": round(float(np.mean(np.abs(g) <= frame * 3000)), 3),
+                   "lead_ms": round(float(np.median(g[on]))) if on.any() else None,
+                   "on_the_and": int(np.sum(~on))}
     return {
+        "grid": on_grid,
         "within_1_frame": {"beat": share("to_beat_ms", frame * 1.5), "onset": share("to_onset_ms", frame * 1.5),
                            "strong_onset": share("to_strong_ms", frame * 1.5)},
         "within_3_frames": {"beat": share("to_beat_ms", frame * 3), "onset": share("to_onset_ms", frame * 3)},
@@ -253,12 +395,15 @@ def timeline_png(out: Path, name: str, audio: dict, rows: list[dict], cuts: list
     luma = np.array([r["luma"] for r in rows])
     fig, ax = plt.subplots(3, 1, figsize=(16, 7), sharex=True, gridspec_kw={"height_ratios": [2, 1, 1]})
     ax[0].plot(audio["_env_t"], audio["_env"], lw=0.8, color="#444")
-    for b in audio["beats"]:
+    grid = audio.get("grid")
+    beats = np.arange(grid["first_beat_s"], duration, grid["period_s"]) if grid else audio["beats"]
+    for b in beats:
         ax[0].axvline(b, color="#568CFF", lw=0.8, alpha=0.6)
     for c in cuts:
         for a in ax:
             a.axvline(c, color="#F0553D", lw=1.2, alpha=0.9)
-    ax[0].set_title(f"{name}: onset strength, beats (blue) and cuts (red), tempo {audio['tempo_bpm']:.1f} bpm")
+    tempo = f"steady grid at {grid['bpm']:.2f} bpm" if grid else f"tempo {audio['tempo_bpm']:.1f} bpm"
+    ax[0].set_title(f"{name}: onset strength, beats (blue) and cuts (red), {tempo}")
     zoom_pct = (np.nan_to_num(scale, nan=1.0) - 1.0) * 100
     ax[1].plot(t, zoom_pct, lw=0.8, color="#0EAB0E")
     for z in zooms:
@@ -285,7 +430,7 @@ def analyze(video: Path, out_root: Path, every: float) -> dict:
     audio = audio_analysis(video, out)
     zooms = zoom_events(rows, cuts, fps)
     flashes = flash_events(rows)
-    sync = sync_stats(cuts, audio["beats"], audio["onsets"], audio["strong_onsets"], fps)
+    sync = sync_stats(cuts, audio["beats"], audio["onsets"], audio["strong_onsets"], fps, audio["grid"])
     shots = np.diff([0.0] + cuts + [duration])
     summary = {
         "file": video.name,
@@ -301,6 +446,7 @@ def analyze(video: Path, out_root: Path, every: float) -> dict:
         "cuts": cuts,
         "tempo_bpm": round(audio["tempo_bpm"], 1),
         "beats": audio["beats"],
+        "grid": audio["grid"],
         "strong_onsets": audio["strong_onsets"],
         "sync": sync,
         "zoom_events": zooms,
@@ -329,6 +475,11 @@ def main():
               f"median={s['shot_length_s']['median']:.2f}s tempo={s['tempo_bpm']:.0f} "
               f"on-beat(±1f)={s['sync']['within_1_frame']['beat']:.0%} on-onset(±1f)={s['sync']['within_1_frame']['onset']:.0%} "
               f"zooms={len(s['zoom_events'])} flashes={len(s['flash_events'])}")
+        g = s["sync"]["grid"]
+        if g:
+            print(f"{'':44s} steady grid {g['bpm']:.2f} bpm: cuts within 1.5 frames of a beat {g['within_1_frame']:.0%}, "
+                  f"within 3 {g['within_3_frames']:.0%}, leading it by {-(g['lead_ms'] or 0)} ms (median), "
+                  f"{g['on_the_and']} on an \"and\"")
 
 
 if __name__ == "__main__":

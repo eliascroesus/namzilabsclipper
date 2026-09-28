@@ -5,7 +5,7 @@
  * and nio.trade Reels (docs/edit-analysis.md, format 3), and the twist and meme
  * formats in formats.ts.
  */
-import { pickSection, type SongAnalysis } from "../audio/song";
+import { pickSection, type Accent, type SongAnalysis } from "../audio/song";
 import type { Scan } from "../media/scan";
 import { frameShot, kenBurns } from "./framing";
 import { FPS, FRAME_SIZE, sourceSpan, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type Crop, type EditPlan, type FxEvent, type Ramp, type ShotEvent } from "./types";
@@ -104,6 +104,29 @@ interface Cand {
   drop: boolean;
 }
 
+/**
+ * A hit worth cutting or punching in on: a kick or something in the middle (a
+ * clap, a snare, a vocal stab), not a hi-hat on its own. In a lot of dance music
+ * the hats are the loudest thing on the "and", and a cut on them reads as off the beat.
+ */
+export const hitsHard = (a: Accent) => a.kick >= 0.6 || (a.mid ?? 1) >= 0.7;
+
+/**
+ * Where an accent sits on a steady grid (song time): exactly on its beat, or exactly
+ * halfway to the next, when it's within an eighth of a beat of either. The onset
+ * detector only reads whole analysis frames (23 ms); the grid is exact. Anything
+ * else (a swung hit, a song without a steady grid) stays where it was heard.
+ */
+export function gridTime(song: SongAnalysis, a: Accent): number {
+  if (!song.steady) return a.t;
+  const i = Math.floor(a.beat);
+  if (i < 0 || i + 1 >= song.beats.length) return a.t;
+  const frac = a.beat - i;
+  const q = Math.round(frac * 2) / 2;
+  if (Math.abs(frac - q) > 0.12) return a.t;
+  return song.beats[i] + q * (song.beats[i + 1] - song.beats[i]);
+}
+
 /** Cut candidates in edit time: every beat, plus strong hits on the "and" between beats. */
 function candidates(song: SongAnalysis, songStart: number, from: number, until: number, dropAt?: number): Cand[] {
   const out: Cand[] = [];
@@ -121,13 +144,16 @@ function candidates(song: SongAnalysis, songStart: number, from: number, until: 
     const w = 0.25 + 0.35 * (rank.get(i) ?? 0.5) + 0.35 * song.beatStrength[i] + (down ? 0.25 : 0);
     out.push({ t, w, down, drop: false });
   }
+  // Hits on the "and" between beats: a syncopated kick, a clap or a vocal stab, not
+  // just a hi-hat. On a steady grid the cut goes exactly halfway.
   for (const a of song.accents) {
-    const t = a.t - songStart;
-    if (t <= from + 0.2 || t >= until) continue;
-    if (song.beats.some((b) => Math.abs(b - a.t) < 0.07)) continue;
     const frac = a.beat - Math.floor(a.beat);
-    if (a.s < 0.5 || Math.abs(frac - 0.5) > 0.12) continue;
-    out.push({ t, w: 0.15 + 0.55 * a.s, down: false, drop: false });
+    if (a.s < 0.6 || Math.abs(frac - 0.5) > 0.12 || !hitsHard(a)) continue;
+    const exact = gridTime(song, a);
+    const t = exact - songStart;
+    if (t <= from + 0.2 || t >= until) continue;
+    if (song.beats.some((b) => Math.abs(b - exact) < 0.07)) continue;
+    out.push({ t, w: 0.1 + 0.45 * a.s, down: false, drop: false });
   }
   out.sort((a, b) => a.t - b.t);
   if (dropAt !== undefined) {
@@ -733,12 +759,13 @@ export function phraseCuts(song: SongAnalysis, songStart: number, shots: ShotEve
 /**
  * The music's two strongest hits between `from` and `to` (edit time, less the
  * cut lead), well apart from each other and from the drop: where a small
- * punch-in lands.
+ * punch-in lands. Kicks and claps, on the grid; never a hi-hat on its own.
  */
 export function strongHits(song: SongAnalysis, songStart: number, from: number, to: number, drop?: number): number[] {
   const hits: number[] = [];
   const found = song.accents
-    .map((a) => ({ t: frame(a.t - songStart - CUT_LEAD), s: a.s }))
+    .filter(hitsHard)
+    .map((a) => ({ t: frame(gridTime(song, a) - songStart - CUT_LEAD), s: a.s }))
     .filter((a) => a.s >= 0.8 && a.t >= from && a.t <= to && (drop === undefined || Math.abs(a.t - drop) > 1))
     .sort((a, b) => b.s - a.s);
   for (const a of found) {

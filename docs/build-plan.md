@@ -81,7 +81,7 @@ The cloud environment this repo is developed in has the same browser engine with
 | | Milestone | Status |
 |---|---|---|
 | **M0** | The reference analysis, the analyzer, the demo card, the frame renderer | Done |
-| **M1** | **Montage maker in the browser:** clips and photos plus a Reel's sound and a brand kit become beat-synced montages ending on the card, in 9:16, 4:3, 1:1 and 4:5 | Done. Measured like the references: every cut within 3 frames of a beat, 73% within one |
+| **M1** | **Montage maker in the browser:** clips and photos plus a Reel's sound and a brand kit become beat-synced montages ending on the card, in 9:16, 4:3, 1:1 and 4:5 | Done. Measured like the references: cuts lead the beat by a frame or so, as theirs do. On a song at one exact tempo the grid is exact and on the kick and snare, so every cut lands within 3 frames of the beat, never on the hats |
 | **M2** | **Story clipper:** a long video becomes clips of its best moments: hook on black, pauses cut, word-timed subtitles, the burst on the drop, the card | Done. Tested end to end with Gemini's answers stubbed; needs a real key to check transcription quality |
 | **M3** | **Links and batches:** a Chrome extension for YouTube links, a queue | Next |
 | **M4** | **The rest:** twist and meme, the phone card, a natural look beside the warm grade, smart picks, face tracking with a camera that glides, black bars left out, a song timeline, batches that don't repeat, punch-ins and shakes on the hits, deleting edits (done); speed ramps, following whoever is speaking, the lyric montage | In progress |
