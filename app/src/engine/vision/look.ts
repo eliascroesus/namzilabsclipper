@@ -17,6 +17,8 @@ export interface Rating {
   flex: number;
   wow: number;
   kind: Kind;
+  /** where the picture model puts the frame (unit length), when it looked (sense.ts) */
+  emb?: Float32Array;
 }
 
 export const LOOK_VERSION = 1;
@@ -134,6 +136,11 @@ export function lookFor(scan: Scan, sheets: Sheets, ratings: Map<number, Rating>
     }
   }
   const look: Look = { flex: new Float32Array(n), wow: new Float32Array(n), kind: new Uint8Array(n) };
+  const embs = byCell.map((r) => r?.emb);
+  if (embs.some(Boolean)) {
+    look.embs = embs;
+    look.cell = new Int32Array(n);
+  }
   let c = 0;
   for (let i = 0; i < n; i++) {
     while (c + 1 < sheets.cells.length && sheets.cells[c + 1] <= i) c++;
@@ -141,6 +148,7 @@ export function lookFor(scan: Scan, sheets: Sheets, ratings: Map<number, Rating>
     look.flex[i] = r.flex / 10;
     look.wow[i] = r.wow / 10;
     look.kind[i] = KINDS.indexOf(r.kind);
+    if (look.cell) look.cell[i] = c;
   }
   return look;
 }
@@ -163,14 +171,16 @@ export async function photoSheets(photos: { index: number; image: ImageBitmap }[
   return maker.finish();
 }
 
-/** The ratings as they're remembered: per frame number, [flex, wow, kind index]. */
-export type StoredLook = { v: number; cells: number; frames: [number, number, number, number][] };
+/** The ratings as they're remembered: per frame number, [flex, wow, kind index], and the picture model's embeddings when it looked. */
+export type StoredLook = { v: number; cells: number; frames: [number, number, number, number][]; embs?: (Float32Array | null)[] };
 
 export function storeLook(sheets: Sheets, ratings: Map<number, Rating>): StoredLook {
-  return { v: LOOK_VERSION, cells: sheets.cells.length, frames: [...ratings.values()].map((r) => [r.n, r.flex, r.wow, KINDS.indexOf(r.kind)]) };
+  const rs = [...ratings.values()];
+  const embs = rs.some((r) => r.emb) ? rs.map((r) => r.emb ?? null) : undefined;
+  return { v: LOOK_VERSION, cells: sheets.cells.length, frames: rs.map((r) => [r.n, r.flex, r.wow, KINDS.indexOf(r.kind)]), ...(embs ? { embs } : {}) };
 }
 
 export function restoreLook(stored: StoredLook, sheets: Sheets): Map<number, Rating> | null {
   if (stored.v !== LOOK_VERSION || stored.cells !== sheets.cells.length) return null;
-  return new Map(stored.frames.map(([n, flex, wow, k]) => [n, { n, flex, wow, kind: KINDS[k] ?? "other" }]));
+  return new Map(stored.frames.map(([n, flex, wow, k], i) => [n, { n, flex, wow, kind: KINDS[k] ?? "other", ...(stored.embs?.[i] ? { emb: stored.embs[i]! } : {}) }]));
 }

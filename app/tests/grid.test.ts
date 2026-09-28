@@ -214,18 +214,17 @@ describe("grooves", () => {
       expect(Math.min(...offs)).toBeGreaterThan(-0.005);
       expect(Math.max(...offs)).toBeLessThan(0.04);
       expect(Math.max(...offs) - Math.min(...offs)).toBeLessThan(0.008);
-      let hit = 0;
-      let cuts = 0;
+      // Every cut on a beat, or on a kick or snare that really plays between beats (a
+      // syncopated kick); never on a hat, never on nothing.
+      const drums = parts.filter((p) => p.kind === "kick" || p.kind === "snare").map((p) => p.t);
       for (const variant of [0, 1, 2]) {
         const plan = planMontage({ song, songSource: "s", songName: g.name, fromStart: false, songStart: truth[4], scans: scans(), aspect: "9x16", length: Math.min(12, g.seconds - 8), card: null, caption: null, variant });
         for (const s of plan.shots.slice(1)) {
           const t = plan.music!.songStart + s.start + CUT_LEAD;
-          cuts++;
-          if (Math.abs(t - nearest(truth, t)) <= 1.5 / FPS + 0.03) hit++;
+          const off = Math.min(Math.abs(t - nearest(truth, t)), Math.abs(t - nearest(drums, t)));
+          expect(off).toBeLessThanOrEqual(1.5 / FPS + 0.03);
         }
       }
-      // A cut or two a batch can go on a syncopated kick between beats; the rest on the beat.
-      expect(hit / cuts).toBeGreaterThanOrEqual(0.9);
     });
   }
 

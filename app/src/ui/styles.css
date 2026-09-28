@@ -306,6 +306,7 @@ input[type="range"] { width: 100%; accent-color: var(--brand); }
 .timeline-foot .btn { height: 28px; padding: 0 8px; }
 .timeline-foot .num { font-size: 12px; margin-right: auto; }
 .timeline .drop-mark { position: absolute; top: -2px; bottom: 0; width: 2px; background: var(--orange); border-radius: 1px; }
+.timeline .line-mark { position: absolute; bottom: 3px; width: 5px; height: 5px; margin-left: -2px; border-radius: 50%; background: var(--brand); pointer-events: none; }
 
 /* deleting an edit */
 .job .del {

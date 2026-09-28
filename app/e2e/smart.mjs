@@ -4,7 +4,7 @@
 // without asking Gemini again. Saves the contact sheets Gemini would see.
 //   node e2e/smart.mjs [--out DIR]
 import { chromium } from "playwright";
-import { createServer } from "vite";
+import { createServer, preview } from "vite";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -21,9 +21,12 @@ const VERDICTS = [
   { kind: "people", flex: 3, wow: 4 },
 ];
 
-const server = await createServer({ root, logLevel: "error", server: { port: 5194, strictPort: false } });
-await server.listen();
-const port = server.config.server.port;
+// E2E_DIST=<a vite build> serves that instead of the live sources (an edit to them
+// then can't reload the page halfway through).
+const dist = process.env.E2E_DIST;
+const server = dist ? await preview({ root, logLevel: "error", build: { outDir: resolve(dist) }, preview: { port: 5194, strictPort: false } }) : await createServer({ root, logLevel: "error", server: { port: 5194, strictPort: false } });
+if (!dist) await server.listen();
+const url = dist ? server.resolvedUrls.local[0] : `http://localhost:${server.config.server.port}/`;
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium", args: ["--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist"] });
 const calls = [];
 try {
@@ -50,9 +53,9 @@ try {
   const page = await context.newPage();
   page.on("pageerror", (e) => console.error(`[page error] ${e.message}`));
   page.on("console", (m) => m.type() === "error" && console.error(`[console] ${m.text()}`));
-  await page.goto(`http://localhost:${port}/`);
+  await page.goto(url);
   await page.waitForSelector(".empty");
-  await page.getByRole("button", { name: "Turn on" }).click();
+  await page.getByRole("button", { name: "Sharper with Gemini" }).click();
   await page.getByLabel("Gemini key").fill("AIzaSyTest-0123456789abcdefghijklmnopqrs");
   // One at a time, so they're rated in a known order.
   for (const c of clips) {

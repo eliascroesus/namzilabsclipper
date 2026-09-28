@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { analyzeSong, type SongAnalysis } from "../src/engine/audio/song";
-import { PROFILE_BINS, type Scan } from "../src/engine/media/scan";
+import { KINDS, PROFILE_BINS, scoreInterest, type Kind, type Scan } from "../src/engine/media/scan";
 import { CUT_LEAD, mulberry32, planMontage, spread, usedRanges, type Ranges } from "../src/engine/plan/montage";
 import { planMeme, planTwist } from "../src/engine/plan/formats";
 import { FPS, outputAt, sourceAt, sourceSpan, type CardSpec } from "../src/engine/plan/types";
@@ -32,6 +32,54 @@ function fakeScan(id: string, duration: number, seed: number, kind: "video" | "i
     }
   }
   return { id, kind, start: 0, duration, width: 1920, height: 1080, rate, stats, cuts: [], interest };
+}
+
+/**
+ * A clip the picture model has looked at: each of its shots (between cuts) shows one
+ * thing, judged as `kind` with its flex and wow; shots with the same `look` show the
+ * same thing (the same car), others are unrelated. `frame` is how it's framed (its
+ * colours and where the subject sits): the same look and frame is the same shot.
+ */
+function lookedAt(id: string, shots: { len: number; kind: Kind; flex: number; wow: number; look: number; frame?: number }[], seed: number): Scan {
+  const rand = mulberry32(seed);
+  const rate = 6;
+  const duration = shots.reduce((a, s) => a + s.len, 0);
+  const n = Math.floor(duration * rate);
+  const f = (k: number) => new Float32Array(k);
+  const stats = { t: f(n), luma: f(n), contrast: f(n), sharp: f(n), color: f(n), skin: f(n), motion: f(n), hist: f(n * 64), cols: f(n * PROFILE_BINS).fill(1 / PROFILE_BINS), rows: f(n * PROFILE_BINS).fill(1 / PROFILE_BINS), rgb: f(n * 3) };
+  const look = { flex: f(n), wow: f(n), kind: new Uint8Array(n), embs: [] as Float32Array[], cell: new Int32Array(n) };
+  const cuts: number[] = [];
+  let at = 0;
+  for (const [k, shot] of shots.entries()) {
+    const e = f(16).map((_, d) => (d === shot.look ? 1 : 0) + 0.12 * (rand() - 0.5));
+    const norm = Math.hypot(...e);
+    look.embs.push(e.map((x) => x / norm));
+    if (k) cuts.push(at);
+    at += shot.len;
+  }
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / rate;
+    stats.t[i] = t;
+    let k = 0;
+    while (k + 1 < shots.length && t >= cuts[k]) k++;
+    stats.luma[i] = 0.45 + 0.1 * rand();
+    stats.contrast[i] = 0.2;
+    stats.sharp[i] = 4 + rand();
+    stats.color[i] = 0.3;
+    stats.motion[i] = 0.08 + 0.1 * rand();
+    stats.rgb.set([0.3 + 0.4 * rand(), 0.4, 0.5], i * 3);
+    const frame = shots[k].frame ?? shots[k].look;
+    for (let b = 0; b < 64; b++) stats.hist[i * 64 + b] = Math.exp(-(((b - ((frame * 11) % 64)) / 4) ** 2));
+    for (let b = 0; b < PROFILE_BINS; b++) {
+      stats.cols[i * PROFILE_BINS + b] = Math.exp(-(((b - ((frame * 7) % PROFILE_BINS)) / 3) ** 2));
+      stats.rows[i * PROFILE_BINS + b] = Math.exp(-(((b - ((frame * 13) % PROFILE_BINS)) / 3) ** 2));
+    }
+    look.flex[i] = shots[k].flex;
+    look.wow[i] = shots[k].wow;
+    look.kind[i] = KINDS.indexOf(shots[k].kind);
+    look.cell[i] = k;
+  }
+  return { id, kind: "video", start: 0, duration, width: 1080, height: 1920, rate, stats, cuts, look };
 }
 
 const FIX = resolve(import.meta.dirname, "fixtures");
@@ -219,6 +267,59 @@ describe("planners on a synthetic song (runs everywhere)", () => {
     for (const [, rs] of ranges) {
       const sorted = [...rs].sort((a, b) => a[0] - b[0]);
       for (let i = 1; i < sorted.length; i++) expect(sorted[i][0]).toBeGreaterThanOrEqual(sorted[i - 1][1] - 1e-6);
+    }
+  });
+
+  it("picks like an editor: the flex over the filler, variety from what the shots show", () => {
+    // A Reel of eight different flex scenes, four phone clips of one car from one side,
+    // a friend laughing in a van (sharp and lively, but nothing to show off) and talking.
+    const flexy: Kind[] = ["car", "jet", "yacht", "home", "view", "watch", "city", "travel"];
+    const footage = [
+      lookedAt("reel", flexy.map((kind, k) => ({ len: 1.6, kind, flex: 0.8 + 0.02 * k, wow: 0.7, look: k })), 1),
+      ...[1, 2, 3, 4].map((k) => lookedAt(`car${k}`, [{ len: 6, kind: "car", flex: 0.85, wow: 0.35, look: 8 }], 10 + k)),
+      lookedAt("van", [{ len: 8, kind: "other", flex: 0.3, wow: 0.3, look: 9 }], 20),
+      lookedAt("talk", [{ len: 10, kind: "talking", flex: 0.1, wow: 0.2, look: 10 }], 21),
+    ];
+    for (const sc of footage) sc.stats.sharp.fill(sc.id === "van" ? 6 : 4.5);
+    scoreInterest(footage);
+    const avoid: Ranges = new Map();
+    const heroes = new Set<string>();
+    for (let v = 0; v < 3; v++) {
+      const plan = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans: footage, aspect: "9x16", length: 12, card: null, caption: null, variant: v, avoid });
+      usedRanges(plan, avoid);
+      const from = (id: string) => plan.shots.filter((s) => s.source === id);
+      // No filler while there's flex to show.
+      expect(from("van").length + from("talk").length).toBe(0);
+      // The Reel's scenes are the best and all different: the edit leans on them rather
+      // than sharing itself out evenly between the clips.
+      const reel = from("reel");
+      expect(reel.length).toBeGreaterThanOrEqual(Math.min(8, Math.floor(plan.shots.length / 2)));
+      const scene = (t: number) => Math.floor(t / 1.6);
+      // No scene twice in one edit before every one of them is in.
+      expect(new Set(reel.map((s) => scene(s.srcStart + 0.1))).size).toBe(Math.min(8, reel.length));
+      // The car shots are one picture: some, not the whole rest of the edit.
+      expect(plan.shots.length - reel.length).toBeLessThanOrEqual(Math.ceil(plan.shots.length / 2));
+      // Each edit opens on and drops into moments no earlier edit used for either.
+      for (const s of plan.shots.filter((x) => x.role === "hook" || x.role === "drop")) {
+        const key = s.source === "reel" ? `reel${scene(s.srcStart + 0.1)}` : "car";
+        if (s.source === "reel") expect(heroes.has(key)).toBe(false);
+        heroes.add(key);
+      }
+    }
+  });
+
+  it("no jump cuts: two shots of one thing back to back change the framing", () => {
+    // One car filmed in six clips: three framed the same way (the front, wide), three
+    // others each framed their own way; and a Reel of four other flex scenes.
+    const car = (k: number, frame: number) => lookedAt(`car${k}`, [{ len: 5, kind: "car", flex: 0.85, wow: 0.5, look: 0, frame }], 30 + k);
+    const footage = [car(0, 20), car(1, 20), car(2, 20), car(3, 21), car(4, 22), car(5, 23), lookedAt("reel", (["jet", "yacht", "home", "view"] as Kind[]).map((kind, k) => ({ len: 1.6, kind, flex: 0.8, wow: 0.6, look: k + 1 })), 2)];
+    scoreInterest(footage);
+    const avoid: Ranges = new Map();
+    for (let v = 0; v < 3; v++) {
+      const plan = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans: footage, aspect: "9x16", length: 12, card: null, caption: null, variant: v, avoid });
+      usedRanges(plan, avoid);
+      const framing = (s: { source: string; srcStart: number }) => (["car0", "car1", "car2"].includes(s.source) ? "front" : s.source === "reel" ? `reel${Math.floor((s.srcStart + 0.1) / 1.6)}` : s.source);
+      for (let k = 1; k < plan.shots.length; k++) expect(framing(plan.shots[k])).not.toBe(framing(plan.shots[k - 1]));
     }
   });
 

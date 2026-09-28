@@ -2,7 +2,7 @@
 // a sound, make edits, and screenshot each stage into --out.
 //   node e2e/ui.mjs [--out DIR] [--variants N] [--format montage|twist|meme] [--aspect 9x16]
 import { chromium } from "playwright";
-import { createServer } from "vite";
+import { createServer, preview } from "vite";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -14,15 +14,18 @@ const media = (p) => resolve(root, "test-media", p);
 const footage = (args.footage ?? "src/car1.webm,src/car2-rotated.mp4,src/car3.webm,src/car4.webm,src/car5.webm,src/nio2.webm,src/nio5.webm,src/nio7.webm,src/bigbuckbunny.webm").split(",").map(media);
 const sound = media(args.sound ?? "mico.webm");
 
-const server = await createServer({ root, logLevel: "error", server: { port: 5198, strictPort: false } });
-await server.listen();
-const port = server.config.server.port;
+// E2E_DIST=<a vite build> serves that instead of the live sources (an edit to them
+// then can't reload the page halfway through).
+const dist = process.env.E2E_DIST;
+const server = dist ? await preview({ root, logLevel: "error", build: { outDir: resolve(dist) }, preview: { port: 5198, strictPort: false } }) : await createServer({ root, logLevel: "error", server: { port: 5198, strictPort: false } });
+if (!dist) await server.listen();
+const url = dist ? server.resolvedUrls.local[0] : `http://localhost:${server.config.server.port}/`;
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium", args: ["--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist"] });
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, deviceScaleFactor: 1 });
   page.on("pageerror", (e) => console.error(`[page error] ${e.message}`));
   page.on("console", (m) => m.type() === "error" && console.error(`[console] ${m.text()}`));
-  await page.goto(`http://localhost:${port}/`);
+  await page.goto(url);
   await page.waitForSelector(".empty");
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${out}/1-empty.png` });

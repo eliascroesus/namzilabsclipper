@@ -6,7 +6,7 @@
  * formats in formats.ts.
  */
 import { pickSection, type Accent, type SongAnalysis } from "../audio/song";
-import type { Scan } from "../media/scan";
+import { PROFILE_BINS, type Scan } from "../media/scan";
 import { frameShot, kenBurns } from "./framing";
 import { FPS, FRAME_SIZE, sourceSpan, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type Crop, type EditPlan, type FxEvent, type Ramp, type ShotEvent } from "./types";
 
@@ -43,6 +43,74 @@ export function loudnessOver(song: SongAnalysis, songStart: number, a: number, b
   let s = 0;
   for (let f = f0; f < f1; f++) s += song.loudness[f];
   return f1 > f0 ? s / (f1 - f0) : 0;
+}
+
+/**
+ * How hard the music hits over a stretch of the edit, 0 to 1: the bars' drums and
+ * level (see structure.ts), or the loudness when there's no structure. A sparse
+ * verse can be as loud as the chorus without anything like its drive.
+ */
+export function energyOver(song: SongAnalysis, songStart: number, a: number, b: number): number {
+  const bars = song.structure?.bars;
+  if (!bars?.length) return loudnessOver(song, songStart, a, b);
+  const s0 = songStart + a;
+  const s1 = songStart + Math.max(b, a + 0.01);
+  let sum = 0;
+  let w = 0;
+  for (let i = 0; i < bars.length; i++) {
+    const lo = bars[i].t;
+    const hi = i + 1 < bars.length ? bars[i + 1].t : lo + 4 * song.period;
+    const o = Math.min(hi, s1) - Math.max(lo, s0);
+    if (o <= 0) continue;
+    sum += o * bars[i].energy;
+    w += o;
+  }
+  return w > 0 ? sum / w : loudnessOver(song, songStart, a, b);
+}
+
+/** Inside a break, where the song has dropped out (song time). */
+export const inBreak = (song: SongAnalysis, t: number) => song.structure?.breaks.some(([s, e]) => t > s + 0.05 && t < e - 0.05) ?? false;
+
+/**
+ * How much the song's shape wants a cut on a beat (song time): the start of a
+ * section most (a new picture for a new part), the moment it comes back after a
+ * break, then the start of every four-bar phrase (where a verse's lines land).
+ */
+export function structureWeight(song: SongAnalysis, t: number): number {
+  const st = song.structure;
+  if (!st) return 0;
+  let w = 0;
+  for (const s of st.sections) if (Math.abs(s.t - t) < 0.05) w = Math.max(w, 0.55 * s.strength);
+  // (The return counts only when no section starts on the bar line right after it:
+  // a pickup back into the song is part of that bar, and the bar line is the moment.)
+  for (const [, e] of st.breaks) if (Math.abs(e - t) < 0.05 && !st.sections.some((s) => s.t > e + 0.05 && s.t - e < 1.1 * song.period)) w = Math.max(w, 0.45);
+  if (st.phrases.some((p) => Math.abs(p - t) < 0.05)) w = Math.max(w, 0.2);
+  // Where a sung line lands: the bar line its pickup leads into, or the beat it starts on.
+  for (const l of song.vocals?.lines ?? []) if (Math.abs(lineArrival(song, l) - t) < 0.05) w = Math.max(w, 0.35);
+  // A syllable on the beat: a little more reason to cut there.
+  if (song.vocals?.syllables.some((y) => Math.abs(y - t) < 0.06)) w += 0.08;
+  return w;
+}
+
+/** The beat a sung line lands on: the next bar line when the line starts with a pickup into it, else the beat nearest its start. */
+export function lineArrival(song: SongAnalysis, start: number): number {
+  const bar = song.downbeats.find((d) => d >= start - 0.08 && d - start <= 1.6 * song.period);
+  if (bar !== undefined) return bar;
+  let best = song.beats[0] ?? start;
+  for (const b of song.beats) if (Math.abs(b - start) < Math.abs(best - start)) best = b;
+  return best;
+}
+
+/** How much of a stretch of the edit has singing in it, 0 to 1 (0 when it hasn't been listened for). */
+export function vocalOver(song: SongAnalysis, songStart: number, a: number, b: number): number {
+  const v = song.vocals;
+  if (!v) return 0;
+  const fps = song.sr / song.hop;
+  const f0 = Math.max(0, Math.floor((songStart + a) * fps));
+  const f1 = Math.min(v.active.length, Math.max(f0 + 1, Math.ceil((songStart + b) * fps)));
+  let n = 0;
+  for (let f = f0; f < f1; f++) n += v.active[f];
+  return f1 > f0 ? n / (f1 - f0) : 0;
 }
 
 // ── the stretch of music ─────────────────────────────────────────────────────
@@ -89,7 +157,12 @@ export function musicWindow(song: SongAnalysis, length: number, cardHold: number
   const len = Math.max(3, Math.min(length, available - hold - 0.2));
   const cardAt = frame(cardTime(song, songStart, len, Math.max(len, available - hold)));
   const duration = frame(cardAt + hold);
-  const dropSong = section.drop ?? [...song.drops].filter((d) => d.t - songStart > 1.2 && d.t - songStart < cardAt - 1.2).sort((a, b) => b.strength - a.strength)[0]?.t;
+  let dropSong = section.drop ?? [...song.drops].filter((d) => d.t - songStart > 1.2 && d.t - songStart < cardAt - 1.2).sort((a, b) => b.strength - a.strength)[0]?.t;
+  // A hit the song then drops out after isn't where the edit takes off: the return
+  // is (the section that comes back on the other side), and the shot on the hit
+  // holds through the silence.
+  const brk = dropSong !== undefined ? song.structure?.breaks.find(([s]) => s > dropSong! - 0.05 && s - dropSong! < 1.6) : undefined;
+  if (brk) dropSong = song.structure!.sections.find((s) => s.t >= brk[1] - 0.05 && s.t - brk[1] < 2.5)?.t ?? brk[1];
   const dropEdit = dropSong !== undefined ? dropSong - songStart : undefined;
   const dropAt = dropEdit !== undefined && dropEdit > 1.2 && dropEdit < cardAt - 1.2 ? dropEdit : undefined;
   return { songStart, cardAt, duration, dropAt };
@@ -144,10 +217,16 @@ function candidates(song: SongAnalysis, songStart: number, from: number, until: 
   // Rank each beat's strength within the window, blended with its absolute strength.
   const ranked = [...inWindow].sort((a, b) => song.beatStrength[a] - song.beatStrength[b]);
   const rank = new Map(ranked.map((i, k) => [i, ranked.length > 1 ? k / (ranked.length - 1) : 1]));
+  // A cut needs something to hear under it: a beat where the music barely makes a
+  // sound (a sparse verse's empty beats) can't take one.
+  const strengths = inWindow.map((i) => song.beatStrength[i]).sort((a, b) => a - b);
+  const quiet = Math.max(0.06, 0.3 * (strengths[strengths.length >> 1] ?? 0));
   for (const i of inWindow) {
+    // Nothing cuts in the silence of a break: the shot on the last hit holds through it.
+    if (inBreak(song, song.beats[i]) || song.beatStrength[i] < quiet) continue;
     const t = song.beats[i] - songStart;
     const down = song.beatInBar[i] === 0;
-    const w = 0.25 + 0.35 * (rank.get(i) ?? 0.5) + 0.35 * song.beatStrength[i] + (down ? 0.25 : 0);
+    const w = 0.25 + 0.35 * (rank.get(i) ?? 0.5) + 0.35 * song.beatStrength[i] + (down ? 0.25 : 0) + structureWeight(song, song.beats[i]);
     out.push({ t, w, down, drop: false });
   }
   // Hits on the "and" between beats: a syncopated kick, a clap or a vocal stab, not
@@ -157,7 +236,7 @@ function candidates(song: SongAnalysis, songStart: number, from: number, until: 
     if (a.s < 0.6 || Math.abs(frac - 0.5) > 0.12 || !hitsHard(song, a)) continue;
     const exact = gridTime(song, a);
     const t = exact - songStart;
-    if (t <= from + 0.2 || t >= until) continue;
+    if (t <= from + 0.2 || t >= until || inBreak(song, exact)) continue;
     if (song.beats.some((b) => Math.abs(b - exact) < 0.07)) continue;
     out.push({ t, w: 0.1 + 0.45 * a.s, down: false, drop: false });
   }
@@ -185,6 +264,16 @@ export interface CutOptions {
 }
 
 /**
+ * How long a shot wants to be, in beats, for how hard the music hits (the
+ * reference montages and editors' rules of thumb): a bar in a breakdown or a
+ * quiet intro, two to four beats in a verse, about one beat in the drop.
+ */
+export function beatsFor(energy: number): number {
+  const x = clamp((energy - 0.3) / 0.45, 0, 1);
+  return 2 ** (2 - x * (2 - Math.log2(1.2)));
+}
+
+/**
  * Choose the cuts between `from` and `end`: a path through the candidates that
  * lands on the strongest accents, keeps shots near a length that suits how loud
  * the music is there (long in the build, short after the drop), and doesn't
@@ -195,15 +284,33 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, opt
   const from = opts.from ?? 0;
   const pace = opts.pace ?? 1;
   const maxShot = opts.maxShot ?? MAX_SHOT * Math.max(1, pace);
+  // A shot that holds through a break may run as much longer as the silence lasts.
+  const silence = (a: number, b: number) => {
+    let d = 0;
+    for (const [s0, s1] of song.structure?.breaks ?? []) d += Math.max(0, Math.min(b, s1 - songStart) - Math.max(a, s0 - songStart));
+    return d;
+  };
+  const longest = (a: number, b: number) => maxShot + silence(a, b);
   const { dropAt } = opts;
   const cands = [{ t: from, w: 0, down: true, drop: false }, ...candidates(song, songStart, from, end - MIN_SHOT, dropAt), { t: end, w: 0, down: true, drop: false }];
   const n = cands.length;
   const pref = (a: number, b: number) => {
-    const L = b - a;
-    const e = loudnessOver(song, songStart, a, b);
-    let target = (1.12 - 0.68 * e) * pace;
-    if (dropAt !== undefined) target *= b <= dropAt + 0.05 ? 1.25 : 0.85;
-    return (-0.5 * Math.log(L / clamp(target, 0.38, 1.6 * pace)) ** 2) / (2 * 0.5 ** 2);
+    // A break's silence doesn't count against a shot's length: it's a held breath.
+    const L = Math.max(MIN_SHOT, b - a - silence(a, b));
+    const energy = energyOver(song, songStart, a, b);
+    let beats = beatsFor(energy);
+    // While a voice carries a verse over sparse drums, a line gets room to land: two
+    // beats at least (a sung chorus over the full kit still cuts at the chorus's pace).
+    if (energy < 0.6 && vocalOver(song, songStart, a, b) >= 0.5) beats = Math.max(beats, 2);
+    // Into the drop the shots get shorter and shorter (a build: two beats, one, half),
+    // as far as there are hits to cut on; unless the song drops out before it, when
+    // the shot holds through the silence instead.
+    if (dropAt !== undefined && b <= dropAt + 0.05 && !silence(b, dropAt)) {
+      const bars = (dropAt - b) / (4 * song.period);
+      if (bars < 2) beats = Math.min(beats, bars < 0.5 ? 0.75 : bars < 1 ? 1 : 2);
+    }
+    const target = beats * song.period * pace;
+    return (-0.5 * Math.log(L / clamp(target, 0.38, 2.2 * pace)) ** 2) / (2 * 0.5 ** 2);
   };
   // Each cut has to earn its place: only accents stronger than a typical beat pay for
   // themselves (a busier edit lets weaker ones in, a calmer one only the strongest).
@@ -214,7 +321,7 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, opt
   const best: Map<number, { score: number; prev: number }>[] = Array.from({ length: n }, () => new Map());
   for (let j = 1; j < n; j++) {
     const L = cands[j].t - from;
-    if (L >= MIN_SHOT && L <= maxShot) best[j].set(0, { score: (j === n - 1 ? 0 : cands[j].w - cost) + pref(from, cands[j].t), prev: -1 });
+    if (L >= MIN_SHOT && L <= longest(from, cands[j].t)) best[j].set(0, { score: (j === n - 1 ? 0 : cands[j].w - cost) + pref(from, cands[j].t), prev: -1 });
   }
   for (let j = 1; j < n; j++) {
     for (const [i, st] of best[j]) {
@@ -222,7 +329,7 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, opt
       for (let k = j + 1; k < n; k++) {
         const L = cands[k].t - cands[j].t;
         if (L < MIN_SHOT) continue;
-        if (L > maxShot) break;
+        if (L > longest(cands[j].t, cands[k].t)) break;
         // Skipping a drop is not allowed.
         let skipsDrop = false;
         for (let m = j + 1; m < k; m++) if (cands[m].drop) skipsDrop = true;
@@ -274,6 +381,21 @@ interface Segment {
   peak: number;
   motion: number;
   rgb: [number, number, number];
+  /** mean brightness, 0 to 1 */
+  luma?: number;
+  /** movement at the in-point (scaled like `motion`): a cut into movement hides itself */
+  enter?: number;
+  /** the picture model's embedding of the moment (unit length), when it looked */
+  emb?: Float32Array;
+  /** how much it sells the life, 0 to 1 (smart picks' or the picture model's judgement), when judged */
+  flex?: number;
+  /** how striking it is as a picture, 0 to 1, when judged */
+  wow?: number;
+  /** which of the source's shots it's in (an index between its cuts; -1 when it runs across them) */
+  scene: number;
+  /** the source samples at its in-point and out-point (for how the cuts either side of it look) */
+  head?: number;
+  tail?: number;
 }
 
 /** The crop for a stretch of a source: where its interest sits, inside any black bars (see framing.ts). */
@@ -283,12 +405,60 @@ export function cropFor(scan: Scan, a: number, b: number, aspect: Aspect): Crop 
 
 const colourDistance = (a: [number, number, number], b: [number, number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
+/** The correlation of row `i` of `a` with row `j` of `b` (rows `n` long), -1 to 1. */
+function correlation(a: Float32Array, i: number, b: Float32Array, j: number, n: number): number {
+  let ma = 0;
+  let mb = 0;
+  for (let k = 0; k < n; k++) (ma += a[i * n + k]), (mb += b[j * n + k]);
+  ma /= n;
+  mb /= n;
+  let ab = 0;
+  let aa = 0;
+  let bb = 0;
+  for (let k = 0; k < n; k++) {
+    const x = a[i * n + k] - ma;
+    const y = b[j * n + k] - mb;
+    ab += x * y;
+    aa += x * x;
+    bb += y * y;
+  }
+  return aa > 0 && bb > 0 ? ab / Math.sqrt(aa * bb) : 0;
+}
+
+/**
+ * How alike two frames look as pictures, 0 to 1: the same colours in the same
+ * places, the subject where it was (the colour histograms overlapping, and where
+ * the interest sits across and down the frame lining up). Two shots of one
+ * subject that look this alike either side of a cut make a jump cut.
+ */
+function lookAlike(a: Scan, i: number, b: Scan, j: number): number {
+  const ha = a.stats.hist;
+  const hb = b.stats.hist;
+  let sa = 0;
+  let sb = 0;
+  for (let k = 0; k < 64; k++) (sa += ha[i * 64 + k]), (sb += hb[j * 64 + k]);
+  if (!(sa > 0 && sb > 0)) return 0;
+  let common = 0;
+  for (let k = 0; k < 64; k++) common += Math.min(ha[i * 64 + k] / sa, hb[j * 64 + k] / sb);
+  const across = correlation(a.stats.cols, i, b.stats.cols, j, PROFILE_BINS);
+  const down = correlation(a.stats.rows, i, b.stats.rows, j, PROFILE_BINS);
+  return common * Math.max(0, across) * Math.max(0, down);
+}
+
+/**
+ * How far a shot keeps from the source's own cuts: a couple of frames, or in a long
+ * video skimmed a frame every second or two, half that gap (a cut is only known to
+ * lie somewhere between two samples, and a shot running over it flashes the next
+ * scene for a moment).
+ */
+const cutMargin = (scan: Scan) => Math.max(0.08, 0.5 / scan.rate);
+
 /** The longest stretch of a source without a cut in it (or at all, `acrossCuts`). */
 export function longestStretch(scan: Scan, acrossCuts = false): number {
   if (scan.kind === "image") return Infinity;
   const bounds = acrossCuts ? [scan.start, scan.duration] : [scan.start, ...scan.cuts, scan.duration];
   let best = 0;
-  for (let i = 0; i + 1 < bounds.length; i++) best = Math.max(best, bounds[i + 1] - bounds[i] - 0.16);
+  for (let i = 0; i + 1 < bounds.length; i++) best = Math.max(best, bounds[i + 1] - bounds[i] - 2 * cutMargin(scan));
   return best;
 }
 
@@ -302,14 +472,14 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
     const st = scan.stats;
     const interest = purpose === "real" && scan.real ? scan.real : scan.interest!;
     if (scan.kind === "image") {
-      out.push({ scan, start: 0, score: interest[0], peak: interest[0], motion: 0, rgb: [st.rgb[0], st.rgb[1], st.rgb[2]] });
+      out.push({ scan, start: 0, score: interest[0], peak: interest[0], motion: 0, rgb: [st.rgb[0], st.rgb[1], st.rgb[2]], flex: scan.look?.flex[0], wow: scan.look?.wow[0], emb: scan.look?.embs?.[scan.look.cell?.[0] ?? 0], scene: 0 });
       continue;
     }
     const bounds = acrossCuts ? [scan.start, scan.duration] : [scan.start, ...scan.cuts, scan.duration];
     const step = 1 / scan.rate;
     for (let s = 0; s + 1 < bounds.length; s++) {
-      const lo = bounds[s] + 0.08;
-      const hi = bounds[s + 1] - 0.08;
+      const lo = bounds[s] + cutMargin(scan);
+      const hi = bounds[s + 1] - cutMargin(scan);
       if (hi - lo < d - 1e-6) continue;
       // Where a slot can start: an even grid, or, when the samples are sparser than
       // the slot is long (a long video skimmed by its key frames), centred on each
@@ -324,15 +494,21 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
         let sum = 0;
         let peak = 0;
         let motion = 0;
+        let luma = 0;
         let c = 0;
+        let first = -1;
+        let last = -1;
         const rgb: [number, number, number] = [0, 0, 0];
         const take = (i: number) => {
           sum += interest[i];
           peak = Math.max(peak, interest[i]);
           motion += st.motion[i];
+          luma += st.luma[i];
           rgb[0] += st.rgb[i * 3];
           rgb[1] += st.rgb[i * 3 + 1];
           rgb[2] += st.rgb[i * 3 + 2];
+          if (first < 0) first = i;
+          last = i;
           c++;
         };
         for (let i = 0; i < st.t.length; i++) if (st.t[i] >= start && st.t[i] <= start + d) take(i);
@@ -343,7 +519,21 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
           if (near < 0) continue;
           take(near);
         }
-        out.push({ scan, start, score: sum / c, peak, motion: clamp(motion / c / motionScale, 0, 1.5), rgb: [rgb[0] / c, rgb[1] / c, rgb[2] / c] });
+        let mid = first;
+        for (let i = first; i < st.t.length && st.t[i] <= start + d / 2; i++) mid = i;
+        const look = scan.look;
+        const emb = look?.embs && look.cell ? look.embs[look.cell[Math.max(0, mid)]] : undefined;
+        let flex: number | undefined;
+        let wow: number | undefined;
+        if (look) {
+          let f = 0;
+          let w = 0;
+          let n = 0;
+          for (let i = 0; i < st.t.length; i++) if (st.t[i] >= start && st.t[i] <= start + d) (f += look.flex[i]), (w += look.wow[i]), n++;
+          flex = n ? f / n : look.flex[Math.max(0, mid)];
+          wow = n ? w / n : look.wow[Math.max(0, mid)];
+        }
+        out.push({ scan, start, score: sum / c, peak, motion: clamp(motion / c / motionScale, 0, 1.5), rgb: [rgb[0] / c, rgb[1] / c, rgb[2] / c], luma: luma / c, enter: clamp(st.motion[first] / motionScale, 0, 1.5), emb, flex, wow, scene: acrossCuts ? -1 : s, head: first, tail: last });
       }
     }
   }
@@ -391,14 +581,69 @@ function taste(variant: number, scan: Scan, t: number): number {
   return ((h >>> 0) / 4294967296) * 2 - 1;
 }
 
-/** 1 where [a, b] overlaps one of the ranges, falling away with the gap to the nearest (over `scale` seconds). */
-function nearness(ranges: Range[] | undefined, a: number, b: number, scale: number, heroesOnly = false): number {
+/**
+ * 1 where [a, b] overlaps one of the ranges, falling away with the gap to the
+ * nearest (over `scale` seconds). Only ranges inside `within` count: across one of
+ * the source's own cuts is another shot, however close in time.
+ */
+function nearness(ranges: Range[] | undefined, a: number, b: number, scale: number, heroesOnly = false, within: [number, number] = [-Infinity, Infinity]): number {
   let near = 0;
   for (const [x, y, hero] of ranges ?? []) {
     if (heroesOnly && !hero) continue;
+    if (y <= within[0] || x >= within[1]) continue;
     near = Math.max(near, Math.exp(-Math.max(0, x - b, a - y) / scale));
   }
   return near;
+}
+
+/**
+ * Which moment of the footage a time is: the source's shot it's in, and in a long
+ * shot, which stretch of it (six seconds, or a couple of `spread`s in a long video:
+ * a walk around a car shows another side of it every few seconds; a phone clip of
+ * a car is one moment).
+ */
+function momentOf(scan: Scan, t: number, scene?: number): string {
+  if (scan.kind === "image") return scan.id;
+  const bounds = [scan.start, ...scan.cuts, scan.duration];
+  let k = scene ?? -1;
+  if (k < 0) {
+    k = 0;
+    while (k + 2 < bounds.length && t >= bounds[k + 1]) k++;
+  }
+  return `${scan.id}|${k}|${Math.floor((t - bounds[k]) / Math.max(6, 2 * spread(scan)))}`;
+}
+
+/** The source's shot a segment is in, as [start, end) seconds (the whole source when it runs across cuts). */
+function sceneOf(seg: Segment): [number, number] {
+  const scan = seg.scan;
+  if (seg.scene < 0 || scan.kind === "image") return [-Infinity, Infinity];
+  const bounds = [scan.start, ...scan.cuts, scan.duration];
+  return [bounds[seg.scene] ?? -Infinity, bounds[seg.scene + 1] ?? Infinity];
+}
+
+const dot = (a: ArrayLike<number>, b: ArrayLike<number>) => {
+  let s = 0;
+  for (let k = 0; k < a.length; k++) s += a[k] * b[k];
+  return s;
+};
+
+/** Each moment of the footage (see momentOf) at the best any of the stretches scores. */
+function momentScores(segs: Segment[]): Map<string, number> {
+  const best = new Map<string, number>();
+  for (const seg of segs) {
+    const key = momentOf(seg.scan, seg.start, seg.scene);
+    best.set(key, Math.max(best.get(key) ?? -Infinity, seg.score));
+  }
+  return best;
+}
+
+/**
+ * The editor's selects: the `k` best moments of the footage (all of them, when
+ * there are no more). A long video of talking and screens with a few supercars in
+ * it gives the supercars; a few phone clips of a car give every clip.
+ */
+function selectsOf(scores: Map<string, number>, k: number): Set<string> {
+  return new Set([...scores].sort((a, b) => b[1] - a[1]).slice(0, k).map(([m]) => m));
 }
 
 /**
@@ -423,7 +668,7 @@ function candidatesFor(scans: Scan[], d: number, motionScale: number, purpose: P
   if (segs.length) return { segs, len };
   // Clips too short for even that: each one from its start, whatever its length.
   return {
-    segs: scans.map((scan) => ({ scan, start: scan.start, score: scan.interest?.[0] ?? 0.5, peak: scan.interest?.[0] ?? 0.5, motion: 0, rgb: [scan.stats.rgb[0] ?? 0, scan.stats.rgb[1] ?? 0, scan.stats.rgb[2] ?? 0] as [number, number, number] })),
+    segs: scans.map((scan) => ({ scan, start: scan.start, score: scan.interest?.[0] ?? 0.5, peak: scan.interest?.[0] ?? 0.5, motion: 0, rgb: [scan.stats.rgb[0] ?? 0, scan.stats.rgb[1] ?? 0, scan.stats.rgb[2] ?? 0] as [number, number, number], scene: -1 })),
     len: Math.max(0.1, Math.min(d, whole)),
   };
 }
@@ -462,13 +707,28 @@ export function rampFor(d: number, need: number, fps: number, drop: boolean): Ra
   return { slow, fast, hold };
 }
 
+/** The index of the source's sample nearest `t`. */
+function nearestSample(scan: Scan, t: number): number {
+  const ts = scan.stats.t;
+  let lo = 0;
+  let hi = ts.length - 1;
+  while (lo < hi) {
+    const m = (lo + hi) >> 1;
+    if (ts[m] < t) lo = m + 1;
+    else hi = m;
+  }
+  return lo > 0 && Math.abs(ts[lo - 1] - t) <= Math.abs(ts[lo] - t) ? lo - 1 : Math.max(0, lo);
+}
+
 /**
- * The best moment for each slot: the hook and the drop get the most striking
- * footage, energy in the footage follows energy in the music, neighbours come
- * from different clips and look different, and the edit spreads over all the
- * footage rather than leaning on one clip or one stretch of a long video.
- * Across a batch, each edit keeps well away from the moments the earlier ones
- * used and never opens on (or drops into) the same moment.
+ * The best moment for each slot, the way an editor works: pick the selects (the
+ * best moments of all the footage, so a talking head or a friend in a van stays
+ * out while there are supercars), give the hook, the drop and the closer the most
+ * striking of them, match energy in the footage to energy in the music, and keep
+ * the edit varied by what the shots show rather than by which file they came from
+ * (eight scenes of one Reel are eight shots; four clips of one car from one side
+ * are one). Across a batch, each edit keeps away from the moments the earlier ones
+ * used, and never opens on or drops into one of theirs, or one that looks like it.
  */
 export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): ShotEvent[] {
   if (!scans.length) throw new Error("No footage to fill the edit");
@@ -478,65 +738,166 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
   motionAll.sort((a, b) => a - b);
   const motionScale = motionAll.length ? motionAll[Math.floor(motionAll.length * 0.9)] || 0.1 : 0.1;
   const importance: Record<Role, number> = { hook: 0, drop: 1, closer: 2, build: 3, body: 3 };
+  const dropStart = slots.find((sl) => sl.role === "drop")?.start;
+  // A cut (edit time) that opens a new section of the song.
+  const newSection = (cut: number) => !!ctx.song?.structure?.sections.some((sec) => Math.abs(sec.t - ctx.songStart - CUT_LEAD - cut) < 0.1);
   const order = slots.map((_, i) => i).sort((a, b) => importance[slots[a].role] - importance[slots[b].role] || a - b);
   const fairShare = Math.ceil(slots.length / scans.length) + (scans.length < 4 ? 2 : 1);
   const used: Ranges = ctx.used ?? new Map();
   const uses = new Map<string, number>();
+  const momentUses = new Map<string, number>();
   const chosen: (Segment & { d: number; len: number })[] = new Array(slots.length);
-  const cache = new Map<number, { segs: Segment[]; len: number }>();
+  const cache = new Map<number, { segs: Segment[]; len: number; best: Map<string, number> }>();
+  const v = ctx.variant;
+  // What the earlier edits in the batch opened on and dropped into, as pictures: this
+  // one's hook and drop should look different, not just come from another minute of
+  // the same walk around the same car.
+  const heroLooks: ArrayLike<number>[] = [];
+  for (const [id, ranges] of ctx.avoid ?? []) {
+    const scan = scans.find((sc) => sc.id === id);
+    const look = scan?.look;
+    if (!scan || !look?.embs || !look.cell) continue;
+    for (const [x, y, hero] of ranges) {
+      const e = hero ? look.embs[look.cell[nearestSample(scan, (x + y) / 2)]] : undefined;
+      if (e) heroLooks.push(e);
+    }
+  }
+  // The selects, judged on half-second moments whatever the slots' lengths: the edit
+  // comes from about 1.75 times as many moments as it has shots, the closer from a few
+  // of the best (a few more for each edit already made), and the hook and the drop
+  // (slot by slot, below) from the three best still fresh. Any good stretch of a
+  // select will do, so the edits in a batch can share a great scene without
+  // repeating each other's shots.
+  const moments = momentScores(segmentsFor(scans, 0.5, motionScale, false, ctx.purpose));
+  const pool = { closer: selectsOf(moments, 5 + 3 * v), rest: selectsOf(moments, Math.ceil(1.75 * slots.length)) };
+  // Fresh for a hook or a drop: not a moment an earlier edit opened on or dropped into,
+  // and not one this edit has used. (One that only looks like theirs is let in, and
+  // marked down below: better a strong shot like another edit's than a dull one.)
+  const heroMoments = new Set<string>();
+  for (const [id, ranges] of ctx.avoid ?? []) {
+    const scan = scans.find((sc) => sc.id === id);
+    if (scan) for (const [x, y, hero] of ranges) if (hero) heroMoments.add(momentOf(scan, (x + y) / 2));
+  }
+  const fresh = (m: Segment) => {
+    const moment = momentOf(m.scan, m.start, m.scene);
+    return !heroMoments.has(moment) && !momentUses.has(moment);
+  };
   for (const i of order) {
     const slot = slots[i];
     const d = slot.end - slot.start;
     const key = Math.round(d * FPS);
     const need = ctx.velocity && d >= RAMP_MIN ? d * RAMP_FOOTAGE : d;
-    if (!cache.has(key)) cache.set(key, candidatesFor(scans, need, motionScale, ctx.purpose));
-    const { segs, len } = cache.get(key)!;
-    const energy = ctx.song ? loudnessOver(ctx.song, ctx.songStart, slot.start, slot.end) : 0.5;
+    if (!cache.has(key)) {
+      const c = candidatesFor(scans, need, motionScale, ctx.purpose);
+      cache.set(key, { ...c, best: momentScores(c.segs) });
+    }
+    const { segs, len, best: bestOf } = cache.get(key)!;
+    const energy = ctx.song ? energyOver(ctx.song, ctx.songStart, slot.start, slot.end) : 0.5;
     const r = slot.role;
     const hero = r === "hook" || r === "drop";
-    // The dull stays out while there's anything good left (a talking head next to a
-    // supercar, a title card): only moments within reach of the best are in the running.
     let top = 0;
     for (const seg of segs) top = Math.max(top, seg.score);
-    const floor = top * 0.4;
+    const allowed = hero ? selectsOf(momentScores(segs.filter(fresh)), 3) : r === "closer" ? pool.closer : pool.rest;
     let best: Segment | undefined;
     let bestScore = -Infinity;
-    for (const relax of [false, true]) {
+    // A stretch of one of the selects nearly as good as the moment's best; failing that
+    // (a long slot only the weaker footage has a long enough stretch for), anything
+    // within reach of the best that fits (the dull, a title card, stays out); failing
+    // that, anything.
+    for (const pass of [0, 1, 2]) {
+      const relax = pass === 2;
       for (const seg of segs) {
         const id = seg.scan.id;
         const video = seg.scan.kind === "video";
         const a = seg.start;
         const b = seg.start + len;
-        if (!relax && ((video && overlaps(used.get(id), a - 0.05, b + 0.05)) || seg.score < floor)) continue;
+        if (!relax) {
+          if ((video && overlaps(used.get(id), a - 0.05, b + 0.05)) || seg.score < top * 0.6) continue;
+          if (pass === 0) {
+            const moment = momentOf(seg.scan, a, seg.scene);
+            if (!allowed.has(moment) || seg.score < 0.8 * (bestOf.get(moment) ?? 0)) continue;
+          }
+        }
         let s = seg.score;
-        if (hero) s += 0.35 * seg.peak + 0.15 * Math.min(1, seg.motion);
-        if (r === "closer") s += 0.1 * seg.peak;
+        // The hook and the drop: the most striking picture of the most flex, moving.
+        if (hero) s += 0.3 * seg.peak + 0.15 * Math.min(1, seg.motion) + 0.25 * (seg.flex ?? 0) + 0.25 * (seg.wow ?? 0);
+        // The last shot is what the replay loops from: strong too.
+        if (r === "closer") s += 0.1 * seg.peak + 0.2 * (seg.flex ?? 0) + 0.15 * (seg.wow ?? 0);
         if (video) s -= 0.22 * Math.abs(Math.min(1, seg.motion) - energy);
         else s -= 0.12 * energy + (hero ? 0.1 : 0);
         const far = video ? spread(seg.scan) : 0;
+        const scene = sceneOf(seg);
         for (const nb of [i - 1, i + 1]) {
           const other = chosen[nb];
           if (!other) continue;
-          if (other.scan.id === id) s -= video ? 0.12 + 0.28 * Math.exp(-Math.abs(other.start - a) / Math.max(2, far / 3)) : 0.4;
+          if (other.scan.id === id) {
+            // Two shots of one clip back to back: fine from different scenes of a
+            // compilation, a jump cut from the same one.
+            const sameScene = other.scene === seg.scene || other.scene < 0 || seg.scene < 0;
+            s -= !video ? 0.4 : sameScene ? 0.12 + 0.28 * Math.exp(-Math.abs(other.start - a) / Math.max(2, far / 3)) : 0.05;
+          }
           s -= 0.12 * Math.max(0, 1 - colourDistance(other.rgb, seg.rgb) / 0.12);
+          // What the two shots show (the picture model's view): nearly the same picture
+          // twice reads as a jump cut; inside a section, related pictures flow (a run of
+          // the car from different angles); where a new section starts, a clear change.
+          // Either side of the cut, the frames themselves: the same subject framed the same
+          // way (the car from the same side at the same size) is a jump cut, not a new shot.
+          const [x, xi, y, yi] = nb < i ? [other.scan, other.tail, seg.scan, seg.head] : [seg.scan, seg.tail, other.scan, other.head];
+          const alike = xi !== undefined && yi !== undefined && xi >= 0 && yi >= 0 ? lookAlike(x, xi, y, yi) : 0;
+          if (seg.emb && other.emb) {
+            const sim = dot(seg.emb, other.emb);
+            const cut = nb < i ? slot.start : slots[nb].start;
+            if (sim > 0.93) s -= 0.3;
+            else if (newSection(cut)) s += 0.1 * (1 - sim);
+            else s += 0.06 * clamp((sim - 0.5) / 0.4, 0, 1);
+            s -= 0.8 * clamp((sim - 0.7) / 0.15, 0, 1) * alike;
+          } else s -= 0.3 * clamp((alike - 0.6) / 0.3, 0, 1);
+        }
+        if (seg.emb) {
+          // Variety over the whole edit: each shot already in it that looks like this one
+          // (the same car in the same place, from another angle) makes it less welcome,
+          // so the fifth shot of the car loses to the first of the jet.
+          let alike = 0;
+          for (let j = 0; j < chosen.length; j++) {
+            const e = chosen[j]?.emb;
+            if (e && j !== i) alike += clamp((dot(seg.emb, e) - 0.7) / 0.25, 0, 1);
+          }
+          s -= 0.06 * alike;
+          if (hero && heroLooks.length) {
+            let sim = 0;
+            for (const e of heroLooks) sim = Math.max(sim, dot(seg.emb, e));
+            s -= 0.35 * clamp((sim - 0.8) / 0.15, 0, 1);
+          }
+        }
+        // A cut into movement hides itself; one into a still start shows.
+        if (video && seg.enter !== undefined) s += 0.06 * Math.min(1, seg.enter);
+        // Contrast into the drop: the shots just before it darker, the drop's brighter.
+        if (seg.luma !== undefined && dropStart !== undefined) {
+          if (r === "drop") s += 0.12 * seg.luma;
+          else if (slot.end <= dropStart + 0.05 && dropStart - slot.end < 8 * (ctx.song?.period ?? 0.5)) s -= 0.12 * Math.max(0, seg.luma - 0.45);
         }
         const u = uses.get(id) ?? 0;
-        s -= 0.16 * u + (u >= fairShare ? 0.6 : 0);
+        // Spread over the clips a little, never at the cost of the flex: the picture
+        // model's variety (above) keeps a clip's best moments from all looking alike.
+        // The same moment twice in one edit is a repeat, whatever it shows (though with
+        // too little footage to go round, a third or fourth time costs less than a jump cut).
+        const again = momentUses.get(momentOf(seg.scan, a, seg.scene)) ?? 0;
+        s -= 0.04 * u + (u >= 2 * fairShare ? 0.3 : 0) + (again ? 0.45 + 0.1 * (again - 1) : 0);
         if (video) {
           // Earlier edits in the batch: never the same moment, rarely one next to it, and
           // never an opening (or a drop) near one they opened on.
           const gap = apart(seg.scan);
-          s -= 0.25 * nearness(ctx.avoid?.get(id), a, b, gap) + (overlaps(ctx.avoid?.get(id), a, b) ? 0.35 : 0);
-          if (hero) s -= 0.6 * nearness(ctx.avoid?.get(id), a, b, 3 * gap, true);
+          s -= 0.25 * nearness(ctx.avoid?.get(id), a, b, gap, false, scene) + (overlaps(ctx.avoid?.get(id), a, b) ? 0.35 : 0);
+          if (hero) s -= 0.6 * nearness(ctx.avoid?.get(id), a, b, 3 * gap, true, scene);
           // This edit: spread over the footage instead of taking several shots from one stretch.
-          s -= 0.15 * nearness(used.get(id), a - 0.05, b + 0.05, far / 2);
+          s -= 0.15 * nearness(used.get(id), a - 0.05, b + 0.05, far / 2, false, scene);
         } else {
           if (u > 0) s -= 0.5;
           if (ctx.avoid?.has(id)) s -= hero ? 0.6 : 0.3;
         }
         if (relax && overlaps(used.get(id), a - 0.05, b + 0.05)) s -= 0.6;
         s += 0.12 * taste(ctx.variant, seg.scan, a);
-        s += (rand() - 0.5) * 0.1;
+        s += (rand() - 0.5) * 0.04;
         if (s > bestScore) {
           bestScore = s;
           best = seg;
@@ -546,10 +907,14 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
     }
     if (!best) throw new Error("No footage to fill the edit");
     chosen[i] = { ...best, d, len };
+    // The drop shouldn't look like the hook either.
+    if (hero && best.emb) heroLooks.push(best.emb);
     const id = best.scan.id;
     if (!used.has(id)) used.set(id, []);
     used.get(id)!.push([best.start, best.start + len]);
     uses.set(id, (uses.get(id) ?? 0) + 1);
+    const moment = momentOf(best.scan, best.start, best.scene);
+    momentUses.set(moment, (momentUses.get(moment) ?? 0) + 1);
   }
 
   let kb = ctx.variant;
@@ -769,8 +1134,9 @@ export function phraseCuts(song: SongAnalysis, songStart: number, shots: ShotEve
  */
 export function strongHits(song: SongAnalysis, songStart: number, from: number, to: number, drop?: number): number[] {
   const hits: number[] = [];
+  // (Kicks and 808s only: a punch on a sung syllable or a clap reads as a glitch.)
   const found = song.accents
-    .filter((a) => hitsHard(song, a))
+    .filter((a) => a.kick >= 0.6 && hitsHard(song, a))
     .map((a) => ({ t: frame(gridTime(song, a) - songStart - CUT_LEAD), s: a.s }))
     .filter((a) => a.s >= 0.8 && a.t >= from && a.t <= to && (drop === undefined || Math.abs(a.t - drop) > 1))
     .sort((a, b) => b.s - a.s);

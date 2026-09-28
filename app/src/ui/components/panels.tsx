@@ -55,12 +55,20 @@ function GeminiKey({ s, note }: { s: State; note: string }) {
   );
 }
 
-/** Smart picks: on with a key, Gemini looks at stills of the footage to find the flex. */
+/**
+ * Smart picks: a picture model in the page always looks at stills of the footage
+ * to find the flex; with a key and the switch on, Gemini does it instead, sharper.
+ */
 function SmartPicks({ s }: { s: State }) {
   const [open, setOpen] = useState(false);
   const rating = s.footage.filter((f) => f.look === "queued" || f.look === "rating");
   const flex = s.footage.reduce((a, f) => a + (f.flexSeconds ?? 0), 0);
   const rated = s.footage.some((f) => f.look === "done");
+  const local = rating.length
+    ? `Looking at what's in ${rating.length === 1 ? rating[0].name : `${rating.length} clips`}...`
+    : rated
+      ? `Found ${fmtTime(flex)} of flex, right here in your browser.`
+      : "A picture model in your browser sees what's in every shot (the supercars, the jets, the views) so the edits open on the flex and skip the talking and the desk.";
   if (!s.geminiKey) {
     return (
       <div className="smart">
@@ -69,11 +77,11 @@ function SmartPicks({ s }: { s: State }) {
             <Sparkles size={14} /> Smart picks
           </span>
           <button type="button" className="btn ghost" onClick={() => setOpen(!open)}>
-            {open ? "Not now" : "Turn on"}
+            {open ? "Not now" : "Sharper with Gemini"}
           </button>
         </div>
-        <span className="hint">Let Gemini see what's in your shots (the supercars, the watches, the views) so the edits open on the flex and skip the talking.</span>
-        {open && <GeminiKey s={s} note="Only small stills of your footage go to Gemini, one every few seconds, never the video." />}
+        <span className="hint">{local}</span>
+        {open && <GeminiKey s={s} note="Gemini judges the shots more sharply still. Only small stills of your footage go to it, one every few seconds, never the video." />}
       </div>
     );
   }
@@ -84,7 +92,7 @@ function SmartPicks({ s }: { s: State }) {
         onChange={(v) => studio.setStyle({ smart: v })}
         hint={
           !s.style.smart
-            ? "Off: it judges the footage by how it looks (sharp, bright, colourful, moving)."
+            ? `Off: ${local.charAt(0).toLowerCase()}${local.slice(1)}`
             : rating.length
               ? `Gemini is looking at ${rating.length === 1 ? rating[0].name : `${rating.length} clips`}...`
               : rated
@@ -141,7 +149,7 @@ export function FootagePanel({ s }: { s: State }) {
               )}
               {f.status === "ready" && <span className="badge">{f.kind === "image" ? "Photo" : fmtTime(f.duration)}</span>}
               {f.status === "ready" && (f.look === "queued" || f.look === "rating") && (
-                <div className="bar look" title="Gemini is looking at it">
+                <div className="bar look" title={f.lookBy === "gemini" ? "Gemini is looking at it" : "Looking at what's in it"}>
                   <i style={{ width: `${Math.round((f.lookProgress ?? 0) * 100)}%` }} />
                 </div>
               )}

@@ -15,6 +15,8 @@ export interface Sheets {
   times: number[];
   /** the first cell number on each sheet */
   firsts: number[];
+  /** each cell's size in the sheet images, and how many to a row */
+  grid?: { w: number; h: number; cols: number };
 }
 
 const MAX_W = 1280;
@@ -95,6 +97,6 @@ export class SheetMaker {
 
   async finish(): Promise<Sheets> {
     this.flush();
-    return { images: await Promise.all(this.pending), cells: [...this.cells], times: [...this.times], firsts: [...this.firsts] };
+    return { images: await Promise.all(this.pending), cells: [...this.cells], times: [...this.times], firsts: [...this.firsts], grid: { w: this.cw, h: this.ch, cols: this.cols } };
   }
 }

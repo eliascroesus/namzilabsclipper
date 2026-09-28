@@ -5,7 +5,8 @@ import { studio, type State } from "../studio";
 const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
 /**
- * The sound as a strip to pick from: its loudness, its drops (orange), and the
+ * The sound as a strip to pick from: its loudness, its drops (orange), where
+ * sung lines start (blue dots, once it has listened for the singing), and the
  * stretch the edits will use. Drag the stretch to choose where the edits start
  * in the song (it snaps to the bar lines); for story clips, drag the marker to
  * the moment that should hit as the talking ends. Play plays that stretch.
@@ -145,6 +146,9 @@ export function SongTimeline({ s }: { s: State }) {
         </div>
         {snd.drops?.map((t, i) => (
           <span key={i} className="drop-mark" style={{ left: `${(t / D) * 100}%` }} title={`Drop at ${mmss(t)}`} />
+        ))}
+        {snd.lines?.map((t, i) => (
+          <span key={`l${i}`} className="line-mark" style={{ left: `${(t / D) * 100}%` }} title={`A sung line starts at ${mmss(t)}`} />
         ))}
         {story ? (
           <span className="payoff" style={{ left: `${((payoff ?? 0) / D) * 100}%` }} />

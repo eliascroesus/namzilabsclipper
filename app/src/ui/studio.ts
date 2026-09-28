@@ -4,7 +4,8 @@
  * reads it through useStudio(); the heavy engine objects stay out of React.
  */
 import { useSyncExternalStore } from "react";
-import { analyzeSong, SR, type SongAnalysis } from "../engine/audio/song";
+import { analyzeSong, SR, withVocals, type SongAnalysis } from "../engine/audio/song";
+import { findVocals } from "../engine/audio/vocals";
 import { scanImage, scanVideo, scoreInterest, type Scan } from "../engine/media/scan";
 import { decodeMono, openSource, type Source } from "../engine/media/sources";
 import { planMeme, planTwist } from "../engine/plan/formats";
@@ -14,6 +15,7 @@ import { pickModel } from "../engine/ai/gemini";
 import { KINDS } from "../engine/media/scan";
 import { skipSegments, youtubeId } from "../engine/ai/sponsorblock";
 import { lookFor, LOOK_VERSION, photoSheets, rateSheets, restoreLook, storeLook, type StoredLook } from "../engine/vision/look";
+import { senseSheets, SENSE_VERSION } from "../engine/vision/sense";
 import { findMoments, transcribe, type Moment, type Transcript } from "../engine/story/story";
 import { musicWindow, planMontage, usedRanges, type Ranges } from "../engine/plan/montage";
 import { NO_GRADE, WARM_GRADE, type Aspect, type CardSpec, type EditPlan } from "../engine/plan/types";
@@ -39,6 +41,8 @@ export interface Footage {
   /** smart picks: Gemini looking at it */
   look?: "queued" | "rating" | "done" | "failed";
   lookProgress?: number;
+  /** who judged the footage: Gemini (smart picks) or the picture model in the page */
+  lookBy?: "gemini" | "local";
   /** smart picks: how much flex there is along the clip, 0 to 1 per slice */
   heat?: number[];
   /** smart picks: seconds of it that sell the life */
@@ -68,6 +72,11 @@ export interface Sound {
   payoff: number | null;
   /** the file, to play it back while picking */
   url?: string;
+  /** listening for the singing (vocals.ts), after the beat and the rest are ready */
+  vocals?: "listening" | "done" | "failed";
+  vocalProgress?: number;
+  /** where sung lines start, for the timeline */
+  lines?: number[];
 }
 
 export interface Kit extends KitFields {
@@ -472,10 +481,28 @@ class Studio {
       const hi = Math.max(...raw);
       const bars = raw.map((v) => 0.12 + 0.88 * ((v - lo) / Math.max(1e-6, hi - lo)) ** 1.6);
       this.set((s) => ({
-        sound: s.sound && s.sound.id === id ? { ...s.sound, status: "ready", progress: 1, bpm: song.bpm, bars, downbeats: song.downbeats, beats: song.beats, drops: song.drops.map((d) => d.t) } : s.sound,
+        sound: s.sound && s.sound.id === id ? { ...s.sound, status: "ready", progress: 1, bpm: song.bpm, bars, downbeats: song.downbeats, beats: song.beats, drops: song.drops.map((d) => d.t), vocals: "listening", vocalProgress: 0 } : s.sound,
       }));
+      void this.listenForVocals(id, y);
     } catch (e) {
       this.set((s) => ({ sound: s.sound && s.sound.id === id ? { ...s.sound, status: "error", error: e instanceof Error ? e.message : String(e) } : s.sound }));
+    }
+  }
+
+  /**
+   * The singing: where lines start and how the voice sits in each section, so a
+   * verse is cut on its lines. Without it (the model didn't load), the edits cut
+   * on the beat and the song's shape alone.
+   */
+  private async listenForVocals(id: string, y: Float32Array) {
+    const progress = throttled((p) => this.set((s) => ({ sound: s.sound && s.sound.id === id ? { ...s.sound, vocalProgress: p } : s.sound })));
+    try {
+      const vocals = await findVocals(y, { onProgress: progress });
+      if (this.state.sound?.id !== id || !this.song) return;
+      this.song = withVocals(this.song, vocals);
+      this.set((s) => ({ sound: s.sound && s.sound.id === id ? { ...s.sound, vocals: "done", vocalProgress: 1, lines: vocals.lines } : s.sound }));
+    } catch {
+      this.set((s) => ({ sound: s.sound && s.sound.id === id ? { ...s.sound, vocals: "failed" } : s.sound }));
     }
   }
 
@@ -557,7 +584,7 @@ class Studio {
       return { style };
     });
     saveStyle(this.state.style);
-    if (patch.smart) this.queueLooks();
+    if ("smart" in patch) this.queueLooks();
   }
 
   /** A YouTube video with its ID in the name: leave out what SponsorBlock's viewers marked (sponsor reads, intros, outros). */
@@ -576,16 +603,69 @@ class Studio {
 
   // ── smart picks ──
 
-  /** Queue every clip Gemini hasn't looked at yet (when smart picks are on and there's a key). */
+  /**
+   * Queue every clip nothing has judged yet: Gemini when smart picks are on and
+   * there's a key (it also takes over from the picture model's judgement), the
+   * picture model in the page otherwise.
+   */
   private queueLooks() {
     const s = this.state;
-    if (!s.style.smart || !s.geminiKey) return;
+    const gemini = s.style.smart && !!s.geminiKey;
     for (const f of s.footage) {
-      if (f.status !== "ready" || f.look === "queued" || f.look === "rating" || f.look === "done") continue;
+      if (f.status !== "ready" || f.look === "queued" || f.look === "rating") continue;
+      if (f.look === "done" && (f.lookBy === "gemini" || !gemini)) continue;
+      if (f.look === "failed" && f.lookBy === (gemini ? "gemini" : "local")) continue;
       const scan = this.scans.get(f.id);
-      if (!scan || scan.look) continue;
-      this.patchFootage(f.id, { look: "queued", lookProgress: 0 });
-      this.lookQueue = this.lookQueue.then(() => this.rateOne(f.id));
+      if (!scan) continue;
+      if (gemini && f.lookBy === "local") scan.look = undefined;
+      this.patchFootage(f.id, { look: "queued", lookProgress: 0, lookBy: gemini ? "gemini" : "local" });
+      this.lookQueue = this.lookQueue.then(() => (gemini ? this.rateOne(f.id) : this.senseOne(f.id)));
+    }
+  }
+
+  /** The picture model in the page judges one clip (or every photo waiting), remembering the answer per file. */
+  private async senseOne(id: string) {
+    const f = this.state.footage.find((x) => x.id === id);
+    const scan = this.scans.get(id);
+    if (!f || !scan || scan.look || f.look !== "queued" || f.lookBy !== "local") return;
+    const ctl = new AbortController();
+    this.lookAbort = { id, ctl };
+    const photos = scan.kind === "image" ? this.state.footage.filter((x) => x.kind === "image" && x.status === "ready" && x.look === "queued" && x.lookBy === "local" && !this.scans.get(x.id)?.look).map((x) => x.id) : [id];
+    for (const pid of photos) this.patchFootage(pid, { look: "rating", lookProgress: 0 });
+    try {
+      if (scan.kind === "video" && scan.sheets) {
+        const file = this.files.get(id);
+        const k = file ? `sense:${SENSE_VERSION}:${file.name}:${file.size}:${file.lastModified}` : null;
+        const stored = k ? await recall<StoredLook>(k) : null;
+        let ratings = stored ? restoreLook(stored, scan.sheets) : null;
+        if (!ratings) {
+          ratings = await senseSheets(scan.sheets, { signal: ctl.signal, onProgress: (p) => this.patchFootage(id, { lookProgress: p }) });
+          if (k) void remember(k, storeLook(scan.sheets, ratings));
+        }
+        scan.look = lookFor(scan, scan.sheets, ratings);
+        this.patchFootage(id, { look: scan.look ? "done" : "failed", lookProgress: 1, ...heatOf(scan) });
+      } else if (scan.kind === "image") {
+        const items = photos.map((pid, index) => ({ pid, index, image: this.sources.get(pid)?.image })).filter((x): x is { pid: string; index: number; image: ImageBitmap } => !!x.image);
+        const ratings = await senseSheets(await photoSheets(items), { signal: ctl.signal });
+        for (const [c, item] of items.entries()) {
+          const r = ratings.get(c + 1);
+          const ps = this.scans.get(item.pid);
+          if (!r || !ps) {
+            this.patchFootage(item.pid, { look: "failed" });
+            continue;
+          }
+          ps.look = { flex: Float32Array.of(r.flex / 10), wow: Float32Array.of(r.wow / 10), kind: Uint8Array.of(KINDS.indexOf(r.kind)), ...(r.emb ? { embs: [r.emb], cell: Int32Array.of(0) } : {}) };
+          this.patchFootage(item.pid, { look: "done", lookProgress: 1, ...heatOf(ps) });
+        }
+      } else {
+        this.patchFootage(id, { look: undefined, lookBy: undefined });
+      }
+    } catch (e) {
+      const cancelled = e instanceof DOMException && e.name === "AbortError";
+      // No model (offline, say): the footage is judged by how it looks, as before.
+      for (const pid of photos) this.patchFootage(pid, { look: cancelled ? undefined : "failed" });
+    } finally {
+      if (this.lookAbort?.ctl === ctl) this.lookAbort = null;
     }
   }
 
@@ -593,15 +673,17 @@ class Studio {
   private async rateOne(id: string) {
     const f = this.state.footage.find((x) => x.id === id);
     const scan = this.scans.get(id);
-    if (!f || !scan || scan.look || f.look !== "queued") return;
+    if (!f || !scan || scan.look || f.look !== "queued" || f.lookBy !== "gemini") return;
     const key = this.state.geminiKey;
     if (!this.state.style.smart || !key) {
-      this.patchFootage(id, { look: undefined });
+      // Smart picks went off while it waited: the picture model judges it instead.
+      this.patchFootage(id, { look: undefined, lookBy: undefined });
+      this.queueLooks();
       return;
     }
     const ctl = new AbortController();
     this.lookAbort = { id, ctl };
-    const photos = scan.kind === "image" ? this.state.footage.filter((x) => x.kind === "image" && x.status === "ready" && x.look === "queued" && !this.scans.get(x.id)?.look).map((x) => x.id) : [id];
+    const photos = scan.kind === "image" ? this.state.footage.filter((x) => x.kind === "image" && x.status === "ready" && x.look === "queued" && x.lookBy === "gemini" && !this.scans.get(x.id)?.look).map((x) => x.id) : [id];
     for (const pid of photos) this.patchFootage(pid, { look: "rating", lookProgress: 0 });
     try {
       const sig = (fid: string) => {
@@ -616,6 +698,20 @@ class Studio {
           this.model ??= await pickModel(key, ctl.signal);
           ratings = await rateSheets(scan.sheets, { key, model: this.model, signal: ctl.signal, onProgress: (p) => this.patchFootage(id, { lookProgress: p }) });
           if (k) void remember(k, storeLook(scan.sheets, ratings));
+        }
+        // Gemini says how good each moment is; the picture model in the page adds what
+        // the shots have in common (for variety, and no jump cuts), when it loads.
+        if (![...ratings.values()].some((r) => r.emb)) {
+          try {
+            const local = await senseSheets(scan.sheets, { signal: ctl.signal });
+            for (const [n, r] of ratings) {
+              const emb = local.get(n)?.emb;
+              if (emb) ratings.set(n, { ...r, emb });
+            }
+            if (k) void remember(k, storeLook(scan.sheets, ratings));
+          } catch (e) {
+            if (e instanceof DOMException && e.name === "AbortError") throw e;
+          }
         }
         scan.look = lookFor(scan, scan.sheets, ratings);
         this.patchFootage(id, { look: scan.look ? "done" : "failed", lookProgress: 1, ...heatOf(scan) });
@@ -750,10 +846,11 @@ class Studio {
     }
     const ready = s.footage.filter((f) => f.status === "ready");
     if (!ready.length) return s.footage.some((f) => f.status === "reading" || f.status === "scanning") ? "Still reading the footage" : "Add footage first";
-    if (s.style.smart && s.geminiKey && ready.some((f) => f.look === "queued" || f.look === "rating")) return "Gemini is still looking at the footage (smart picks)";
+    if (ready.some((f) => f.look === "queued" || f.look === "rating")) return s.style.smart && s.geminiKey ? "Gemini is still looking at the footage (smart picks)" : "Still looking at the footage";
     if (s.style.format !== "meme") {
       if (!s.sound) return "Add a sound first";
       if (s.sound.status !== "ready") return s.sound.status === "error" ? "The sound didn't load" : "Still listening to the sound";
+      if (s.sound.vocals === "listening") return "Still listening for the singing";
     } else if (s.sound && s.sound.status !== "ready" && s.sound.status !== "error") return "Still listening to the sound";
     return null;
   }

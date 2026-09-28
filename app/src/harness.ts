@@ -2,9 +2,10 @@
  * A bare page the browser tests drive (e2e/run.mjs): each function takes file
  * URLs, runs one part of the engine for real in Chrome, and returns plain data.
  */
-import { analyzeSong, pickSection, SR } from "./engine/audio/song";
+import { analyzeSong, pickSection, SR, withVocals } from "./engine/audio/song";
+import { findVocals } from "./engine/audio/vocals";
 import { decodeMono, openSource, type Source } from "./engine/media/sources";
-import { scanImage, scanVideo, scoreInterest, type Scan } from "./engine/media/scan";
+import { KINDS, scanImage, scanVideo, scoreInterest, type Scan } from "./engine/media/scan";
 import { planMontage, usedRanges, type Ranges } from "./engine/plan/montage";
 import { planMeme, planTwist } from "./engine/plan/formats";
 import type { Aspect, CardSpec } from "./engine/plan/types";
@@ -97,6 +98,34 @@ const harness = {
     };
   },
 
+  /** Scan videos and rate their frames with the in-page picture model (no key); per sample: interest, kind, flex. */
+  async sense(urls: string[]) {
+    const { senseSheets } = await import("./engine/vision/sense");
+    const { lookFor } = await import("./engine/vision/look");
+    const scans: Scan[] = [];
+    const timing: Record<string, number> = {};
+    for (const url of urls) {
+      const src = await load(url);
+      const sc = await scanVideo(src);
+      const t0 = performance.now();
+      if (sc.sheets) sc.look = lookFor(sc, sc.sheets, await senseSheets(sc.sheets));
+      timing[url] = Math.round(performance.now() - t0);
+      scans.push(sc);
+    }
+    const plain = scans.map((sc) => ({ ...sc, look: undefined }) as Scan);
+    scoreInterest(plain);
+    scoreInterest(scans);
+    return scans.map((s, k) => ({
+      url: urls[k],
+      senseMs: timing[urls[k]],
+      frames: s.sheets?.cells.length ?? 0,
+      t: Array.from(s.stats.t).map((v) => round(v, 2)),
+      before: Array.from(plain[k].interest ?? []).map((v) => round(v, 2)),
+      interest: Array.from(s.interest ?? []).map((v) => round(v, 2)),
+      flex: Array.from(s.look?.flex ?? []).map((v) => round(v, 2)),
+      kind: Array.from(s.look?.kind ?? []).map((k) => KINDS[k]),
+    }));
+  },
   async scan(urls: string[]) {
     const scans: Scan[] = [];
     const timing: Record<string, number> = {};
@@ -149,6 +178,23 @@ export interface MontageRun {
   velocity?: boolean;
   /** draw each shot's first, middle and last frame instead of one per shot */
   thirds?: boolean;
+  /** listen for the singing (default on) */
+  vocals?: boolean;
+  /** where in the song the edits start (default: automatic) */
+  songStart?: number;
+  /** judge the footage with the picture model in the page, as the app does without a key (default on) */
+  sense?: boolean;
+  /** save the analysed song and footage (and the contact sheets) for tuning the planner outside the page */
+  dump?: boolean;
+}
+
+/** JSON for the analysis: typed arrays as { $ta, d }, blobs left out. */
+function toJSON(value: unknown): string {
+  return JSON.stringify(value, (_k, v) => {
+    if (ArrayBuffer.isView(v) && !(v instanceof DataView)) return { $ta: v.constructor.name, d: Array.from(v as unknown as ArrayLike<number>) };
+    if (v instanceof Blob) return undefined;
+    return v;
+  });
 }
 
 async function montage(run: MontageRun) {
@@ -160,7 +206,12 @@ async function montage(run: MontageRun) {
     t = now;
   };
   const songSrc = run.song ? await load(run.song, "song") : null;
-  const song = songSrc ? analyzeSong(await decodeMono(songSrc, SR)) : null;
+  let song = null;
+  if (songSrc) {
+    const y = await decodeMono(songSrc, SR);
+    song = analyzeSong(y);
+    if (run.vocals !== false) song = withVocals(song, await findVocals(y));
+  }
   lap("song");
   const sources = new Map<string, Source>(songSrc ? [["song", songSrc]] : []);
   const scans: Scan[] = [];
@@ -169,14 +220,23 @@ async function montage(run: MontageRun) {
     sources.set(src.info.id, src);
     scans.push(src.info.kind === "image" ? await scanImage(src) : await scanVideo(src));
   }
+  if (run.sense !== false) {
+    const { senseSheets } = await import("./engine/vision/sense");
+    const { lookFor } = await import("./engine/vision/look");
+    for (const sc of scans) if (sc.kind === "video" && sc.sheets) sc.look = lookFor(sc, sc.sheets, await senseSheets(sc.sheets));
+  }
   scoreInterest(scans);
   lap("scan");
+  if (run.dump) {
+    await save(`${run.out ?? "state"}-state.json`, new Blob([toJSON({ song, scans })]));
+    for (const sc of scans) for (const [k, im] of (sc.sheets?.images ?? []).entries()) await save(`${run.out ?? "state"}-sheet-${sc.id}-${k}.jpg`, im);
+  }
   const img = await createImageBitmap(await (await fetch("/demo-dashboard.jpg")).blob());
   const card: CardSpec | null = run.card === null ? null : { kind: "laptop", top: "start free", bottom: "namzilabs.co", accent: "#568CFF", hold: 4, draw: false, ...(run.card ?? {}) };
   const results = [];
   const avoid: Ranges = new Map();
   for (let v = 0; v < (run.variants ?? 1); v++) {
-    const common = { song: song ?? undefined, songSource: "song", songName: run.song?.split("/").pop() ?? "", fromStart: run.fromStart ?? true, scans, aspect: run.aspect ?? "9x16", length: run.length ?? 14, card, variant: v, avoid, velocity: run.velocity };
+    const common = { song: song ?? undefined, songSource: "song", songName: run.song?.split("/").pop() ?? "", fromStart: run.fromStart ?? true, songStart: run.songStart, scans, aspect: run.aspect ?? "9x16", length: run.length ?? 14, card, variant: v, avoid, velocity: run.velocity };
     const plan =
       run.format === "twist"
         ? planTwist({ ...common, actB: new Set((run.actB ?? []).map((i) => `clip${i}`)), captionA: run.caption?.text ?? "what they see vs...", captionB: run.captionB ?? "what they don't..." })

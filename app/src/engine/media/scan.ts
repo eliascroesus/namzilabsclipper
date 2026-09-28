@@ -75,6 +75,10 @@ export interface Look {
   wow: Float32Array;
   /** per sample: index into KINDS */
   kind: Uint8Array;
+  /** the picture model's embedding of each logged frame (unit length), when it looked */
+  embs?: (Float32Array | undefined)[];
+  /** per sample: which logged frame it takes its look from (an index into embs) */
+  cell?: Int32Array;
 }
 
 /** How often to sample: dense for short clips, sparse for long videos. */
@@ -476,6 +480,8 @@ export function scoreInterest(scans: Scan[]): void {
   const TALKING = KINDS.indexOf("talking");
   const TEXT = KINDS.indexOf("text");
   const WORK = KINDS.indexOf("work");
+  const OTHER = KINDS.indexOf("other");
+  const PEOPLE = KINDS.indexOf("people");
   for (const sc of scans) {
     const n = sc.stats.t.length;
     const out = new Float32Array(n);
@@ -512,6 +518,10 @@ export function scoreInterest(scans: Scan[]): void {
         q = 0.3 * quality + 0.7 * (0.6 * sc.look.flex[i] + 0.4 * sc.look.wow[i]);
         if (kind === TEXT) q *= 0.2;
         else if (kind === TALKING) q *= 0.5;
+        // Filler: a room, a blur, people with nothing to show off, a desk. In the edit
+        // only once the flex runs out.
+        else if (kind === WORK) q *= 0.6;
+        else if (kind === OTHER || kind === PEOPLE) q *= 0.85;
         real![i] = kind === WORK ? 0.45 + 0.3 * sc.look.wow[i] + 0.25 * quality : kind === TEXT || kind === TALKING ? 0.02 : 0.1 * quality;
       }
       out[i] = clamp01(q);

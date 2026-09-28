@@ -5,6 +5,8 @@
  */
 import { melFilterbank, melSpectrogram, onsetStrength, percentile, powerSpectrogram, powerToDb, rms, smooth } from "./dsp";
 import { steadyGrid } from "./grid";
+import { songStructure, type Structure } from "./structure";
+import type { Vocals } from "./vocals";
 import { beatTrack, detectOnsets, estimateTempo } from "./rhythm";
 
 export const SR = 22050;
@@ -40,6 +42,12 @@ export interface SongAnalysis {
   steady: boolean;
   /** what usually plays halfway between beats, kick and middle, 0 to 1 like an accent's */
   offbeat?: { kick: number; mid: number };
+  /** bars, breaks, sections and phrases (see structure.ts) */
+  structure?: Structure;
+  /** per beat, the kick, snare and hats (0 to 1), which the structure is built from */
+  beatDrums?: { kick: number[]; snare: number[]; hats: number[] };
+  /** the singing, when it's been listened for (vocals.ts; see withVocals) */
+  vocals?: Vocals;
   /** seconds per beat */
   period: number;
   beats: number[];
@@ -92,6 +100,10 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
   let midHi = midLo;
   while (midHi < N_MELS && bank.centres[midHi] < 2000) midHi++;
   const mid = onsetStrength(melDb, frames, N_MELS, N_FFT, hop, [midLo, Math.max(midLo + 2, midHi)]);
+  // The top: hi-hats, shakers, rides.
+  let highLo = midHi;
+  while (highLo < N_MELS && bank.centres[highLo] < 5000) highLo++;
+  const high = onsetStrength(melDb, frames, N_MELS, N_FFT, hop, [Math.min(highLo, N_MELS - 2), N_MELS]);
   const level = rms(y, N_FFT, hop);
   const duration = y.length / sr;
 
@@ -156,6 +168,12 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
   };
   const beatStrength = beatFrames.map((f) => Math.min(1, peakNear(env, f, 2) / envRef));
   const beatKick = beatFrames.map((f) => Math.min(1, peakNear(kick, f, 2) / kickRef));
+  const beatSnare = beatFrames.map((f) => Math.min(1, peakNear(mid, f, 2) / midRef));
+  const highRef = Math.max(1e-6, percentile(high, 99.5));
+  const beatHats = beatFrames.map((f, i) => {
+    const and = Math.round(((i + 1 < beatFrames.length ? beatFrames[i + 1] : f + (period * sr) / hop) + f) / 2);
+    return Math.min(1, Math.max(peakNear(high, f, 2), peakNear(high, and, 2)) / highRef);
+  });
   const beatLoudness = beatFrames.map((f, i) => {
     const end = i + 1 < beatFrames.length ? beatFrames[i + 1] : Math.min(frames, f + Math.round((period * sr) / hop));
     let s = 0;
@@ -274,7 +292,27 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
     drops.push({ t: beats[at], strength: Math.min(1, s / 0.5) });
   }
 
-  return { sr, hop, duration, bpm, steady: !!grid, offbeat, period, beats, beatInBar, downbeats, beatStrength, beatLoudness, accents, drops, env, kick, loudness, rms: level };
+  const structure = songStructure({ beats, beatInBar, beatLoudness, beatKick, beatSnare, beatHats });
+
+  return { sr, hop, duration, bpm, steady: !!grid, offbeat, structure, beatDrums: { kick: beatKick, snare: beatSnare, hats: beatHats }, period, beats, beatInBar, downbeats, beatStrength, beatLoudness, accents, drops, env, kick, loudness, rms: level };
+}
+
+/**
+ * The song with its singing: the vocals attached, and the structure rebuilt so a
+ * section can start where the voice comes in or drops out.
+ */
+export function withVocals(song: SongAnalysis, vocals: Vocals): SongAnalysis {
+  const fps = song.sr / song.hop;
+  const beatVocal = song.beats.map((b, i) => {
+    const f0 = Math.max(0, Math.round(b * fps));
+    const f1 = Math.min(vocals.active.length, Math.max(f0 + 1, Math.round((i + 1 < song.beats.length ? song.beats[i + 1] : b + song.period) * fps)));
+    let n = 0;
+    for (let f = f0; f < f1; f++) n += vocals.active[f];
+    return f1 > f0 ? n / (f1 - f0) : 0;
+  });
+  const d = song.beatDrums;
+  const structure = d ? songStructure({ beats: song.beats, beatInBar: song.beatInBar, beatLoudness: song.beatLoudness, beatKick: d.kick, beatSnare: d.snare, beatHats: d.hats, beatVocal }) : song.structure;
+  return { ...song, vocals, structure };
 }
 
 export interface Section {
