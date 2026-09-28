@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { analyzeSong, type SongAnalysis } from "../src/engine/audio/song";
 import { PROFILE_BINS, type Scan } from "../src/engine/media/scan";
-import { CUT_LEAD, mulberry32, planMontage, usedRanges } from "../src/engine/plan/montage";
+import { CUT_LEAD, mulberry32, planMontage, spread, usedRanges, type Ranges } from "../src/engine/plan/montage";
 import { planMeme, planTwist } from "../src/engine/plan/formats";
 import { FPS, type CardSpec } from "../src/engine/plan/types";
 
@@ -163,6 +163,29 @@ describe("planners on a synthetic song (runs everywhere)", () => {
     expect(plan.card!.end - plan.card!.start).toBeCloseTo(4, 1);
   });
 
+  it("starts where the user picked, and says so in the post note", () => {
+    const at = song.downbeats.find((d) => d > 6)!;
+    const fromReel = planMontage({ song, songSource: "song", songName: "click", fromStart: true, songStart: at, scans, aspect: "9x16", length: 8, card, caption: null, variant: 0 });
+    expect(fromReel.music!.songStart).toBeCloseTo(at, 6);
+    expect(fromReel.note.sound).toContain(`start at 0:${String(Math.floor(at)).padStart(2, "0")}`);
+    // Cuts still land on the beats from there.
+    for (const s of fromReel.shots.slice(1)) {
+      const off = Math.min(...song.beats.map((b) => Math.abs(b - at - CUT_LEAD - s.start)));
+      expect(off).toBeLessThanOrEqual(1.5 / FPS);
+    }
+    const auto = planMontage({ song, songSource: "song", songName: "click", fromStart: true, scans, aspect: "9x16", length: 8, card, caption: null, variant: 0 });
+    expect(auto.music!.songStart).toBe(0);
+    expect(auto.note.sound).toContain("Reel's 0:00");
+  });
+
+  it("turns the drop's flourish over through a batch", () => {
+    const kinds = [0, 1, 2].map((v) => planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans, aspect: "9x16", length: 12, card, caption: null, variant: v }).fx.map((f) => f.kind));
+    expect(kinds[0]).toEqual(expect.arrayContaining(["flash", "punch"]));
+    expect(kinds[1]).toContain("burn");
+    expect(kinds[1]).not.toContain("punch");
+    expect(kinds[2]).toEqual(expect.arrayContaining(["punch", "shake"]));
+  });
+
   it("twist and meme plan without fixtures", () => {
     const tw = planTwist({ song, songSource: "song", songName: "click", fromStart: true, scans, aspect: "4x3", length: 16, card, variant: 1, actB: new Set(["clip6"]), captionA: "what they see vs...", captionB: "what they don't..." });
     expect(tw.shots[tw.shots.length - 1].source).toBe("clip6");
@@ -197,5 +220,73 @@ describe("a long video skimmed by its key frames", () => {
     const plan = planMontage({ song, songSource: "song", songName: "x", fromStart: true, scans: [long], aspect: "9x16", length: 14, card: null, caption: null, variant: 0 });
     const starts = new Set(plan.shots.map((s) => Math.round(s.srcStart)));
     expect(starts.size).toBeGreaterThan(plan.shots.length * 0.8);
+  });
+});
+
+/** A 40 minute vlog skimmed by its key frames: mostly talking, a dozen flex stretches. */
+function longVlog(seed: number, duration = 2400): Scan {
+  const rand = mulberry32(seed);
+  const t: number[] = [];
+  for (let x = 1; x < duration - 1; x += 2 + 2 * rand()) t.push(x);
+  const n = t.length;
+  const f = (k: number) => new Float32Array(k);
+  const stats = { t: Float32Array.from(t), luma: f(n), contrast: f(n), sharp: f(n), color: f(n), skin: f(n), motion: f(n), hist: f(n * 64), cols: f(n * PROFILE_BINS).fill(1 / PROFILE_BINS), rows: f(n * PROFILE_BINS).fill(1 / PROFILE_BINS), rgb: f(n * 3) };
+  // Mostly talking (dull), with a dozen flex stretches of 10 to 40 s.
+  const flex: [number, number][] = [];
+  for (let k = 0; k < 12; k++) {
+    const a = rand() * (duration - 60);
+    flex.push([a, a + 10 + 30 * rand()]);
+  }
+  const interest = f(n);
+  const cuts: number[] = [];
+  let next = 0;
+  for (let i = 0; i < n; i++) {
+    const inFlex = flex.some(([a, b]) => t[i] >= a && t[i] <= b);
+    interest[i] = inFlex ? 0.7 + 0.25 * rand() : 0.25 + 0.2 * rand();
+    stats.motion[i] = inFlex ? 0.1 + 0.2 * rand() : 0.02 + 0.03 * rand();
+    stats.rgb[i * 3] = rand();
+    stats.rgb[i * 3 + 1] = rand();
+    if (t[i] > next) {
+      if (i) cuts.push((t[i - 1] + t[i]) / 2);
+      next = t[i] + 5 + 25 * rand();
+    }
+  }
+  return { id: "vlog", kind: "video", start: 0, duration, width: 1920, height: 1080, rate: n / duration, stats, cuts, interest };
+}
+
+describe("five edits from one 40 minute video", () => {
+  const SR = 22050;
+  const y = new Float32Array(SR * 30);
+  for (let b = 0; b * 0.5 < 29.5; b++) {
+    const s0 = Math.round((0.1 + b * 0.5) * SR);
+    for (let i = 0; i < 2500; i++) y[s0 + i] += (b > 16 ? 0.9 : 0.4) * Math.exp(-i / 700) * Math.sin((2 * Math.PI * 70 * i) / SR);
+  }
+  const song = analyzeSong(y, SR);
+  const vlog = longVlog(11);
+
+  it("each edit uses its own moments", () => {
+    const avoid: Ranges = new Map();
+    const plans = [];
+    for (let v = 0; v < 5; v++) {
+      const plan = planMontage({ song, songSource: "song", songName: "x", fromStart: true, scans: [vlog], aspect: "9x16", length: 14, card: null, caption: null, variant: v, avoid });
+      plans.push(plan);
+      usedRanges(plan, avoid);
+    }
+    const far = spread(vlog);
+    const hooks = plans.map((p) => p.shots[0].srcStart);
+    for (let i = 0; i < hooks.length; i++) for (let j = 0; j < i; j++) expect(Math.abs(hooks[i] - hooks[j])).toBeGreaterThan(far);
+    const interestAt = (t: number) => {
+      let best = 0;
+      for (let i = 0; i < vlog.stats.t.length; i++) if (Math.abs(vlog.stats.t[i] - t) < Math.abs(vlog.stats.t[best] - t)) best = i;
+      return vlog.interest![best];
+    };
+    for (const [k, p] of plans.entries()) {
+      const mean = p.shots.reduce((a, s) => a + interestAt(s.srcStart + 0.3), 0) / p.shots.length;
+      expect(mean).toBeGreaterThan(k < 3 ? 0.75 : 0.55);
+      // Never the same moment twice.
+      const before = plans.slice(0, k).flatMap((q) => q.shots.map((s) => [s.srcStart, s.srcStart + (s.end - s.start) * s.speed]));
+      const same = p.shots.filter((s) => before.some(([x, y]) => s.srcStart < y && s.srcStart + (s.end - s.start) * s.speed > x)).length;
+      expect(same).toBeLessThanOrEqual(k < 4 ? 0 : 2);
+    }
   });
 });

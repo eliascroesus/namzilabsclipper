@@ -1,6 +1,6 @@
 # Namzilabs clipper
 
-A clipping machine that runs in the browser. Drop in footage and a sound, and it makes finished short-form edits cut to the music, each ending on a demo card for the product it promotes. Nothing to install and no AI models on your computer: the video work runs inside Chrome on the Mac's own video engine and GPU, and the one AI step (listening to long videos) uses Google's free Gemini API.
+A clipping machine that runs in the browser. Drop in footage and a sound, and it makes finished short-form edits cut to the music, each ending on a demo card for the product it promotes. Nothing to install: the video work runs inside Chrome on the Mac's own video engine and GPU, and the AI steps (seeing what's in the footage, listening to long videos) use Google's free Gemini API.
 
 **Open it:** https://eliascroesus.github.io/namzilabsclipper/ (see [Publishing](#publishing) for the one-time switch that turns this on)
 
@@ -15,7 +15,16 @@ A clipping machine that runs in the browser. Drop in footage and a sound, and it
 
 Every edit ends on **the demo card**: black, a laptop showing your product (or a phone, for an app), the call to action above, the address below, and the hand-drawn arrow between them, slowly pulling out, exactly as the nio.trade Reels do it. Set the lines, the screenshot and the arrow colour once; they're remembered.
 
-Each result comes as an MP4 **with the song** and a copy **without it**, plus a post note. When the sound came from a Reel, the edit starts at that Reel's 0:00, so tapping the sound in Instagram and choosing **Use audio** lines every cut up with the beat.
+Each result comes as an MP4 **with the song** and a copy **without it**, plus a post note. When the sound came from a Reel, the edit starts at that Reel's 0:00, so tapping the sound in Instagram and choosing **Use audio** lines every cut up with the beat. Drag the box on the song's timeline to start somewhere else; the post note then says where to start the sound.
+
+## How it picks and frames
+
+- **Smart picks.** With a free Gemini key, Gemini looks at contact sheets of your footage (small numbered stills, one every few seconds, never the video) and rates every moment for how much it sells the life (supercars, jets, watches, views) and how striking it is, and says what's in it. The edits open on the Lamborghini and skip the coffee-shop chat; titles, end screens and talking heads stay out while anything better is left. A strip under each clip shows where its flex is. The answers are remembered per file, so the same video is never rated twice.
+- **Every edit in a batch is different.** Each opens on a different moment, never reuses one, cuts at its own pace, and favours different scenes, so five edits from one 40 minute video don't share their clips.
+- **Face tracking** (on by default, one switch). When wide footage is cropped to 9:16, the crop follows the person in the shot: it holds still while they stay near the middle, glides when they move, and never lets the face slip out of frame. A 230 KB face detector (YuNet) runs in the page for this.
+- **Black bars are left out.** A letterboxed film or a phone video inside a YouTube frame is cropped from the picture itself, so no black bars end up in the edit.
+- **YouTube videos skip the sponsor read.** If the file name carries the video's ID (as `yt-dlp` names files: `Title [dQw4w9WgXcQ].mp4`), the sponsor reads, intro and outro that SponsorBlock's viewers marked are left out. A long video's first seconds and its end screen are avoided either way.
+- **Hits on the drop.** The drop gets a flash and a punch-in, a film burn, or a punch-in with a shake, turning over through a batch; the music's strongest hits get a small punch-in. Story clips punch in on every other jump cut so the cuts read as deliberate.
 
 ## How to use it
 
@@ -23,10 +32,11 @@ Each result comes as an MP4 **with the song** and a copy **without it**, plus a 
 2. Pick a format.
 3. Drop the footage. Anything Chrome plays works: iPhone MOV and MP4, screen recordings, photos (JPEG, PNG; export HEIC photos as JPEG first).
 4. Drop the sound: a Reel that uses the trending sound, or any song. The easy way to get a Reel onto the Mac: screen-record it on your iPhone with the sound on, AirDrop the recording, drop it in. Only its sound is used. (A screen recording rarely starts where the Reel does, so post the version with the song in it rather than adding the sound in the app.)
-5. For Story: paste a free Gemini key from [Google AI Studio](https://aistudio.google.com/apikey) (no card), then **Find the moments**, tick the ones you want and edit their hooks.
-6. **Make edits**. Download, post, add the sound in the app if you used the version without it.
+5. Drag the box on the song's timeline to where the edits should start (it snaps to the bar lines; **Play** plays that stretch). For Story, drag the line to the moment that should hit as the talking ends.
+6. Paste a free Gemini key from [Google AI Studio](https://aistudio.google.com/apikey) (no card) for smart picks and Story. For Story, **Find the moments**, tick the ones you want and edit their hooks.
+7. **Make edits**. Download, post, add the sound in the app if you used the version without it. Delete any edit you don't want with the × on it (it stops one that's still being made).
 
-Your footage never leaves the computer. For Story, only the video's sound is sent to Gemini, and only its transcript comes back.
+Your videos never leave the computer. With smart picks on, Gemini sees small stills of them; for Story, the video's sound goes to Gemini and only its transcript comes back.
 
 **YouTube links:** a browser page can't download from YouTube, so for now download the video first and drop the file in. A small Chrome extension that grabs it from inside your own browser is the next step (see the [build plan](docs/build-plan.md)).
 
@@ -54,4 +64,4 @@ pip install -r tools/requirements.txt
 python3 tools/analyze_edit.py reference-edits/*.mp4 --out analysis/
 ```
 
-The app's own output measures like the references: every montage cut within three frames of a beat (73% within one frame, against mico's 71%), cuts leading the beat by about 40 ms as the references do, and every edit mastered to -14 LUFS.
+The app's own output measures like the references: every montage cut within three frames of a beat (73% within one frame, against mico's 71%), cuts leading the beat by about 40 ms as the references do, and every edit mastered to -14 LUFS with the peaks kept under -1 dB after encoding.

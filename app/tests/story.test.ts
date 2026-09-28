@@ -107,6 +107,22 @@ describe("story plan", () => {
     expect(plan.music?.gainPoints?.[0][1]).toBeLessThan(0.5);
     // The burst doesn't reuse the dialogue's own footage.
     for (const s of burst.filter((x) => x.source === "long")) expect(s.srcStart > moment.end + 1 || s.srcStart + (s.end - s.start) < moment.start - 1).toBe(true);
+    // A jump cut inside one scene punches in, every other one.
+    const talk = plan.shots.filter((s) => s.audio);
+    expect(talk.some((s) => s.crop.zoom0 > 1.05)).toBe(true);
+    expect(talk[0].crop.zoom0).toBe(1);
+  });
+
+  it.skipIf(!existsSync(resolve(FIX, "nio1.f32")))("lands the moment of the song the user picked as the talking ends", () => {
+    const buf = readFileSync(resolve(FIX, "nio1.f32"));
+    const song = analyzeSong(new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4));
+    const payoff = song.downbeats[Math.floor(song.downbeats.length / 2)];
+    const plan = planStory({ moment, transcript: tr, speech: runs, source, broll, song, songSource: "song", songName: "nio1", aspect: "9x16", card, variant: 0, payoff });
+    const talkEnd = Math.max(...plan.shots.filter((s) => s.audio).map((s) => s.end));
+    // Song time at the end of the talking is the picked moment (less the cut lead).
+    const m = plan.music!;
+    const songAtTalkEnd = m.songStart + (talkEnd - m.start);
+    expect(Math.abs(songAtTalkEnd - payoff)).toBeLessThan(0.1);
   });
 });
 

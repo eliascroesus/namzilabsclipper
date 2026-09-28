@@ -17,3 +17,4 @@ app/dist/
 app/e2e-out/
 # scratch tests written while investigating a bug, never committed
 app/tests/zz-*
+app/e2e/zz-*

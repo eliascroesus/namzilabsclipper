@@ -10,7 +10,7 @@
  */
 import type { SongAnalysis } from "../audio/song";
 import type { Scan } from "../media/scan";
-import { assignShots, CUT_LEAD, finishPlan, frame, longestStretch, musicWindow, planCuts, slotsBetween, type MusicWindow, type Slot } from "./montage";
+import { assignShots, CUT_LEAD, finishPlan, frame, longestStretch, musicWindow, planCuts, slotsBetween, variantPace, type MusicWindow, type Ranges, type Slot } from "./montage";
 import { FPS, type Aspect, type CaptionEvent, type CardSpec, type EditPlan } from "./types";
 
 interface Common {
@@ -18,13 +18,15 @@ interface Common {
   songSource?: string;
   songName?: string;
   fromStart: boolean;
+  /** where in the song the edit starts, when the user picked it */
+  songStart?: number;
   scans: Scan[];
   aspect: Aspect;
   /** seconds of footage before the card */
   length: number;
   card: CardSpec | null;
   variant: number;
-  avoid?: Map<string, [number, number][]>;
+  avoid?: Ranges;
 }
 
 function silentWindow(length: number, hold: number): MusicWindow {
@@ -60,9 +62,13 @@ function switchPoint(song: SongAnalysis | undefined, win: MusicWindow): number {
 
 export function planTwist(o: TwistOptions): EditPlan {
   const hold = o.card ? o.card.hold : 0;
-  const win = o.song ? musicWindow(o.song, o.length, hold, o.fromStart) : silentWindow(o.length, hold);
-  // The second act's footage: what was marked, or else the calmest, longest clip.
+  const win = o.song ? musicWindow(o.song, o.length, hold, o.fromStart, o.songStart) : silentWindow(o.length, hold);
+  // The second act's footage: what was marked; or, with smart picks, the moments
+  // Gemini saw as the grind (a desk, charts, a laptop late at night) wherever they
+  // are; or else the calmest, longest clip.
   let poolB = o.scans.filter((s) => o.actB.has(s.id));
+  const grind = !poolB.length && o.scans.some((s) => s.real?.some((v) => v >= 0.45));
+  if (grind) poolB = o.scans.filter((s) => s.real?.some((v) => v >= 0.45));
   if (!poolB.length) {
     const calm = [...o.scans].sort((a, b) => {
       const m = (s: Scan) => (s.kind === "image" ? 0 : s.stats.motion.reduce((x, y) => x + y, 0) / Math.max(1, s.stats.motion.length));
@@ -71,14 +77,14 @@ export function planTwist(o: TwistOptions): EditPlan {
     poolB = calm.slice(0, 1);
   }
   const idsB = new Set(poolB.map((s) => s.id));
-  const poolA = o.scans.filter((s) => !idsB.has(s.id));
+  const poolA = grind ? o.scans : o.scans.filter((s) => !idsB.has(s.id));
   const switchAt = switchPoint(o.song, win);
 
   // Act one: the flex, cut to the music but a little slower than a montage.
   const dropA = win.dropAt !== undefined && win.dropAt < switchAt - 1 ? win.dropAt : undefined;
-  const cutsA = o.song ? planCuts(o.song, win.songStart, switchAt + CUT_LEAD, { pace: 1.45, dropAt: dropA }).map((t) => frame(t - CUT_LEAD)).filter((t) => t > 0.2 && t < switchAt - 0.25) : [];
+  const cutsA = o.song ? planCuts(o.song, win.songStart, switchAt + CUT_LEAD, { pace: 1.45 * variantPace(o.variant), dropAt: dropA }).map((t) => frame(t - CUT_LEAD)).filter((t) => t > 0.2 && t < switchAt - 0.25) : [];
   const slotsA = slotsBetween([0, ...cutsA, switchAt], dropA !== undefined ? frame(dropA - CUT_LEAD) : undefined).map((s) => (s.role === "closer" ? { ...s, role: "body" as const } : s));
-  const used = new Map<string, [number, number][]>();
+  const used: Ranges = new Map();
   const shotsA = assignShots(slotsA, poolA.length ? poolA : o.scans, { song: o.song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, used });
 
   // Act two: one long shot of the other side (running across the clip's own cuts if it
@@ -91,7 +97,7 @@ export function planTwist(o: TwistOptions): EditPlan {
     boundsB = [switchAt, ...cuts.filter((t) => t > switchAt + 0.5 && t < win.cardAt - 0.5), win.cardAt];
   }
   const slotsB: Slot[] = boundsB.slice(0, -1).map((start, i) => ({ start, end: boundsB[i + 1], role: i === boundsB.length - 2 ? "closer" : "body" }));
-  const shotsB = assignShots(slotsB, poolB, { song: o.song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, used });
+  const shotsB = assignShots(slotsB, poolB, { song: o.song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, used, purpose: grind ? "real" : "flex" });
   // The reveal holds still: no pushes on it unless it's a photo.
   for (const s of shotsB) if (s.kind === "video") s.crop.zoom1 = s.crop.zoom0;
 
@@ -125,7 +131,7 @@ export interface MemeOptions extends Common {
 
 export function planMeme(o: MemeOptions): EditPlan {
   const hold = o.card ? o.card.hold : 0;
-  const win = o.song ? musicWindow(o.song, o.length, hold, o.fromStart) : silentWindow(o.length, hold);
+  const win = o.song ? musicWindow(o.song, o.length, hold, o.fromStart, o.songStart) : silentWindow(o.length, hold);
   const shots = assignShots([{ start: 0, end: win.cardAt, role: "hook" }], o.scans, { song: o.song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid });
   for (const s of shots) if (s.kind === "video") s.crop.zoom1 = s.crop.zoom0 * 1.03;
   const captions: CaptionEvent[] = o.text.trim() ? [{ style: "meme", text: o.text.trim(), start: 0, end: o.card ? win.cardAt - 4 / FPS : win.duration, y: o.position === "centre" ? 0.5 : 0.3 }] : [];

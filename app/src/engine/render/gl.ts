@@ -21,6 +21,8 @@ export interface LayerDraw {
   zoom: number;
   fit: "cover" | "fit";
   alpha: number;
+  /** the picture inside any black bars, [x0, y0, x1, y1] of the display frame; the centre is inside it */
+  rect?: [number, number, number, number];
 }
 
 export interface FrameDraw {
@@ -33,6 +35,8 @@ export interface FrameDraw {
   overlay: boolean;
   time: number;
   seed: number;
+  /** the picture knocked sideways and up or down this much (a shake), in frame widths and heights */
+  shake?: [number, number];
 }
 
 const VERT = `#version 300 es
@@ -56,6 +60,8 @@ uniform bool uFlip;
 uniform int uMode; // 0 cover, 1 contain
 uniform float uAlpha;
 uniform float uGain;
+uniform vec4 uRect; // the picture inside any black bars: x0, y0, width, height of the frame
+uniform vec2 uShake; // a shake, in frame widths and heights
 out vec4 outColor;
 vec2 toTex(vec2 d) {
   if (uFlip) d.x = 1.0 - d.x;
@@ -67,15 +73,15 @@ vec2 toTex(vec2 d) {
 void main() {
   vec2 o = vec2(vPos.x, 1.0 - vPos.y);
   float ao = uOut.x / uOut.y;
-  float as_ = uSrc.x / uSrc.y;
+  float as_ = (uSrc.x * uRect.z) / (uSrc.y * uRect.w);
   vec2 f = uMode == 0
     ? (as_ > ao ? vec2(ao / as_, 1.0) : vec2(1.0, as_ / ao))
     : (as_ > ao ? vec2(1.0, as_ / ao) : vec2(ao / as_, 1.0));
   f /= uZoom;
-  vec2 c = uMode == 0 ? clamp(uCenter, f * 0.5, 1.0 - f * 0.5) : vec2(0.5);
+  vec2 c = uMode == 0 ? clamp(uCenter + uShake * f, f * 0.5, 1.0 - f * 0.5) : vec2(0.5) + uShake * f;
   vec2 d = c + (o - 0.5) * f;
   if (d.x < 0.0 || d.x > 1.0 || d.y < 0.0 || d.y > 1.0) { outColor = vec4(0.0); return; }
-  vec3 col = texture(uTex, toTex(d)).rgb * uGain;
+  vec3 col = texture(uTex, toTex(uRect.xy + d * uRect.zw)).rgb * uGain;
   outColor = vec4(col * uAlpha, uAlpha);
 }`;
 
@@ -287,6 +293,8 @@ export class Compositor {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
+  private shake: [number, number] = [0, 0];
+
   private drawLayer(l: LayerDraw, target: Target, mode: 0 | 1, alpha: number, gain = 1) {
     const gl = this.gl;
     const p = this.layer;
@@ -303,11 +311,15 @@ export class Compositor {
     gl.uniform1i(p.loc("uMode"), mode);
     gl.uniform1f(p.loc("uAlpha"), alpha);
     gl.uniform1f(p.loc("uGain"), gain);
+    const r = l.rect ?? [0, 0, 1, 1];
+    gl.uniform4f(p.loc("uRect"), r[0], r[1], r[2] - r[0], r[3] - r[1]);
+    gl.uniform2f(p.loc("uShake"), this.shake[0], this.shake[1]);
     this.quad(target);
   }
 
   draw(f: FrameDraw) {
     const gl = this.gl;
+    this.shake = f.shake ?? [0, 0];
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.scene.fb);
     gl.viewport(0, 0, this.W, this.H);
     gl.clearColor(0, 0, 0, 1);

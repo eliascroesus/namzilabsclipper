@@ -9,7 +9,7 @@ import type { SongAnalysis } from "../audio/song";
 import { keepSpeech, snapToSpeech, type Run } from "../audio/speech";
 import type { Scan } from "../media/scan";
 import { syllables, type Moment, type Transcript } from "../story/story";
-import { assignShots, cropFor, CUT_LEAD, finishPlan, frame, planCuts, slotsBetween } from "./montage";
+import { assignShots, cropFor, CUT_LEAD, finishPlan, frame, planCuts, slotsBetween, type Ranges } from "./montage";
 import { FPS, type Aspect, type CaptionEvent, type CardSpec, type Crop, type EditPlan, type ShotEvent } from "./types";
 
 export interface StoryOptions {
@@ -29,6 +29,10 @@ export interface StoryOptions {
   variant: number;
   /** seconds of payoff burst; 3.2 with a song, none without */
   burst?: number;
+  /** source ranges earlier clips in the batch used, so each burst shows different footage */
+  avoid?: Ranges;
+  /** the moment of the song (seconds) that hits as the talking ends, when the user picked it */
+  payoff?: number;
 }
 
 interface Word {
@@ -133,13 +137,21 @@ export function planStory(o: StoryOptions): EditPlan {
   const shots: ShotEvent[] = [];
   const map: { src0: number; src1: number; out0: number }[] = [];
   let t = 0;
+  let jumps = 0;
+  let lastScene = -1;
   for (const r of runs) {
     const end = frame(t + (r.end - r.start));
     if (end - t < 2 / FPS) continue;
     const sc = sceneOf(r.start);
     if (!crops.has(sc)) crops.set(sc, cropFor(src, Math.max(a, scenes[sc]), Math.min(b, scenes[sc + 1]), o.aspect));
     map.push({ src0: r.start, src1: r.start + (end - t), out0: t });
-    shots.push({ start: t, end, source: src.id, kind: "video", srcStart: r.start, speed: 1, crop: { ...crops.get(sc)! }, role: shots.length ? "body" : "hook", audio: true });
+    const crop = { ...crops.get(sc)! };
+    // A jump cut inside one scene punches in (every other one) so it reads as a cut
+    // made on purpose, not a skip.
+    jumps = sc === lastScene ? jumps + 1 : 0;
+    if (jumps % 2 === 1 && crop.fit === "cover") crop.zoom0 = crop.zoom1 = 1.1;
+    lastScene = sc;
+    shots.push({ start: t, end, source: src.id, kind: "video", srcStart: r.start, speed: 1, crop, role: shots.length ? "body" : "hook", audio: true });
     t = end;
   }
   const dialogueEnd = t;
@@ -165,8 +177,9 @@ export function planStory(o: StoryOptions): EditPlan {
   let songStart = 0;
   let cardAt = dialogueEnd;
   if (song) {
-    // Line the song up so its drop (or its strongest bar line) lands as the burst starts.
-    let anchor = [...song.drops].sort((x, y) => y.strength - x.strength)[0]?.t;
+    // Line the song up so the moment picked (or its drop, or its strongest bar line)
+    // lands as the burst starts.
+    let anchor = o.payoff ?? [...song.drops].sort((x, y) => y.strength - x.strength)[0]?.t;
     if (anchor === undefined) {
       let best = -1;
       song.beats.forEach((bt, i) => {
@@ -187,8 +200,8 @@ export function planStory(o: StoryOptions): EditPlan {
         .filter((x) => x > dialogueEnd + 0.1 && x < cardAt - 0.1);
       const slots = slotsBetween([dialogueEnd, ...cuts, cardAt]).map((s) => ({ ...s, role: "body" as const }));
       // Don't show the dialogue's own footage again in the burst.
-      const used = new Map<string, [number, number][]>([[src.id, [[a - 2, b + 2]]]]);
-      const burst = assignShots(slots, o.broll.length ? o.broll : [src], { song, songStart, aspect: o.aspect, variant: o.variant, used });
+      const used: Ranges = new Map([[src.id, [[a - 2, b + 2]]]]);
+      const burst = assignShots(slots, o.broll.length ? o.broll : [src], { song, songStart, aspect: o.aspect, variant: o.variant, used, avoid: o.avoid });
       for (const s of burst) s.audio = false;
       shots.push(...burst);
     }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CircleAlert, Clapperboard, Copy, Check, Download, Film, LoaderCircle, Music, Sparkles, VolumeX } from "lucide-react";
+import { CircleAlert, Clapperboard, Copy, Check, Download, Film, LoaderCircle, Music, Sparkles, VolumeX, X } from "lucide-react";
 import type { EditPlan } from "../../engine/plan/types";
 import { studio, type Job, type State } from "../studio";
 import { fmtBytes, fmtTime } from "./bits";
@@ -62,6 +62,9 @@ function JobCard({ job, thumbs }: { job: Job; thumbs: Map<string, string | undef
   return (
     <article className="job">
       <div className="screen" style={{ aspectRatio: String(aspect) }}>
+        <button type="button" className="del" aria-label={`Delete ${job.label}`} title={job.status === "done" || job.status === "error" ? "Delete" : "Stop and delete"} onClick={() => studio.removeJob(job.id)}>
+          <X size={15} />
+        </button>
         {job.status === "done" && job.url ? (
           <video src={job.url} controls loop playsInline preload="metadata" />
         ) : (
@@ -219,7 +222,7 @@ function Empty() {
         </div>
       </div>
       <div className="promise">
-        <span className="dot" /> Everything runs in this browser, on this computer's own chips. Your footage never leaves it.
+        <span className="dot" /> Everything runs in this browser, on this computer's own chips. Your videos never leave it (with smart picks on, Gemini sees small stills of them).
       </div>
     </div>
   );
@@ -243,6 +246,15 @@ export function Results({ s }: { s: State }) {
           <span>This browser can't write MP4, so edits come out as WebM. Chrome on a Mac writes MP4, which Instagram and TikTok want.</span>
         </div>
       )}
+      {s.notice && (
+        <div className="banner warn">
+          <CircleAlert size={16} color="var(--warning)" />
+          <span style={{ flex: 1 }}>{s.notice}</span>
+          <button type="button" className="btn ghost icon" aria-label="Dismiss" onClick={() => studio.dismissNotice()} style={{ height: 22, width: 22 }}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
       <Moments s={s} />
       {s.jobs.length === 0 ? (
         s.style.format === "story" && s.story.status !== "idle" ? null : <Empty />
@@ -253,11 +265,9 @@ export function Results({ s }: { s: State }) {
               <Film size={20} style={{ verticalAlign: "-3px", marginRight: 8 }} />
               Edits
             </h1>
-            {!s.busy && (
-              <button type="button" className="btn ghost" onClick={() => studio.clearResults()}>
-                Clear
-              </button>
-            )}
+            <button type="button" className="btn ghost" onClick={() => studio.clearResults()} title={s.busy ? "Stop and delete every edit" : "Delete every edit"}>
+              Clear all
+            </button>
           </div>
           <div className={`jobs${wide ? " wide" : ""}`}>
             {s.jobs.map((j) => (

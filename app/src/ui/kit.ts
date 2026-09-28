@@ -71,3 +71,31 @@ export async function loadKitShot(): Promise<{ blob: Blob; name: string } | null
     return null;
   }
 }
+
+/** Keep a small value in this browser under `key` (IndexedDB), e.g. what smart picks saw in a file. */
+export async function remember(key: string, value: unknown) {
+  try {
+    const d = await db();
+    await new Promise<void>((resolve, reject) => {
+      const tx = d.transaction("blobs", "readwrite");
+      tx.objectStore("blobs").put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // not remembered
+  }
+}
+
+export async function recall<T>(key: string): Promise<T | null> {
+  try {
+    const d = await db();
+    return await new Promise((resolve) => {
+      const req = d.transaction("blobs").objectStore("blobs").get(key);
+      req.onsuccess = () => resolve((req.result as T | undefined) ?? null);
+      req.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}

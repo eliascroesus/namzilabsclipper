@@ -11,11 +11,15 @@ import { planMeme, planTwist } from "../engine/plan/formats";
 import { planStory } from "../engine/plan/story";
 import { detectSpeech, type Run } from "../engine/audio/speech";
 import { pickModel } from "../engine/ai/gemini";
+import { KINDS } from "../engine/media/scan";
+import { skipSegments, youtubeId } from "../engine/ai/sponsorblock";
+import { lookFor, LOOK_VERSION, photoSheets, rateSheets, restoreLook, storeLook, type StoredLook } from "../engine/vision/look";
 import { findMoments, transcribe, type Moment, type Transcript } from "../engine/story/story";
-import { planMontage, usedRanges } from "../engine/plan/montage";
+import { musicWindow, planMontage, usedRanges, type Ranges } from "../engine/plan/montage";
 import { NO_GRADE, WARM_GRADE, type Aspect, type CardSpec, type EditPlan } from "../engine/plan/types";
 import { pickCodecs, renderPlan } from "../engine/render/export";
-import { loadKit, saveKit, saveKitShot, loadKitShot, type KitFields } from "./kit";
+import { followFaces } from "../engine/vision/track";
+import { loadKit, recall, remember, saveKit, saveKitShot, loadKitShot, type KitFields } from "./kit";
 
 export type Status = "reading" | "scanning" | "analyzing" | "ready" | "error";
 
@@ -32,6 +36,15 @@ export interface Footage {
   error?: string;
   /** in the twist format: which side of the flip it belongs to */
   act: "a" | "b";
+  /** smart picks: Gemini looking at it */
+  look?: "queued" | "rating" | "done" | "failed";
+  lookProgress?: number;
+  /** smart picks: how much flex there is along the clip, 0 to 1 per slice */
+  heat?: number[];
+  /** smart picks: seconds of it that sell the life */
+  flexSeconds?: number;
+  /** seconds left out as sponsor reads, intros and outros (SponsorBlock) */
+  skipped?: number;
 }
 
 export interface Sound {
@@ -47,7 +60,14 @@ export interface Sound {
   /** loudness bars for the strip, 0 to 1 */
   bars?: number[];
   downbeats?: number[];
+  beats?: number[];
   drops?: number[];
+  /** where the edits start in the song, when picked (null: chosen automatically) */
+  start: number | null;
+  /** story clips: the moment of the song that hits as the talking ends (null: its drop) */
+  payoff: number | null;
+  /** the file, to play it back while picking */
+  url?: string;
 }
 
 export interface Kit extends KitFields {
@@ -70,6 +90,10 @@ export interface Style {
   variants: number;
   /** the grade: nio.trade's warm film look, or the footage as it is */
   look: "warm" | "natural";
+  /** keep the people in frame when wide footage is cropped (a face detector runs in the page) */
+  faces: boolean;
+  /** smart picks: Gemini looks at stills of the footage to find the flex (needs the key) */
+  smart: boolean;
 }
 
 export interface Job {
@@ -139,7 +163,27 @@ const DEFAULT_STYLE: Style = {
   memePosition: "upper",
   variants: 3,
   look: "warm",
+  faces: true,
+  smart: true,
 };
+const STYLE_STORE = "clipper.style.v1";
+
+function loadStyle(): Style {
+  try {
+    const raw = localStorage.getItem(STYLE_STORE);
+    return raw ? { ...DEFAULT_STYLE, ...(JSON.parse(raw) as Partial<Style>) } : { ...DEFAULT_STYLE };
+  } catch {
+    return { ...DEFAULT_STYLE };
+  }
+}
+
+function saveStyle(style: Style) {
+  try {
+    localStorage.setItem(STYLE_STORE, JSON.stringify(style));
+  } catch {
+    // not remembered
+  }
+}
 
 const LENGTHS: Record<Format, number> = { montage: 14, twist: 18, meme: 9, story: 30 };
 const CLIP_LENGTHS = { short: [12, 25], medium: [18, 40], long: [30, 60] } as const;
@@ -155,6 +199,25 @@ function loadKey(): string {
 
 let nextId = 1;
 const newId = (p: string) => `${p}${nextId++}`;
+
+/** A clip's flex along its length (24 slices) and how many seconds of it sell the life. */
+function heatOf(scan: Scan): { heat: number[]; flexSeconds: number } {
+  const look = scan.look;
+  if (!look) return { heat: [], flexSeconds: 0 };
+  const n = scan.stats.t.length;
+  if (scan.kind === "image") return { heat: [0.6 * look.flex[0] + 0.4 * look.wow[0]], flexSeconds: 0 };
+  const bins = 24;
+  const heat = new Array<number>(bins).fill(0);
+  let flexSeconds = 0;
+  for (let i = 0; i < n; i++) {
+    const t = scan.stats.t[i] - scan.start;
+    const b = Math.min(bins - 1, Math.max(0, Math.floor((t / Math.max(1e-6, scan.duration)) * bins)));
+    heat[b] = Math.max(heat[b], 0.6 * look.flex[i] + 0.4 * look.wow[i]);
+    const next = i + 1 < n ? scan.stats.t[i + 1] : scan.duration;
+    if (look.flex[i] >= 0.6) flexSeconds += Math.max(0, next - scan.stats.t[i]);
+  }
+  return { heat, flexSeconds };
+}
 
 /** At most one call every `ms` (the last one, at p = 1, always goes through). */
 function throttled(fn: (p: number) => void, ms = 100) {
@@ -188,11 +251,18 @@ class Studio {
   /** files taken out while a batch was using them, closed once it's done */
   private retired: Source[] = [];
   private readonly scanAborts = new Map<string, AbortController>();
+  /** the files as dropped, for remembering what smart picks saw in them */
+  private readonly files = new Map<string, File>();
+  private lookQueue: Promise<void> = Promise.resolve();
+  private lookAbort: { id: string; ctl: AbortController } | null = null;
+  private keyTimer = 0;
   /** edits made so far with this footage and sound: the next batch continues from here */
   private made = 0;
-  private madeAvoid = new Map<string, [number, number][]>();
+  private madeAvoid: Ranges = new Map();
   private madeKey = "";
   private readonly transcripts = new Map<string, Transcript>();
+  /** each edit's own stop, so one can be deleted while the batch carries on */
+  private readonly jobAborts = new Map<string, AbortController>();
   private model: string | null = null;
 
   constructor() {
@@ -201,7 +271,7 @@ class Studio {
       footage: [],
       sound: null,
       kit: { ...fields, shot: DEFAULT_SHOT, shotName: "Namzilabs dashboard" },
-      style: { ...DEFAULT_STYLE },
+      style: loadStyle(),
       jobs: [],
       busy: false,
       support: { checked: false, webcodecs: false, webgl2: false, mp4: false },
@@ -307,7 +377,10 @@ class Studio {
       const scan = src.info.kind === "image" ? await scanImage(src) : await scanVideo(src, { onProgress: progress, signal: abort.signal });
       if (!this.state.footage.some((f) => f.id === id)) return;
       this.scans.set(id, scan);
+      this.files.set(id, file);
       this.patchFootage(id, { status: "ready", progress: 1, thumb: scan.thumb ? URL.createObjectURL(scan.thumb) : undefined });
+      this.queueLooks();
+      void this.findSkips(id, file.name, scan);
     } catch (e) {
       if (abort.signal.aborted) return;
       this.patchFootage(id, { status: "error", error: e instanceof Error ? e.message : String(e) });
@@ -336,6 +409,8 @@ class Studio {
   }
 
   removeFootage(id: string) {
+    if (this.lookAbort?.id === id) this.lookAbort.ctl.abort();
+    this.files.delete(id);
     const f = this.state.footage.find((x) => x.id === id);
     if (f?.thumb) URL.revokeObjectURL(f.thumb);
     this.scanAborts.get(id)?.abort();
@@ -354,7 +429,8 @@ class Studio {
   async setSound(file: File) {
     const id = newId("s");
     this.song = null;
-    this.set({ sound: { id, name: file.name, duration: 0, status: "reading", progress: 0, fromReel: true } });
+    if (this.state.sound?.url) URL.revokeObjectURL(this.state.sound.url);
+    this.set({ sound: { id, name: file.name, duration: 0, status: "reading", progress: 0, fromReel: true, start: null, payoff: null, url: URL.createObjectURL(file) } });
     try {
       const src = await openSource(id, file, file.name, { audioOnly: true });
       // Another sound was dropped while this one opened: that one wins.
@@ -378,17 +454,22 @@ class Studio {
       const song = analyzeSong(y);
       if (this.state.sound?.id !== id) return;
       this.song = song;
-      const bars: number[] = [];
-      const n = 96;
+      // The strip: loudness per slice, stretched over the song's own range so the
+      // quiet intro, the build and the drop read at a glance.
+      const n = 160;
+      const raw: number[] = [];
       for (let i = 0; i < n; i++) {
         const a = Math.floor((i * song.loudness.length) / n);
         const b = Math.max(a + 1, Math.floor(((i + 1) * song.loudness.length) / n));
         let m = 0;
-        for (let k = a; k < b; k++) m = Math.max(m, song.loudness[k]);
-        bars.push(m);
+        for (let k = a; k < b; k++) m += song.loudness[k];
+        raw.push(m / (b - a));
       }
+      const lo = Math.min(...raw);
+      const hi = Math.max(...raw);
+      const bars = raw.map((v) => 0.12 + 0.88 * ((v - lo) / Math.max(1e-6, hi - lo)) ** 1.6);
       this.set((s) => ({
-        sound: s.sound && s.sound.id === id ? { ...s.sound, status: "ready", progress: 1, bpm: song.bpm, bars, downbeats: song.downbeats, drops: song.drops.map((d) => d.t) } : s.sound,
+        sound: s.sound && s.sound.id === id ? { ...s.sound, status: "ready", progress: 1, bpm: song.bpm, bars, downbeats: song.downbeats, beats: song.beats, drops: song.drops.map((d) => d.t) } : s.sound,
       }));
     } catch (e) {
       this.set((s) => ({ sound: s.sound && s.sound.id === id ? { ...s.sound, status: "error", error: e instanceof Error ? e.message : String(e) } : s.sound }));
@@ -399,10 +480,40 @@ class Studio {
     this.set((s) => ({ sound: s.sound ? { ...s.sound, fromReel } : s.sound }));
   }
 
+  /** Where the edits start in the song (null: back to automatic). */
+  setSongStart(start: number | null) {
+    this.set((s) => ({ sound: s.sound ? { ...s.sound, start } : s.sound }));
+  }
+
+  /** Story clips: the moment of the song that hits as the talking ends (null: its drop). */
+  setPayoff(payoff: number | null) {
+    this.set((s) => ({ sound: s.sound ? { ...s.sound, payoff } : s.sound }));
+  }
+
+  /**
+   * The stretch of the song the edits will use, for the timeline: where it
+   * starts, where the card comes in and where it ends (song seconds), and for
+   * story clips the moment the burst hits.
+   */
+  songWindow(): { start: number; cardAt: number; end: number; payoff: number | null; auto: boolean } | null {
+    const s = this.state;
+    const song = this.song;
+    if (!song || !s.sound || s.sound.status !== "ready") return null;
+    if (s.style.format === "story") {
+      const auto = [...song.drops].sort((x, y) => y.strength - x.strength)[0]?.t ?? song.downbeats[Math.floor(song.downbeats.length / 3)] ?? song.duration / 3;
+      const payoff = s.sound.payoff ?? auto;
+      return { start: Math.max(0, payoff - 20), cardAt: payoff + 3.2, end: Math.min(song.duration, payoff + 3.2 + (s.kit.enabled ? s.kit.hold : 0.6)), payoff, auto: s.sound.payoff === null };
+    }
+    const hold = s.kit.enabled ? s.kit.hold : 0;
+    const win = musicWindow(song, s.style.length, hold, s.sound.fromReel, s.sound.start ?? undefined);
+    return { start: win.songStart, cardAt: win.songStart + win.cardAt, end: win.songStart + win.duration, payoff: null, auto: s.sound.start === null };
+  }
+
   clearSound() {
     this.retire(this.sources.get("song"));
     this.sources.delete("song");
     this.song = null;
+    if (this.state.sound?.url) URL.revokeObjectURL(this.state.sound.url);
     this.set({ sound: null });
   }
 
@@ -442,6 +553,93 @@ class Studio {
       }
       return { style };
     });
+    saveStyle(this.state.style);
+    if (patch.smart) this.queueLooks();
+  }
+
+  /** A YouTube video with its ID in the name: leave out what SponsorBlock's viewers marked (sponsor reads, intros, outros). */
+  private async findSkips(id: string, name: string, scan: Scan) {
+    const yt = scan.kind === "video" ? youtubeId(name) : null;
+    if (!yt) return;
+    try {
+      const skips = await skipSegments(yt);
+      if (!skips.length || !this.scans.has(id)) return;
+      scan.skip = skips.map((s) => [s.start, s.end]);
+      this.patchFootage(id, { skipped: skips.reduce((a, s) => a + (s.end - s.start), 0) });
+    } catch {
+      // No SponsorBlock (offline, blocked): the edit just doesn't know about the sponsor read.
+    }
+  }
+
+  // ── smart picks ──
+
+  /** Queue every clip Gemini hasn't looked at yet (when smart picks are on and there's a key). */
+  private queueLooks() {
+    const s = this.state;
+    if (!s.style.smart || !s.geminiKey) return;
+    for (const f of s.footage) {
+      if (f.status !== "ready" || f.look === "queued" || f.look === "rating" || f.look === "done") continue;
+      const scan = this.scans.get(f.id);
+      if (!scan || scan.look) continue;
+      this.patchFootage(f.id, { look: "queued", lookProgress: 0 });
+      this.lookQueue = this.lookQueue.then(() => this.rateOne(f.id));
+    }
+  }
+
+  /** Have Gemini look at one clip (or, for a photo, every photo waiting), remembering the answer per file. */
+  private async rateOne(id: string) {
+    const f = this.state.footage.find((x) => x.id === id);
+    const scan = this.scans.get(id);
+    if (!f || !scan || scan.look || f.look !== "queued") return;
+    const key = this.state.geminiKey;
+    if (!this.state.style.smart || !key) {
+      this.patchFootage(id, { look: undefined });
+      return;
+    }
+    const ctl = new AbortController();
+    this.lookAbort = { id, ctl };
+    const photos = scan.kind === "image" ? this.state.footage.filter((x) => x.kind === "image" && x.status === "ready" && x.look === "queued" && !this.scans.get(x.id)?.look).map((x) => x.id) : [id];
+    for (const pid of photos) this.patchFootage(pid, { look: "rating", lookProgress: 0 });
+    try {
+      const sig = (fid: string) => {
+        const file = this.files.get(fid);
+        return file ? `look:${LOOK_VERSION}:${file.name}:${file.size}:${file.lastModified}` : null;
+      };
+      if (scan.kind === "video" && scan.sheets) {
+        const k = sig(id);
+        const stored = k ? await recall<StoredLook>(k) : null;
+        let ratings = stored ? restoreLook(stored, scan.sheets) : null;
+        if (!ratings) {
+          this.model ??= await pickModel(key, ctl.signal);
+          ratings = await rateSheets(scan.sheets, { key, model: this.model, signal: ctl.signal, onProgress: (p) => this.patchFootage(id, { lookProgress: p }) });
+          if (k) void remember(k, storeLook(scan.sheets, ratings));
+        }
+        scan.look = lookFor(scan, scan.sheets, ratings);
+        this.patchFootage(id, { look: scan.look ? "done" : "failed", lookProgress: 1, ...heatOf(scan) });
+      } else if (scan.kind === "image") {
+        // Photos go together, a dozen or more to a sheet.
+        const items = photos.map((pid, index) => ({ pid, index, image: this.sources.get(pid)?.image })).filter((x): x is { pid: string; index: number; image: ImageBitmap } => !!x.image);
+        const sheets = await photoSheets(items);
+        this.model ??= await pickModel(key, ctl.signal);
+        const ratings = await rateSheets(sheets, { key, model: this.model, signal: ctl.signal });
+        for (const [c, item] of items.entries()) {
+          const r = ratings.get(c + 1);
+          const ps = this.scans.get(item.pid);
+          if (!r || !ps) {
+            this.patchFootage(item.pid, { look: "failed" });
+            continue;
+          }
+          ps.look = { flex: Float32Array.of(r.flex / 10), wow: Float32Array.of(r.wow / 10), kind: Uint8Array.of(KINDS.indexOf(r.kind)) };
+          this.patchFootage(item.pid, { look: "done", lookProgress: 1, ...heatOf(ps) });
+        }
+      }
+    } catch (e) {
+      const cancelled = e instanceof DOMException && e.name === "AbortError";
+      for (const pid of photos) this.patchFootage(pid, { look: cancelled ? undefined : "failed" });
+      if (!cancelled) this.set({ notice: `Smart picks couldn't look at ${f.name}: ${e instanceof Error ? e.message : String(e)} It uses its own judgement for that one.` });
+    } finally {
+      if (this.lookAbort?.ctl === ctl) this.lookAbort = null;
+    }
   }
 
   // ── story ──
@@ -455,6 +653,9 @@ class Studio {
       // not remembered
     }
     this.set({ geminiKey: k });
+    // Once a whole key has been pasted (not on every keystroke), look at what's waiting.
+    clearTimeout(this.keyTimer);
+    if (/^AIza[\w-]{30,}$/.test(k)) this.keyTimer = window.setTimeout(() => this.queueLooks(), 700);
   }
 
   private patchStory(patch: Partial<StoryState>) {
@@ -499,7 +700,10 @@ class Studio {
       this.patchStory({ progress: 0.85, stage: "Picking the moments" });
       this.model ??= await pickModel(s.geminiKey, signal);
       const [minLen, maxLen] = CLIP_LENGTHS[this.state.story.clipLength];
-      const found = await findMoments(tr, Math.max(3, this.state.style.variants + 2), { key: s.geminiKey, model: this.model, signal, minLen, maxLen });
+      const skip = this.scans.get(item.id)?.skip ?? [];
+      const inSkip = (m: Moment) => skip.reduce((a, [x, y]) => a + Math.max(0, Math.min(y, m.end) - Math.max(x, m.start)), 0) > 0.3 * (m.end - m.start);
+      // A sponsor read or an intro isn't a moment worth clipping.
+      const found = (await findMoments(tr, Math.max(3, this.state.style.variants + 2), { key: s.geminiKey, model: this.model, signal, minLen, maxLen })).filter((m) => !inSkip(m));
       if (!found.length) throw new Error("Gemini didn't find a moment that stands on its own. Try a longer video.");
       const moments = found.map((m, i) => ({
         ...m,
@@ -539,6 +743,7 @@ class Studio {
     }
     const ready = s.footage.filter((f) => f.status === "ready");
     if (!ready.length) return s.footage.some((f) => f.status === "reading" || f.status === "scanning") ? "Still reading the footage" : "Add footage first";
+    if (s.style.smart && s.geminiKey && ready.some((f) => f.look === "queued" || f.look === "rating")) return "Gemini is still looking at the footage (smart picks)";
     if (s.style.format !== "meme") {
       if (!s.sound) return "Add a sound first";
       if (s.sound.status !== "ready") return s.sound.status === "error" ? "The sound didn't load" : "Still listening to the sound";
@@ -551,11 +756,25 @@ class Studio {
   }
 
   clearResults() {
-    for (const j of this.state.jobs) {
-      if (j.url) URL.revokeObjectURL(j.url);
-      if (j.silentUrl) URL.revokeObjectURL(j.silentUrl);
-    }
-    this.set({ jobs: [] });
+    for (const j of this.state.jobs) this.removeJob(j.id);
+  }
+
+  private hasJob(id: string) {
+    return this.state.jobs.some((j) => j.id === id);
+  }
+
+  /** Delete one edit: stop it if it's waiting or being made, and let its files go. */
+  removeJob(id: string) {
+    const job = this.state.jobs.find((j) => j.id === id);
+    if (!job) return;
+    this.jobAborts.get(id)?.abort();
+    if (job.url) URL.revokeObjectURL(job.url);
+    if (job.silentUrl) URL.revokeObjectURL(job.silentUrl);
+    this.set((s) => ({ jobs: s.jobs.filter((j) => j.id !== id) }));
+  }
+
+  dismissNotice() {
+    this.set({ notice: undefined });
   }
 
   /** What the main button does next in the story format. */
@@ -584,6 +803,10 @@ class Studio {
     const card: CardSpec | null = s.kit.enabled ? { kind: s.kit.kind, top: s.kit.top, bottom: s.kit.bottom, accent: s.kit.accent, hold: s.kit.hold, draw: s.kit.draw } : null;
     const cardImage = this.cardImage ?? undefined;
     const fromReel = s.sound?.fromReel ?? true;
+    const songStart = s.sound?.start ?? null;
+    const payoff = s.sound?.payoff ?? null;
+    const scanMap = new Map(scans.map((sc) => [sc.id, sc]));
+    if (story?.scan) scanMap.set(story.scan.id, story.scan);
     const songName = s.sound?.name ?? "the song";
     const label = style.format === "montage" ? "Montage" : style.format === "twist" ? "Twist" : style.format === "meme" ? "Meme" : "Clip";
     const chosenMoments = style.format === "story" ? s.story.moments.filter((m) => m.selected) : [];
@@ -613,15 +836,20 @@ class Studio {
     try {
       scoreInterest(scans);
       for (const [v, job] of jobs.entries()) {
+        // Deleted while it waited its turn.
+        if (!this.hasJob(job.id)) continue;
         if (signal.aborted) {
           this.patchJob(job.id, { status: "error", error: "Cancelled", stage: "Cancelled" });
           continue;
         }
+        const own = new AbortController();
+        this.jobAborts.set(job.id, own);
+        const jobSignal = AbortSignal.any([signal, own.signal]);
         try {
           this.patchJob(job.id, { status: "planning", stage: "Picking the moments" });
           await new Promise((r) => setTimeout(r, 0));
           let plan: EditPlan;
-          const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, scans, aspect: style.aspect, length: style.length, card, variant: base + v, avoid };
+          const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, songStart: songStart ?? undefined, scans, aspect: style.aspect, length: style.length, card, variant: base + v, avoid };
           if (style.format === "story") {
             if (!story?.transcript || !story.scan) throw new Error("The video for this clip was taken out. Find the moments again.");
             plan = planStory({
@@ -636,6 +864,8 @@ class Studio {
               aspect: style.aspect,
               card,
               variant: base + v,
+              avoid,
+              payoff: payoff ?? undefined,
             });
           } else if (style.format === "twist") {
             const actB = new Set(ready.filter((f) => f.act === "b").map((f) => f.id));
@@ -648,6 +878,15 @@ class Studio {
           }
           plan.grade = style.look === "natural" ? NO_GRADE : WARM_GRADE;
           usedRanges(plan, avoid);
+          if (style.faces && plan.shots.some((sh) => sh.crop.fit === "cover")) {
+            this.patchJob(job.id, { stage: "Following faces" });
+            try {
+              await followFaces(plan, sources, scanMap, { signal: jobSignal });
+            } catch (e) {
+              if (e instanceof DOMException && e.name === "AbortError") throw e;
+              this.set({ notice: `Face tracking couldn't start in this browser (${e instanceof Error ? e.message : String(e)}), so these edits are framed without it.` });
+            }
+          }
           this.patchJob(job.id, { plan, status: "rendering", stage: "Rendering" });
           let stage = "Rendering";
           const progress = throttled((p) => this.patchJob(job.id, { progress: p, stage }), 120);
@@ -655,7 +894,7 @@ class Studio {
             music: !!plan.music,
             silentCopy: !!plan.music,
             cardImage,
-            signal,
+            signal: jobSignal,
             onProgress: (p, st) => {
               if (st !== stage) {
                 stage = st;
@@ -663,6 +902,8 @@ class Studio {
               } else progress(p);
             },
           });
+          // Deleted while it rendered: nothing to show.
+          if (!this.hasJob(job.id)) continue;
           this.patchJob(job.id, {
             status: "done",
             progress: 1,
@@ -676,6 +917,8 @@ class Studio {
         } catch (e) {
           const cancelled = e instanceof DOMException && e.name === "AbortError";
           this.patchJob(job.id, { status: "error", stage: cancelled ? "Cancelled" : "Failed", error: cancelled ? "Cancelled" : e instanceof Error ? e.message : String(e) });
+        } finally {
+          this.jobAborts.delete(job.id);
         }
       }
     } finally {

@@ -153,7 +153,8 @@ export async function mixPlan(plan: EditPlan, sources: Map<string, Source>, with
   if (loud > -69) {
     const gain = Math.pow(10, (-14 - loud) / 20);
     for (const ch of channels) for (let i = 0; i < ch.length; i++) ch[i] *= gain;
-    limit(channels, Math.pow(10, -1 / 20));
+    // -1.5 dBFS: headroom for the peaks AAC puts between samples (true peak stays under -1 dB).
+    limit(channels, Math.pow(10, -1.5 / 20));
   }
   return out;
 }

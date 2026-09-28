@@ -23,6 +23,16 @@ export interface Crop {
   cy1?: number;
   /** 'cover' fills the frame; 'fit' shows the whole source over a blurred copy of itself */
   fit: "cover" | "fit";
+  /**
+   * the picture inside any black bars, [x0, y0, x1, y1] of the source's frame (0 to
+   * 1); the centre above is inside this picture. Absent: the whole frame.
+   */
+  rect?: [number, number, number, number];
+  /**
+   * the centre following someone through the shot, as flat [t, cx, cy] keyframes
+   * (t in seconds from the shot's start), joined by straight lines; replaces the pan
+   */
+  path?: number[];
 }
 
 export interface ShotEvent {
@@ -43,7 +53,8 @@ export interface ShotEvent {
   audio?: boolean;
 }
 
-export type FxKind = "flash" | "burn" | "dip" | "fadein";
+/** flash, film burn, dip to black, fade up; a punch-in (a quick zoom on a hit) and a shake */
+export type FxKind = "flash" | "burn" | "dip" | "fadein" | "punch" | "shake";
 
 export interface FxEvent {
   kind: FxKind;

@@ -1,6 +1,6 @@
 # Build plan: the clipping machine
 
-**Status (Sep 2026):** built and working in [`app/`](../app/): the montage, story, twist and meme formats, the demo card, the whole engine in the browser. Next: YouTube links through a small Chrome extension, then the reaction format and more cards. See [Milestones](#milestones).
+**Status (Sep 2026):** built and working in [`app/`](../app/): the montage, story, twist and meme formats, the demo card, smart picks, face tracking, a song timeline to choose where edits start, the whole engine in the browser. Next: speed ramps, YouTube links through a small Chrome extension, following whoever is speaking. See [Milestones](#milestones).
 
 ## What it does
 
@@ -13,13 +13,14 @@ A website you open in Chrome. Drop in videos, photos and screen recordings (YouT
 | Runs in Chrome, on your Mac | Runs in free cloud AI |
 |---|---|
 | Reading and decoding the videos, on the Mac's media engine (the hardware Final Cut and QuickTime export with) | The transcript of a long video, with a time for every phrase |
-| Finding the shots, the beats and accents of the song, where the subject is, where people talk | Picking the moments and writing their hooks |
+| Finding the shots, the beats and accents of the song, where the subject is, where people talk, faces (a 230 KB detector in the page) | Picking the moments and writing their hooks |
+| | Smart picks: rating stills of the footage for flex and saying what's in them |
 | Laying out every frame: crops, the grade, captions, transitions, the card (GPU) | |
 | Mixing the audio, and encoding the finished MP4 (media engine) | |
 
 - The browser uses **WebCodecs** to decode and encode video on the media engine, and **WebGPU/WebGL** for everything drawn. On an M4 Pro a 30-second 1080p clip should export in seconds, not minutes.
-- Only the **audio** of what you clip goes to the transcript service, and only the **transcript** goes to the one that picks moments. The video stays on the Mac.
-- The AI step needs one free Gemini key, pasted once into the site and kept in the browser. The free tier has daily limits (plenty for one person) and Google may use what's sent to improve its models, so keep private client footage out of Story mode. Montage, twist and meme use no AI at all.
+- Only the **audio** of what you clip goes to the transcript service, and only the **transcript** goes to the one that picks moments. For smart picks, small numbered stills (one every few seconds) go to Gemini, never the video. The video stays on the Mac.
+- The AI steps need one free Gemini key, pasted once into the site and kept in the browser. The free tier has daily limits (plenty for one person) and Google may use what's sent to improve its models, so keep private client footage out of Story mode and smart picks. Without a key, montage, twist and meme judge the footage by how it looks, with no AI.
 - The site itself is a static page, hosted free on GitHub Pages (Vercel or Netlify with a private repo).
 
 ## Two things a browser can't do by itself
@@ -60,7 +61,9 @@ A website you open in Chrome. Drop in videos, photos and screen recordings (YouT
 | Decode and encode on the media engine | WebCodecs (built into Chrome) | |
 | Draw frames | WebGL2 / WebGPU (built into Chrome) | |
 | Audio: decode, mix, beats, accents | Web Audio (built in) + our own beat tracker | |
-| The subject in a frame | Our own saliency (coarse edges, contrast, skin tones) | |
+| The subject in a frame | Faces: YuNet (OpenCV's detector) on ONNX Runtime Web; otherwise our own saliency (coarse edges, contrast, skin tones) | MIT |
+| What's in the footage (smart picks) | Gemini, from numbered contact sheets | |
+| Sponsor reads, intros, outros of YouTube videos | SponsorBlock's public API (by hash prefix) | |
 | Transcript, picking moments, writing hooks | Gemini API (free tier), newest Flash model | |
 | MP3 and AAC where the browser lacks them | @mediabunny/mp3-encoder, @mediabunny/aac-encoder (WASM, loaded only when needed) | MPL-2.0 |
 | YouTube links (next) | a Chrome extension using YouTube.js | MIT |
@@ -81,7 +84,7 @@ The cloud environment this repo is developed in has the same browser engine with
 | **M1** | **Montage maker in the browser:** clips and photos plus a Reel's sound and a brand kit become beat-synced montages ending on the card, in 9:16, 4:3, 1:1 and 4:5 | Done. Measured like the references: every cut within 3 frames of a beat, 73% within one |
 | **M2** | **Story clipper:** a long video becomes clips of its best moments: hook on black, pauses cut, word-timed subtitles, the burst on the drop, the card | Done. Tested end to end with Gemini's answers stubbed; needs a real key to check transcription quality |
 | **M3** | **Links and batches:** a Chrome extension for YouTube links, a queue | Next |
-| **M4** | **The rest:** twist and meme, the phone card, a natural look beside the warm grade (done); the lyric montage, speed ramps | In progress |
+| **M4** | **The rest:** twist and meme, the phone card, a natural look beside the warm grade, smart picks, face tracking with a camera that glides, black bars left out, a song timeline, batches that don't repeat, punch-ins and shakes on the hits, deleting edits (done); speed ramps, following whoever is speaking, the lyric montage | In progress |
 
 ## Rights, briefly
 

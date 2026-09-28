@@ -5,10 +5,12 @@
 import { analyzeSong, pickSection, SR } from "./engine/audio/song";
 import { decodeMono, openSource, type Source } from "./engine/media/sources";
 import { scanImage, scanVideo, scoreInterest, type Scan } from "./engine/media/scan";
-import { planMontage, usedRanges } from "./engine/plan/montage";
+import { planMontage, usedRanges, type Ranges } from "./engine/plan/montage";
 import { planMeme, planTwist } from "./engine/plan/formats";
 import type { Aspect, CardSpec } from "./engine/plan/types";
 import { blobToBase64Parts, renderPlan, renderStills } from "./engine/render/export";
+import { FaceFinder } from "./engine/vision/faces";
+import { followFaces } from "./engine/vision/track";
 
 async function save(name: string, blob: Blob) {
   const parts = await blobToBase64Parts(blob);
@@ -27,6 +29,30 @@ const round = (x: number, d = 3) => Math.round(x * 10 ** d) / 10 ** d;
 
 const harness = {
   montage,
+  /** Faces in frames of a video (or a photo) at the given times, looked at `size` px wide. */
+  async faces(url: string, times: number[], size = 320) {
+    const src = await load(url);
+    const finder = await FaceFinder.get();
+    const out: { t: number; ms: number; faces: { x: number; y: number; w: number; h: number; score: number }[] }[] = [];
+    if (src.image) {
+      const img = src.image;
+      const t0 = performance.now();
+      const faces = await finder.find((ctx) => ctx.drawImage(img, 0, 0, ctx.canvas.width, ctx.canvas.height), img.width / img.height, size);
+      return [{ t: 0, ms: Math.round(performance.now() - t0), faces }];
+    }
+    const { VideoSampleSink } = await import("mediabunny");
+    const sink = new VideoSampleSink(src.video!);
+    let i = 0;
+    for await (const sample of sink.samplesAtTimestamps(times)) {
+      const t = times[i++];
+      if (!sample) continue;
+      const t0 = performance.now();
+      const faces = await finder.find((ctx) => sample.drawWithFit(ctx, { fit: "fill" }), sample.displayWidth / sample.displayHeight, size);
+      out.push({ t, ms: Math.round(performance.now() - t0), faces: faces.map((f) => ({ x: round(f.x), y: round(f.y), w: round(f.w), h: round(f.h), score: round(f.score, 2) })) });
+      sample.close();
+    }
+    return out;
+  },
   async cards() {
     const { drawCard } = await import("./engine/render/card");
     const { loadFonts } = await import("./engine/render/fonts");
@@ -117,6 +143,10 @@ export interface MontageRun {
   out?: string;
   /** only draw these moments (seconds, or "shots" for the middle of every shot) as PNGs */
   stills?: number[] | "shots";
+  /** follow faces through each shot before drawing */
+  faces?: boolean;
+  /** draw each shot's first, middle and last frame instead of one per shot */
+  thirds?: boolean;
 }
 
 async function montage(run: MontageRun) {
@@ -142,7 +172,7 @@ async function montage(run: MontageRun) {
   const img = await createImageBitmap(await (await fetch("/demo-dashboard.jpg")).blob());
   const card: CardSpec | null = run.card === null ? null : { kind: "laptop", top: "start free", bottom: "namzilabs.co", accent: "#568CFF", hold: 4, draw: false, ...(run.card ?? {}) };
   const results = [];
-  const avoid = new Map<string, [number, number][]>();
+  const avoid: Ranges = new Map();
   for (let v = 0; v < (run.variants ?? 1); v++) {
     const common = { song: song ?? undefined, songSource: "song", songName: run.song?.split("/").pop() ?? "", fromStart: run.fromStart ?? true, scans, aspect: run.aspect ?? "9x16", length: run.length ?? 14, card, variant: v, avoid };
     const plan =
@@ -153,8 +183,13 @@ async function montage(run: MontageRun) {
           : planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption });
     usedRanges(plan, avoid);
     lap(`plan${v}`);
+    if (run.faces) {
+      await followFaces(plan, sources, new Map(scans.map((s) => [s.id, s])));
+      lap(`faces${v}`);
+    }
     if (run.stills) {
-      const times = run.stills === "shots" ? [...plan.shots.map((s) => (s.start + s.end) / 2), ...(plan.card ? [plan.card.start + 2] : [])] : run.stills;
+      const inShot = (s: { start: number; end: number }) => (run.thirds ? [s.start + 0.5 / 30, (s.start + s.end) / 2, s.end - 1.5 / 30] : [(s.start + s.end) / 2]);
+      const times = run.stills === "shots" ? [...plan.shots.flatMap(inShot), ...(plan.card ? [plan.card.start + 2] : [])] : run.stills;
       const pngs = await renderStills(plan, sources, times, img);
       for (const [k, png] of pngs.entries()) await save(`${run.out ?? "still"}-v${v + 1}-${String(k).padStart(2, "0")}.png`, png);
       await save(`${run.out ?? "still"}-v${v + 1}.plan.json`, new Blob([JSON.stringify(plan, null, 1)]));

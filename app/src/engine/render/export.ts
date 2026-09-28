@@ -22,6 +22,7 @@ import {
   type VideoSample,
 } from "mediabunny";
 import type { Source } from "../media/sources";
+import { centreAt } from "../plan/framing";
 import type { EditPlan, FxEvent, ShotEvent } from "../plan/types";
 import { drawCaption } from "./captions";
 import { drawCard } from "./card";
@@ -127,6 +128,8 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
   let burn = 0;
   let burnPhase = 0;
   let dim = 0;
+  let punch = 1;
+  const shake: [number, number] = [0, 0];
   for (const e of fx) {
     if (t < e.start - 1e-6 || t >= e.end - 1e-6) continue;
     const span = Math.max(1e-6, e.end - e.start);
@@ -142,9 +145,22 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
       dim = Math.max(dim, Math.min(1, (t - e.start + 1 / fps) / (3 / fps)));
     } else if (e.kind === "fadein") {
       dim = Math.max(dim, 1 - (t - e.start) / span);
+    } else if (e.kind === "punch") {
+      // In over a frame or two to the hit, then settling back over the next eight.
+      const at = e.at ?? e.start;
+      const env = t < at ? (t - e.start + 1 / fps) / Math.max(1e-6, at - e.start + 1 / fps) : (1 - (t - at) / Math.max(1e-6, e.end - at)) ** 2;
+      punch = Math.max(punch, 1 + 0.14 * e.strength * Math.min(1, Math.max(0, env)));
+    } else if (e.kind === "shake") {
+      // A few frames of hard, decaying jolts (the same every render), with a touch of zoom so no edge shows.
+      const k = Math.round((t - e.start) * fps);
+      const decay = 1 - (t - e.start) / span;
+      const jolt = (n: number) => Math.sin(n * 12.9898 + e.start * 78.233) * 43758.5453 % 1;
+      shake[0] += 0.03 * e.strength * decay * jolt(k * 2 + 1);
+      shake[1] += 0.022 * e.strength * decay * jolt(k * 2 + 2);
+      punch = Math.max(punch, 1 + 0.06 * e.strength * decay);
     }
   }
-  return { flash, burn, burnPhase, dim };
+  return { flash, burn, burnPhase, dim, punch, shake };
 }
 
 async function blobToBase64Parts(blob: Blob, chunk = 6 * 1024 * 1024): Promise<string[]> {
@@ -223,14 +239,14 @@ export class FramePainter {
 
     const layers: LayerDraw[] = [];
     const inCard = !!plan.card && t >= plan.card.start - 1e-6;
+    const e = fxAt(plan.fx, t, fps);
     const shot: ShotEvent | undefined = idx >= 0 ? plan.shots[idx] : undefined;
     if (shot && !inCard) {
       this.reader(idx + 1); // start decoding the next shot now
       const p = (t - shot.start) / Math.max(1e-6, shot.end - shot.start);
       const c = shot.crop;
-      const zoom = c.zoom0 + (c.zoom1 - c.zoom0) * p;
-      const cx = c.cx + ((c.cx1 ?? c.cx) - c.cx) * p;
-      const cy = c.cy + ((c.cy1 ?? c.cy) - c.cy) * p;
+      const zoom = (c.zoom0 + (c.zoom1 - c.zoom0) * p) * e.punch;
+      const [cx, cy] = centreAt(c, t - shot.start, shot.end - shot.start);
       if (shot.kind === "image") {
         const img = sources.get(shot.source)?.image;
         if (img) {
@@ -239,7 +255,7 @@ export class FramePainter {
             comp.upload(0, img, img.width, img.height);
             this.lastUpload = key;
           }
-          layers.push({ slot: 0, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx, cy, zoom, fit: c.fit, alpha: 1 });
+          layers.push({ slot: 0, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1 });
         }
       } else {
         const sample = await this.reader(idx)?.at(shot.srcStart + (t - shot.start) * shot.speed);
@@ -251,7 +267,7 @@ export class FramePainter {
             vf.close();
             this.lastUpload = key;
           }
-          layers.push({ slot: 0, srcW: sample.displayWidth, srcH: sample.displayHeight, rotation: sample.rotation as Rotation, flip: sample.flip, cx, cy, zoom, fit: c.fit, alpha: 1 });
+          layers.push({ slot: 0, srcW: sample.displayWidth, srcH: sample.displayHeight, rotation: sample.rotation as Rotation, flip: sample.flip, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1 });
         }
       }
     }
@@ -270,8 +286,7 @@ export class FramePainter {
       comp.uploadOverlay(this.overlay);
       this.overlayKey = key;
     }
-    const e = fxAt(plan.fx, t, fps);
-    comp.draw({ layers, grade: plan.grade, flash: e.flash, burn: e.burn, burnPhase: e.burnPhase, dim: inCard ? 0 : e.dim, overlay: !!key, time: t, seed: 1.37 });
+    comp.draw({ layers, grade: plan.grade, flash: e.flash, burn: e.burn, burnPhase: e.burnPhase, dim: inCard ? 0 : e.dim, overlay: !!key, time: t, seed: 1.37, shake: e.shake });
   }
 
   async close() {

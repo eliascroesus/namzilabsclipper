@@ -5,6 +5,7 @@
  */
 import { EncodedPacketSink, VideoSampleSink, type InputVideoTrack } from "mediabunny";
 import type { Source } from "./sources";
+import { SheetMaker, type Sheets } from "../vision/sheets";
 
 /** Columns and rows in the saliency profiles. */
 export const PROFILE_BINS = 32;
@@ -31,6 +32,8 @@ export interface FrameStats {
   rows: Float32Array;
   /** mean colour per sample, 0 to 1 */
   rgb: Float32Array;
+  /** black bars per sample: top, bottom, left and right, as fractions of the frame */
+  bars?: Float32Array;
 }
 
 export interface Scan {
@@ -47,8 +50,29 @@ export interface Scan {
   cuts: number[];
   /** set once every source is scanned, 0 to 1 (see scoreInterest) */
   interest?: Float32Array;
+  /** how well each sample shows the other side of the life (the desk, the screens, the grind), 0 to 1; with smart picks */
+  real?: Float32Array;
   /** a small JPEG of a representative frame */
   thumb?: Blob;
+  /** numbered contact sheets of the footage, for smart picks */
+  sheets?: Sheets;
+  /** what Gemini saw in each sample (smart picks), when it has looked */
+  look?: Look;
+  /** stretches to leave out: a YouTube video's sponsor reads, intro and outro (SponsorBlock) */
+  skip?: [number, number][];
+}
+
+/** What's in the picture, as Gemini judged it from the contact sheets. */
+export const KINDS = ["car", "watch", "jet", "yacht", "home", "view", "city", "travel", "money", "fashion", "party", "food", "sport", "work", "talking", "people", "text", "other"] as const;
+export type Kind = (typeof KINDS)[number];
+
+export interface Look {
+  /** per sample, 0 to 1: how much it sells the life (supercars, views, watches...) */
+  flex: Float32Array;
+  /** per sample, 0 to 1: how striking it is as a picture, whatever it shows */
+  wow: Float32Array;
+  /** per sample: index into KINDS */
+  kind: Uint8Array;
 }
 
 /** How often to sample: dense for short clips, sparse for long videos. */
@@ -77,7 +101,42 @@ function allocStats(n: number): FrameStats {
     cols: new Float32Array(n * PROFILE_BINS),
     rows: new Float32Array(n * PROFILE_BINS),
     rgb: new Float32Array(n * 3),
+    bars: new Float32Array(n * 4),
   };
+}
+
+/** Rows and columns at the frame's edges that are black (letterbox and pillarbox bars). */
+function measureBars(Y: Float32Array, w: number, h: number): [number, number, number, number] {
+  const dark = (sum: number, max: number, count: number) => sum / count < 0.045 && max < 0.13;
+  const row = (y: number) => {
+    let sum = 0;
+    let max = 0;
+    for (let x = 0; x < w; x++) {
+      const v = Y[y * w + x];
+      sum += v;
+      if (v > max) max = v;
+    }
+    return dark(sum, max, w);
+  };
+  const col = (x: number) => {
+    let sum = 0;
+    let max = 0;
+    for (let y = 0; y < h; y++) {
+      const v = Y[y * w + x];
+      sum += v;
+      if (v > max) max = v;
+    }
+    return dark(sum, max, h);
+  };
+  let top = 0;
+  while (top < h >> 1 && row(top)) top++;
+  let bottom = 0;
+  while (bottom < h >> 1 && row(h - 1 - bottom)) bottom++;
+  let left = 0;
+  while (left < w >> 1 && col(left)) left++;
+  let right = 0;
+  while (right < w >> 1 && col(w - 1 - right)) right++;
+  return [top / h, bottom / h, left / w, right / w];
 }
 
 /** Measure one RGBA frame into slot i. `prevY` holds the previous sample's luma (updated in place). */
@@ -192,6 +251,8 @@ export function measureFrame(px: Uint8ClampedArray, w: number, h: number, s: Fra
     rows[k] = rs > 0 ? rows[k] / rs : 1 / PROFILE_BINS;
   }
 
+  if (s.bars) s.bars.set(measureBars(Y, w, h), i * 4);
+
   if (prevY && prevY.length === n && dt > 0) {
     let d = 0;
     for (let p = 0; p < n; p++) d += Math.abs(Y[p] - prevY[p]);
@@ -284,6 +345,12 @@ export async function scanVideo(src: Source, opts: ScanOptions = {}): Promise<Sc
   let thumbAt = -1;
   let thumbScore = -Infinity;
   let thumb: Blob | undefined;
+  // Contact sheets for smart picks: a frame whenever the picture changes, and at
+  // least every six seconds (about 400 frames at most, however long the video).
+  const sheets = new SheetMaker(info.width / Math.max(1, info.height));
+  const minGap = info.duration / 400;
+  const maxGap = Math.max(6, minGap);
+  let lastCell = -1;
   const sink = new VideoSampleSink(video);
   let i = 0;
   for await (const sample of sink.samplesAtTimestamps(times)) {
@@ -308,6 +375,11 @@ export async function scanVideo(src: Source, opts: ScanOptions = {}): Promise<Sc
         thumbScore = score;
         thumbAt = times[i];
       }
+      const since = lastCell < 0 ? Infinity : times[i] - stats.t[lastCell];
+      if (since >= maxGap || (since >= minGap && histDistance(stats, lastCell, got) > 0.35)) {
+        sheets.add((c, x, y, cw, ch) => sample.draw(c, x, y, cw, ch), got, times[i]);
+        lastCell = got;
+      }
       got++;
     } finally {
       sample.close();
@@ -317,14 +389,17 @@ export async function scanVideo(src: Source, opts: ScanOptions = {}): Promise<Sc
   }
   const trimmed = trimStats(stats, got);
   if (thumbAt >= 0) thumb = await grabThumb(src, thumbAt);
-  return { id: info.id, kind: "video", start: first, duration: info.duration, width: info.width, height: info.height, rate, stats: trimmed, cuts: detectCuts(trimmed), thumb };
+  return { id: info.id, kind: "video", start: first, duration: info.duration, width: info.width, height: info.height, rate, stats: trimmed, cuts: detectCuts(trimmed), thumb, sheets: await sheets.finish() };
 }
 
 function trimStats(s: FrameStats, n: number): FrameStats {
   const out = allocStats(n);
   for (const key of Object.keys(out) as (keyof FrameStats)[]) {
-    const per = s[key].length / Math.max(1, s.t.length);
-    out[key].set(s[key].subarray(0, n * per));
+    const from = s[key];
+    const to = out[key];
+    if (!from || !to) continue;
+    const per = from.length / Math.max(1, s.t.length);
+    to.set(from.subarray(0, n * per));
   }
   return out;
 }
@@ -375,7 +450,10 @@ function pct(values: number[], p: number): number {
  * How good each sampled moment looks, 0 to 1, judged across every source together
  * so a sharp, bright clip outranks a murky one: sharpness, exposure, colour,
  * movement (lively, not shaky), people, and a nudge away from the fumbled first
- * and last half-second of a phone clip.
+ * and last half-second of a phone clip, and from a long video's intro and end
+ * screen. With smart picks, what Gemini saw in the frame leads: how much it
+ * sells the life and how striking it is, with talking heads and titles pushed
+ * right down.
  */
 export function scoreInterest(scans: Scan[]): void {
   const sharp: number[] = [];
@@ -393,9 +471,13 @@ export function scoreInterest(scans: Scan[]): void {
   const m50 = pct(motion, 50) || 0.02;
   const m90 = pct(motion, 90) || 0.1;
   const c90 = pct(color, 90) || 0.5;
+  const TALKING = KINDS.indexOf("talking");
+  const TEXT = KINDS.indexOf("text");
+  const WORK = KINDS.indexOf("work");
   for (const sc of scans) {
     const n = sc.stats.t.length;
     const out = new Float32Array(n);
+    const real = sc.look ? new Float32Array(n) : undefined;
     for (let i = 0; i < n; i++) {
       const st = sc.stats;
       const qSharp = clamp01((st.sharp[i] - s10) / Math.max(1e-6, s90 - s10));
@@ -410,15 +492,29 @@ export function scoreInterest(scans: Scan[]): void {
         if (m < 0.25 * m50) qMotion *= 0.6; // frozen
       }
       const qPeople = clamp01(st.skin[i] * 6);
-      let q = 0.28 * qSharp + 0.18 * qExpo + 0.1 * qContrast + 0.16 * qColor + 0.2 * qMotion + 0.08 * qPeople;
+      let q = 0.29 * qSharp + 0.19 * qExpo + 0.1 * qContrast + 0.17 * qColor + 0.21 * qMotion + 0.04 * qPeople;
       if (sc.kind === "video") {
         const t = st.t[i] - sc.start;
         if (t < 0.4 || st.t[i] > sc.duration - 0.4) q *= 0.8;
-        // Too dark to use.
-        if (st.luma[i] < 0.06) q *= 0.3;
+        // A long video's opening sting and its end screen (the last 20 seconds).
+        if (sc.duration > 180 && (t < 4 || st.t[i] > sc.duration - 20)) q *= 0.35;
+      }
+      // A sponsor read, an intro, an outro: not the content.
+      if (sc.skip?.some(([a, b]) => st.t[i] >= a && st.t[i] <= b)) q *= 0.05;
+      // Too dark or blown out to use.
+      if (st.luma[i] < 0.06) q *= 0.3;
+      else if (st.luma[i] > 0.93) q *= 0.5;
+      if (sc.look) {
+        const kind = sc.look.kind[i];
+        const quality = q;
+        q = 0.3 * quality + 0.7 * (0.6 * sc.look.flex[i] + 0.4 * sc.look.wow[i]);
+        if (kind === TEXT) q *= 0.2;
+        else if (kind === TALKING) q *= 0.5;
+        real![i] = kind === WORK ? 0.45 + 0.3 * sc.look.wow[i] + 0.25 * quality : kind === TEXT || kind === TALKING ? 0.02 : 0.1 * quality;
       }
       out[i] = clamp01(q);
     }
     sc.interest = out;
+    sc.real = real;
   }
 }

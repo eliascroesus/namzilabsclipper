@@ -15,6 +15,7 @@
     "@mediabunny/mp3-encoder": "^1.60.0",
     "lucide-react": "^1.48.0",
     "mediabunny": "^1.60.0",
+    "onnxruntime-web": "^1.30.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

@@ -27,7 +27,7 @@ export function App() {
         </div>
         <div className="topnote">
           <span className="dot" />
-          <span className="long">Runs on this computer. Nothing is uploaded.</span>
+          <span className="long">{s.geminiKey && s.style.smart ? "Runs on this computer. Only small stills go to Gemini (smart picks)." : "Runs on this computer. Nothing is uploaded."}</span>
         </div>
       </header>
       <main className="main">
