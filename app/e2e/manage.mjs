@@ -40,6 +40,9 @@ try {
   const label = () => page.locator(".timeline-foot .num").textContent();
   const auto = await label();
   check(auto?.startsWith("0:00"), `a Reel's sound starts at 0:00 (${auto})`);
+  // The Sound panel can sit below the fold, under the sticky Make button (the inputs
+  // column scrolls): bring the strip to the middle of the view first.
+  await page.locator(".timeline .song-strip").evaluate((el) => el.scrollIntoView({ block: "center" }));
   const strip = await page.locator(".timeline .song-strip").boundingBox();
   const win = await page.locator(".timeline .window").boundingBox();
   await page.mouse.move(win.x + win.width / 2, win.y + win.height / 2);
