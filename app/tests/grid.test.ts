@@ -229,6 +229,37 @@ describe("grooves", () => {
     });
   }
 
+  it("finds the bar lines from the kick and the bass, not the chords or a swell", () => {
+    // 124 bpm: a kick on 1 and 3, a clap on 2 and 4, hats on the "and"s, the bass
+    // moving on every 1; but the chords move on beat 2 and a riser swells through
+    // beat 4 every bar (garage and house do both). The bar starts on the kick and the bass.
+    const T = 60 / 124;
+    const t0 = 0.3;
+    const parts: Part[] = [];
+    for (let k = 0; t0 + k * T < 44.5; k++) {
+      const t = t0 + k * T;
+      parts.push(...on(k % 2 === 0, { t, kind: "kick" }), ...on(k % 2 === 1, { t, kind: "snare" }), { t: t + T / 2, kind: "hat" });
+    }
+    const y = machine(45, parts);
+    const roots = [55, 43.65, 65.41, 49];
+    const rand = mulberry32(7);
+    for (let bar = 0; t0 + bar * 4 * T < 44.5; bar++) {
+      const one = t0 + bar * 4 * T;
+      const add = (from: number, to: number, f: (t: number) => number) => {
+        for (let i = Math.max(0, Math.round(from * SR)); i < Math.min(y.length, Math.round(to * SR)); i++) y[i] += f(i / SR - from);
+      };
+      add(one, one + 4 * T, (t) => 0.35 * Math.sin(2 * Math.PI * roots[bar % 4] * t) * Math.min(1, t * 200));
+      const chord = roots[(bar + 1) % 4] * 8;
+      add(one + T, one + 5 * T, (t) => 0.12 * Math.min(1, t * 50) * [1, 1.26, 1.5].reduce((a, r) => a + Math.sin(2 * Math.PI * chord * r * t), 0));
+      add(one + 3 * T, one + 4 * T, (t) => 0.3 * (t / T) ** 2 * (rand() * 2 - 1));
+    }
+    const song = analyzeSong(y, SR);
+    expect(song.steady).toBe(true);
+    const bars = song.downbeats.filter((t) => t > 1 && t < 43).map((d) => ((Math.round((d - t0) / T) % 4) + 4) % 4);
+    expect(bars.length).toBeGreaterThan(10);
+    for (const b of bars) expect(b).toBe(0);
+  });
+
   it("a live band drifting from 118 to 124 keeps the tracker's beats", () => {
     const truth: number[] = [];
     const parts: Part[] = [];
@@ -272,10 +303,13 @@ describe.skipIf(!existsSync(resolve(FIX, "comes.f32")))("Comes and Goes (KETTAMA
   it("puts the grid on the beat from a Reel-length clip of it too, not on the hats", () => {
     // A Reel's sound is 15 or 30 seconds from somewhere in the song. Its grid has to
     // land where the whole song's does (the verses, the hooks, the drops; the
-    // breakdown at 2:35 has too little drum to tell a beat from an "and").
+    // breakdown at 2:35 has too little drum to tell a beat from an "and"), and its
+    // bar lines nearly always (a stretch around 1:30 leans on beat 4).
     const buf = readFileSync(resolve(FIX, "comes.f32"));
     const y = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
     const T = 60 / 134;
+    let bars = 0;
+    let clips = 0;
     for (const len of [15, 30]) {
       for (const start of [8, 40, 64, 90, 120, 190, 215]) {
         const clip = analyzeSong(y.slice(Math.round(start * SR), Math.round((start + len) * SR)), SR);
@@ -285,7 +319,10 @@ describe.skipIf(!existsSync(resolve(FIX, "comes.f32")))("Comes and Goes (KETTAMA
           const k = (b + start - 0.062) / T;
           expect(Math.abs(k - Math.round(k)) * T).toBeLessThan(0.03);
         }
+        clips++;
+        if (Math.round((clip.downbeats[0] + start - 0.062) / T) % 4 === 0) bars++;
       }
     }
+    expect(bars).toBeGreaterThanOrEqual(clips - 2);
   });
 });

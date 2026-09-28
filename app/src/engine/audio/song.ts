@@ -38,6 +38,8 @@ export interface SongAnalysis {
   bpm: number;
   /** the beats are a steady grid measured to the exact tempo (not the tracker's own) */
   steady: boolean;
+  /** what usually plays halfway between beats, kick and middle, 0 to 1 like an accent's */
+  offbeat?: { kick: number; mid: number };
   /** seconds per beat */
   period: number;
   beats: number[];
@@ -161,39 +163,44 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
     return end > f ? s / (end - f) : loudness[Math.min(frames - 1, f)];
   });
 
-  // Chroma per beat, for harmonic change: magnitude summed into pitch classes, 55 Hz to 4 kHz.
-  const pcOfBin = new Int8Array(spec.bins).fill(-1);
-  for (let k = 1; k < spec.bins; k++) {
-    const hz = (k * sr) / N_FFT;
-    if (hz < 55 || hz > 4000) continue;
-    const midi = Math.round(12 * Math.log2(hz / 440) + 69);
-    pcOfBin[k] = ((midi % 12) + 12) % 12;
-  }
-  const chroma = beatFrames.map((f, i) => {
-    const end = i + 1 < beatFrames.length ? beatFrames[i + 1] : Math.min(frames, f + 8);
-    const c = new Float64Array(12);
-    for (let fr = f; fr < end; fr++) {
-      const row = fr * spec.bins;
-      for (let k = 1; k < spec.bins; k++) if (pcOfBin[k] >= 0) c[pcOfBin[k]] += Math.sqrt(spec.data[row + k]);
+  // Chroma per beat, for harmonic change: magnitude summed into pitch classes over a
+  // range of the spectrum (55 Hz to 4 kHz for the chords, 30 to 250 Hz for the bass line).
+  const change = (lo: number, hi: number) => {
+    const pcOfBin = new Int8Array(spec.bins).fill(-1);
+    for (let k = 1; k < spec.bins; k++) {
+      const hz = (k * sr) / N_FFT;
+      if (hz < lo || hz > hi) continue;
+      const midi = Math.round(12 * Math.log2(hz / 440) + 69);
+      pcOfBin[k] = ((midi % 12) + 12) % 12;
     }
-    const norm = Math.hypot(...c) || 1;
-    return c.map((v) => v / norm);
-  });
-  const harmonicChange = chroma.map((c, i) => (i === 0 ? 0 : 1 - c.reduce((s, v, k) => s + v * chroma[i - 1][k], 0)));
-  const loudRise = beatLoudness.map((v, i) => (i === 0 ? 0 : Math.max(0, v - beatLoudness[i - 1])));
+    const chroma = beatFrames.map((f, i) => {
+      const end = i + 1 < beatFrames.length ? beatFrames[i + 1] : Math.min(frames, f + 8);
+      const c = new Float64Array(12);
+      for (let fr = f; fr < end; fr++) {
+        const row = fr * spec.bins;
+        for (let k = 1; k < spec.bins; k++) if (pcOfBin[k] >= 0) c[pcOfBin[k]] += Math.sqrt(spec.data[row + k]);
+      }
+      const norm = Math.hypot(...c) || 1;
+      return c.map((v) => v / norm);
+    });
+    return chroma.map((c, i) => (i === 0 ? 0 : 1 - c.reduce((s, v, k) => s + v * chroma[i - 1][k], 0)));
+  };
+  const harmonicChange = change(55, 4000);
+  const bassChange = change(30, 250);
 
-  // Bar lines, assuming 4/4: the phase where harmony changes, kicks land and the level steps up.
+  // Bar lines, assuming 4/4: the phase where the kick lands, the bass line moves and
+  // the chords change. The chords count for less (songs often push them ahead of the
+  // bar), and a jump in level not at all (a garage track's pickups make beat 4 the loudest).
   const zH = zscore(harmonicChange);
+  const zB = zscore(bassChange);
   const zK = zscore(beatKick);
-  const zL = zscore(loudRise);
-  const zS = zscore(beatStrength);
   let phase = 0;
   let bestPhase = -Infinity;
   for (let p = 0; p < 4; p++) {
     let s = 0;
     let c = 0;
     for (let i = p; i < beats.length; i += 4) {
-      s += zH[i] + 0.7 * zK[i] + 0.5 * zL[i] + 0.3 * zS[i];
+      s += zK[i] + 0.8 * zB[i] + 0.5 * zH[i];
       c++;
     }
     if (c && s / c > bestPhase) {
@@ -216,6 +223,21 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
     const t = (f * hop) / sr;
     return { t, s: Math.min(1, env[f] / envRef), kick: Math.min(1, peakNear(kick, f, 1) / kickRef), mid: Math.min(1, peakNear(mid, f, 1) / midRef), beat: beatPos(t) };
   });
+
+  // What usually plays halfway between the beats (a house track's open hat on every
+  // "and"), read the way the accents are: a hit there has to stand out from it to be
+  // worth a cut.
+  const halfKick = new Float64Array(Math.max(0, beats.length - 1));
+  const halfMid = new Float64Array(halfKick.length);
+  for (const a of accents) {
+    const i = Math.floor(a.beat);
+    if (i < 0 || i >= halfKick.length || Math.abs(a.beat - i - 0.5) > 0.12) continue;
+    halfKick[i] = Math.max(halfKick[i], a.kick);
+    halfMid[i] = Math.max(halfMid[i], a.mid);
+  }
+  // The upper quartile: the groove's hits on the "and" vary (a hat after the snare reads louder).
+  const usual = (v: Float64Array) => (v.length ? [...v].sort((x, y) => x - y)[Math.floor(v.length * 0.75)] : 0);
+  const offbeat = { kick: usual(halfKick), mid: usual(halfMid) };
 
   // Drops: bar lines where the next two bars are clearly louder and heavier than the last two.
   const drops: Drop[] = [];
@@ -252,7 +274,7 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
     drops.push({ t: beats[at], strength: Math.min(1, s / 0.5) });
   }
 
-  return { sr, hop, duration, bpm, steady: !!grid, period, beats, beatInBar, downbeats, beatStrength, beatLoudness, accents, drops, env, kick, loudness, rms: level };
+  return { sr, hop, duration, bpm, steady: !!grid, offbeat, period, beats, beatInBar, downbeats, beatStrength, beatLoudness, accents, drops, env, kick, loudness, rms: level };
 }
 
 export interface Section {

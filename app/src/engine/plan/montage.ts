@@ -107,9 +107,15 @@ interface Cand {
 /**
  * A hit worth cutting or punching in on: a kick or something in the middle (a
  * clap, a snare, a vocal stab), not a hi-hat on its own. In a lot of dance music
- * the hats are the loudest thing on the "and", and a cut on them reads as off the beat.
+ * the hats are the loudest thing on the "and", and a cut on them reads as off the
+ * beat. Between beats it also has to stand out from what always plays there (a
+ * house track's open hat): a syncopated kick does, the groove itself doesn't.
  */
-export const hitsHard = (a: Accent) => a.kick >= 0.6 || (a.mid ?? 1) >= 0.7;
+export function hitsHard(song: SongAnalysis, a: Accent): boolean {
+  const between = Math.abs(a.beat - Math.floor(a.beat) - 0.5) <= 0.12;
+  const base = between && song.offbeat ? song.offbeat : { kick: 0, mid: 0 };
+  return a.kick >= Math.max(0.6, base.kick + 0.25) || (a.mid ?? 1) >= Math.max(0.7, base.mid + 0.25);
+}
 
 /**
  * Where an accent sits on a steady grid (song time): exactly on its beat, or exactly
@@ -148,7 +154,7 @@ function candidates(song: SongAnalysis, songStart: number, from: number, until: 
   // just a hi-hat. On a steady grid the cut goes exactly halfway.
   for (const a of song.accents) {
     const frac = a.beat - Math.floor(a.beat);
-    if (a.s < 0.6 || Math.abs(frac - 0.5) > 0.12 || !hitsHard(a)) continue;
+    if (a.s < 0.6 || Math.abs(frac - 0.5) > 0.12 || !hitsHard(song, a)) continue;
     const exact = gridTime(song, a);
     const t = exact - songStart;
     if (t <= from + 0.2 || t >= until) continue;
@@ -764,7 +770,7 @@ export function phraseCuts(song: SongAnalysis, songStart: number, shots: ShotEve
 export function strongHits(song: SongAnalysis, songStart: number, from: number, to: number, drop?: number): number[] {
   const hits: number[] = [];
   const found = song.accents
-    .filter(hitsHard)
+    .filter((a) => hitsHard(song, a))
     .map((a) => ({ t: frame(gridTime(song, a) - songStart - CUT_LEAD), s: a.s }))
     .filter((a) => a.s >= 0.8 && a.t >= from && a.t <= to && (drop === undefined || Math.abs(a.t - drop) > 1))
     .sort((a, b) => b.s - a.s);
