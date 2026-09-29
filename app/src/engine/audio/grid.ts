@@ -10,7 +10,8 @@
  * between, and a tracker following them cuts off the beat. The same goes for a
  * 15 second clip of the song, which is what a Reel's sound is.
  */
-import { getFFT } from "./dsp";
+import { getFFT, percentile } from "./dsp";
+import type { BeatTrack } from "./rhythm";
 
 export interface Grid {
   /** analysis frames per beat (fractional) */
@@ -200,6 +201,13 @@ export function steadyGrid(env: ArrayLike<number>, low: ArrayLike<number>, mid: 
   return null;
 }
 
+/** The steady grid at about `rough` frames a beat and nowhere else; null when the song keeps none there. */
+export function steadyAt(env: ArrayLike<number>, low: ArrayLike<number>, mid: ArrayLike<number>, rough: number, fps = 22050 / 512): Grid | null {
+  const bpm = (60 * fps) / rough;
+  if (!(rough > 2) || bpm < 60 || bpm > 200 || env.length < rough * 12) return null;
+  return gridAt(env, low, mid, rough);
+}
+
 function gridAt(env: ArrayLike<number>, low: ArrayLike<number>, mid: ArrayLike<number>, rough: number): Grid | null {
   const { period, lags } = refinePeriod(env, rough);
   // Steady means the long looks agree to within a third of a percent, and the
@@ -259,4 +267,77 @@ function gridAt(env: ArrayLike<number>, low: ArrayLike<number>, mid: ArrayLike<n
   }
   if (checked >= 3 && held < checked * 0.7) return null;
   return { period, phase, lags };
+}
+
+/** Beats (analysis frames) at a tempo: its steady grid's, when the song keeps one there, or the tracker's. */
+export interface TempoBeats {
+  beats: number[];
+  grid: Grid | null;
+  track: BeatTrack;
+}
+
+/**
+ * The beats at another tempo, when the song's standout hits keep that one clearly
+ * better than `beats` (frames, at `bpm`); otherwise null. The tracker weighs every
+ * tempo against a prior at 120 bpm, and in a sparse song (a voice, and finger snaps
+ * on 2 and 4 at 86 bpm) it can settle on a tempo none of the hits keep: at 117 bpm
+ * the snaps land all over its beats, and an edit cut on them misses most of them.
+ * (A rhythm three sixteenths long, 115 bpm in a song at 86, can pull it there.) So
+ * each tempo the envelope repeats at (60 to 200 bpm, not twice or half the one it
+ * has: which of those is the beat is the tracker's call) gets its beats from `at`,
+ * and the standout hits (onsets far above everything within a second of them) vote,
+ * the loudest most (by the square of how hard they hit: the snaps over a synth line's
+ * notes). A tempo wins when it puts more of them on its beats and its beats hit
+ * harder on average, both clearly (a faster level always catches more hits, but half
+ * its beats fall between them); of those, the one whose beats hit hardest (86 over 172), on a
+ * steady grid when one of them keeps one (a tracker can bend its beats onto the hits
+ * at a tempo the song doesn't have: 77 for 86).
+ */
+export function trackTheHits(env: Float32Array, fps: number, bpm: number, beats: number[], onsets: number[], at: (tempo: number) => TempoBeats): TempoBeats | null {
+  const n = env.length;
+  const ref = Math.max(1e-9, percentile(env, 99.5));
+  const reach = Math.round(fps);
+  const hits: { f: number; w: number }[] = [];
+  for (const f of onsets) {
+    if (env[f] < 0.45 * ref) continue;
+    const around = Array.from(env.subarray(Math.max(0, f - reach), Math.min(n, f + reach + 1))).sort((a, b) => a - b);
+    if (env[f] >= 4 * around[around.length >> 1]) hits.push({ f, w: Math.min(1, env[f] / ref) ** 2 });
+  }
+  if (hits.length < 6 || beats.length < 8) return null;
+  const tol = Math.max(2, Math.round(0.06 * fps));
+  const judge = (bs: number[]) => {
+    let on = 0;
+    let all = 0;
+    let j = 0;
+    for (const h of hits) {
+      all += h.w;
+      while (j + 1 < bs.length && bs[j + 1] <= h.f) j++;
+      const d = Math.min(Math.abs(bs[j] - h.f), j + 1 < bs.length ? Math.abs(bs[j + 1] - h.f) : Infinity);
+      if (d <= tol) on += h.w;
+    }
+    let hard = 0;
+    for (const b of bs) hard += Math.min(1, env[Math.min(n - 1, Math.max(0, b))] / ref);
+    return { on: on / all, hard: bs.length ? hard / bs.length : 0 };
+  };
+  const mine = judge(beats);
+  const a = autocorrelation(env);
+  const peaks: number[] = [];
+  for (let k = Math.max(2, Math.floor((60 * fps) / 200)); k <= Math.ceil((60 * fps) / 60) && k + 1 < a.length; k++) if (a[k] > a[k - 1] && a[k] >= a[k + 1]) peaks.push(k);
+  peaks.sort((x, y) => a[y] - a[x]);
+  // The best of each kind: a steady grid that keeps the hits beats a tracker bending
+  // its beats onto them.
+  const best: (TempoBeats & { hard: number })[] = [];
+  for (const k of peaks.slice(0, 6)) {
+    const p = peakBetween(a, k - 1, k + 1);
+    const tempo = (60 * fps) / (p?.at ?? k);
+    const octaves = Math.abs(Math.log2(tempo / bpm));
+    if (tempo < 60 || tempo > 200 || Math.abs(octaves - Math.round(octaves)) < 0.08) continue;
+    const other = at(tempo);
+    if (other.beats.length < 8) continue;
+    const j = judge(other.beats);
+    const kind = other.grid ? 0 : 1;
+    if (j.on >= mine.on + 0.05 && j.hard > mine.hard && !(best[kind]?.hard >= j.hard)) best[kind] = { ...other, hard: j.hard };
+  }
+  const win = best[0] ?? best[1];
+  return win ? { beats: win.beats, grid: win.grid, track: win.track } : null;
 }

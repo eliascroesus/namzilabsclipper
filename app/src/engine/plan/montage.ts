@@ -265,7 +265,16 @@ function candidates(song: SongAnalysis, songStart: number, from: number, until: 
     if (inBreak(song, song.beats[i]) || song.beatStrength[i] < quiet) continue;
     const t = song.beats[i] - songStart;
     const down = song.beatInBar[i] === 0;
-    const w = 0.25 + 0.35 * (rank.get(i) ?? 0.5) + 0.35 * song.beatStrength[i] + (down ? 0.25 : 0) + structureWeight(song, song.beats[i]);
+    // Against the beats around it (two bars either way): a bar line pulls a cut as far
+    // as something plays on it (a soft one between two finger snaps hardly does), and a
+    // beat whose hit stands out from them (the snap on 2 and 4) pulls one of its own.
+    const near: number[] = [];
+    for (let j = Math.max(0, i - 8); j <= Math.min(song.beats.length - 1, i + 8); j++) near.push(song.beatStrength[j]);
+    near.sort((a, b) => a - b);
+    const top = near[near.length - 1];
+    const heard = clamp(song.beatStrength[i] / Math.max(0.1, 0.6 * top), 0, 1);
+    const standout = song.beatStrength[i] >= 0.7 * top && song.beatStrength[i] >= 1.4 * near[near.length >> 1] ? 0.25 : 0;
+    const w = 0.25 + 0.35 * (rank.get(i) ?? 0.5) + 0.35 * song.beatStrength[i] + (down ? 0.25 * heard : 0) + standout + structureWeight(song, song.beats[i]);
     out.push({ t, w, down, drop: false });
   }
   // Hits between the beats: a strong one on the "and" (a syncopated kick, a clap or a

@@ -258,6 +258,59 @@ describe("grooves", () => {
     for (const b of bars) expect(b).toBe(0);
   });
 
+  it("finger snaps on 2 and 4 in a sparse song played by hand: a tempo that keeps them, and cuts on them", () => {
+    // 86 bpm drifting up to 89, a snap on 2 and 4 (up to 25 ms either side of the
+    // beat), a soft kick on 1, a pad, and a plucked line every three sixteenths (115
+    // bpm, near where the tracker looks first: it used to settle there, and the snaps
+    // fell all over its beats).
+    const seconds = 30;
+    const rand = mulberry32(11);
+    const beats: number[] = [];
+    for (let t = 0.2, k = 0; t < seconds; k++, t += 60 / (86 + (3 * k) / 40)) beats.push(t);
+    const at = (x: number) => beats[Math.floor(x)] + (x - Math.floor(x)) * (beats[Math.floor(x) + 1] - beats[Math.floor(x)]);
+    const y = new Float32Array(seconds * SR);
+    const add = (t: number, len: number, v: (i: number) => number) => {
+      const s0 = Math.round(t * SR);
+      for (let i = 0; i < len && s0 + i < y.length; i++) y[s0 + i] += v(i);
+    };
+    const snaps: number[] = [];
+    for (let k = 0; k + 1 < beats.length && beats[k] < seconds - 0.5; k++) {
+      if (k % 2 === 1) {
+        const s = beats[k] + 0.025 * (rand() * 2 - 1);
+        snaps.push(s);
+        let prev = 0;
+        add(s, 6000, (i) => {
+          const n = rand() * 2 - 1;
+          const v = 0.7 * Math.min(1, i / 20) * Math.exp(-i / 350) * (n - 0.6 * prev);
+          prev = n;
+          return v;
+        });
+      }
+      if (k % 4 === 0) add(beats[k], 6000, (i) => 0.27 * Math.exp(-i / 2500) * Math.sin(2 * Math.PI * (50 + 100 * Math.exp(-i / 400)) * (i / SR)));
+      if (k % 8 === 0) add(beats[k], 40000, (i) => 0.1 * Math.min(1, i / 4000) * Math.exp(-i / 30000) * Math.sin(2 * Math.PI * (k % 16 ? 196 : 220) * (i / SR)));
+    }
+    for (let q = 0; 0.75 * q + 1 < beats.length && at(0.75 * q) < seconds - 0.5; q++) {
+      const hz = [660, 587, 494, 523][q % 4];
+      add(at(0.75 * q) + 0.015 * (rand() * 2 - 1), 6000, (i) => 0.25 * Math.min(1, i / 30) * Math.exp(-i / 1800) * (Math.sin(2 * Math.PI * hz * (i / SR)) + 0.4 * Math.sin(4 * Math.PI * hz * (i / SR))));
+    }
+    const song = analyzeSong(y, SR);
+    expect(song.bpm).toBeGreaterThan(82);
+    expect(song.bpm).toBeLessThan(92);
+    // Every snap on a beat, where it starts.
+    for (const s of snaps.filter((x) => x > 1 && x < seconds - 1)) expect(Math.abs(nearest(song.beats, s) - s)).toBeLessThan(0.012);
+    // And cut on: nearly every snap in the edit gets a cut, and every cut is on a beat.
+    for (const start of [4, 9]) {
+      for (const variant of [0, 1, 2]) {
+        const plan = planMontage({ song, songSource: "s", songName: "snaps", fromStart: false, songStart: start, scans: scans(), aspect: "9x16", length: 12, card: null, caption: null, variant });
+        const cuts = plan.shots.slice(1).map((s) => plan.music!.songStart + s.start + CUT_LEAD);
+        for (const c of cuts) expect(Math.abs(nearest(song.beats, c) - c)).toBeLessThanOrEqual(1.5 / FPS + 0.01);
+        const inside = snaps.filter((s) => s > start + 0.6 && s < start + plan.duration - 0.3);
+        const cut = inside.filter((s) => cuts.some((c) => Math.abs(c - s) <= 1.5 / FPS + 0.03));
+        expect(cut.length).toBeGreaterThanOrEqual(Math.ceil(0.75 * inside.length));
+      }
+    }
+  });
+
   it("a live band drifting from 118 to 124 keeps the tracker's beats", () => {
     const truth: number[] = [];
     const parts: Part[] = [];
@@ -325,5 +378,18 @@ describe.skipIf(!existsSync(resolve(FIX, "comes.f32")))("Comes and Goes (KETTAMA
       }
     }
     expect(bars).toBeGreaterThanOrEqual(clips - 2);
+  });
+});
+
+describe.skipIf(!existsSync(resolve(FIX, "nio4.f32")))("nio.trade's Reel sound (nio4): a voice and finger snaps on 2 and 4", () => {
+  it("hears it at 87 bpm with its hardest hits on the beats (it heard 117 before, a snap on one beat in three)", () => {
+    const buf = readFileSync(resolve(FIX, "nio4.f32"));
+    const song = analyzeSong(new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4), SR);
+    expect(song.bpm).toBeGreaterThan(84);
+    expect(song.bpm).toBeLessThan(90);
+    const hardest = song.accents.filter((a) => a.s >= 0.85).map((a) => a.t);
+    expect(hardest.length).toBeGreaterThan(6);
+    const on = hardest.filter((t) => Math.abs(nearest(song.beats, t) - t) < 0.01);
+    expect(on.length).toBeGreaterThanOrEqual(0.8 * hardest.length);
   });
 });

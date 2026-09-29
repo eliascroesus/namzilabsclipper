@@ -5,7 +5,7 @@
  */
 import { beatShift, hitStart } from "./attacks";
 import { melFilterbank, melSpectrogram, onsetStrength, percentile, powerSpectrogram, powerToDb, rms, smooth } from "./dsp";
-import { steadyGrid } from "./grid";
+import { steadyAt, steadyGrid, trackTheHits } from "./grid";
 import { songStructure, type Structure } from "./structure";
 import type { Vocals } from "./vocals";
 import { beatTrack, detectOnsets, estimateTempo } from "./rhythm";
@@ -125,9 +125,8 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
   const kickRef = Math.max(1e-6, percentile(kick, 99.5));
   const midRef = Math.max(1e-6, percentile(mid, 99.5));
 
-  const track = beatTrack(env, sr, hop);
-  let beatFrames = track.beats;
-  let bpm = track.bpm;
+  const onsetFrames = detectOnsets(env, sr, hop);
+  let track = beatTrack(env, sr, hop);
   // A song made at one exact tempo gets a steady grid at that tempo, on the kick and
   // snare; anything else keeps the tracker's beats.
   let grid: ReturnType<typeof steadyGrid> = null;
@@ -138,6 +137,26 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
     const drumBpm = estimateTempo(drums, sr, hop);
     grid = steadyGrid(env, kick, mid, (60 / track.bpm) * (sr / hop), sr / hop, [(60 / drumBpm) * (sr / hop)]);
   }
+  // Without one, the tracker's beats have to keep the song's standout hits (a snap on
+  // 2 and 4): when another tempo keeps them clearly better, the song is tracked at that
+  // one, or put on its steady grid there. (A steady grid stands: in a broken beat the
+  // kicks fall between its beats on purpose.)
+  if (!grid && opts.steady !== false) {
+    const fps = sr / hop;
+    const other = trackTheHits(env, fps, track.bpm, track.beats, onsetFrames, (tempo) => {
+      const g = steadyAt(env, kick, mid, (60 / tempo) * fps, fps);
+      const t = beatTrack(env, sr, hop, tempo);
+      const beats: number[] = [];
+      if (g) for (let f = g.phase; f < frames - 1; f += g.period) beats.push(Math.round(f));
+      return { beats: g ? beats : t.beats, grid: g, track: t };
+    });
+    if (other) {
+      track = other.track;
+      grid = other.grid;
+    }
+  }
+  let beatFrames = track.beats;
+  let bpm = track.bpm;
   let exact: number[] | null = null;
   if (grid) {
     exact = [];
@@ -169,7 +188,6 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
   // lines, accents, drops, breaks) moves onto the starts. What's measured per frame
   // (the envelopes, loudness, the features per beat) stays where it was measured.
   const heard = exact ?? beatFrames.map((f) => (f * hop) / sr);
-  const onsetFrames = detectOnsets(env, sr, hop);
   const lead = beatShift(y, sr, heard, onsetFrames.map((f) => (f * hop) / sr));
   const beats = heard.map((t) => t + lead);
 
@@ -178,6 +196,24 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
     for (let i = Math.max(0, f - r); i <= Math.min(frames - 1, f + r); i++) m = Math.max(m, a[i]);
     return m;
   };
+  // Every onset's hit: where it starts, about as far ahead of its frame as the song's
+  // beats are, and exactly where its attack stands out there (looked for on the hits
+  // strong enough to cut on; the rest only count towards the groove).
+  const hits = onsetFrames.map((f) => {
+    const near = (f * hop) / sr + lead;
+    const hit = env[f] >= 0.25 * envRef ? hitStart(y, sr, near - 0.035, near + 0.035) : null;
+    return { t: hit?.t ?? near, s: Math.min(1, env[f] / envRef), kick: Math.min(1, peakNear(kick, f, 1) / kickRef), mid: Math.min(1, peakNear(mid, f, 1) / midRef), ...(hit ? { exact: true } : {}) };
+  });
+  // A tracked beat (not a steady grid's) is only as exact as its 23 ms frame: where it
+  // falls on a hit strong enough to cut on, it moves onto where the hit starts, so a
+  // cut on it lands with the snap or the clap, not a frame before or after.
+  if (!exact) {
+    for (let i = 0; i < beats.length; i++) {
+      let on: (typeof hits)[number] | undefined;
+      for (const h of hits) if (h.exact && Math.abs(h.t - beats[i]) <= 0.035 && (!on || h.s > on.s)) on = h;
+      if (on) beats[i] = on.t;
+    }
+  }
   const beatStrength = beatFrames.map((f) => Math.min(1, peakNear(env, f, 2) / envRef));
   const beatKick = beatFrames.map((f) => Math.min(1, peakNear(kick, f, 2) / kickRef));
   const beatSnare = beatFrames.map((f) => Math.min(1, peakNear(mid, f, 2) / midRef));
@@ -249,15 +285,7 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
     }
     return beats.length - 1 + (t - beats[beats.length - 1]) / period;
   };
-  const accents: Accent[] = onsetFrames.map((f) => {
-    // Where the hit starts: about as far ahead of its frame as the song's beats are,
-    // and exactly where its attack stands out there (looked for on the hits strong
-    // enough to cut on; the rest only count towards the groove).
-    const near = (f * hop) / sr + lead;
-    const hit = env[f] >= 0.25 * envRef ? hitStart(y, sr, near - 0.035, near + 0.035) : null;
-    const t = hit?.t ?? near;
-    return { t, s: Math.min(1, env[f] / envRef), kick: Math.min(1, peakNear(kick, f, 1) / kickRef), mid: Math.min(1, peakNear(mid, f, 1) / midRef), beat: beatPos(t), ...(hit ? { exact: true } : {}) };
-  });
+  const accents: Accent[] = hits.map((h) => ({ ...h, beat: beatPos(h.t) }));
 
   // What usually plays halfway between the beats (a house track's open hat on every
   // "and"), read the way the accents are: a hit there has to stand out from it to be
