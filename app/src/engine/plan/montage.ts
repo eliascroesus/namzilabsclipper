@@ -362,13 +362,13 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, opt
     // and so does everything after the drop).
     const afterDrop = dropAt !== undefined && a >= dropAt - 0.05;
     if (!afterDrop && energy < 0.6 && vocalOver(song, songStart, a, b) >= 0.5) beats = Math.max(beats, 2);
-    // Into the drop the shots get shorter and shorter (a build: two beats, one, half),
-    // as far as there are hits to cut on, right up to the moment the song drops out;
-    // the shot on the last hit before the silence sounds for about a beat of it.
-    // (Into a silence it stays on the beat: the flurry between beats is for a drop that hits.)
+    // Before the drop the song holds back and so do the cuts: on the beat, two beats a
+    // shot at least, settling on two over the last two bars into it; the pace picks up
+    // after the drop. (The shot on the last hit before the song drops out sounds for
+    // about a beat of it and holds through the silence.)
     if (peak !== undefined && b <= peak + 0.05) {
       const bars = (peak - b) / (4 * song.period);
-      if (bars < 2) beats = Math.min(beats, bars < 0.5 && peak === dropAt ? 0.75 : bars < 1 ? 1 : 2);
+      beats = bars < 2 ? 2 : Math.max(2, beats);
     } else if (peak !== undefined && peak !== dropAt && a < peak - 0.05) beats = Math.min(beats, 1);
     const target = beats * song.period * pace;
     return (-0.5 * Math.log(L / clamp(target, 0.38, 2.2 * pace)) ** 2) / (2 * 0.5 ** 2);
@@ -389,8 +389,10 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, opt
       const Lp = cands[j].t - cands[i].t;
       for (let k = j + 1; k < n; k++) {
         const L = cands[k].t - cands[j].t;
-        // The shot on the drop holds for a beat at least: the hit lands on it.
+        // The shot on the drop holds for a beat at least: the hit lands on it. Before the
+        // drop no shot is shorter than two beats (not counting a break's silence).
         if (L < MIN_SHOT || (cands[j].drop && L < 0.95 * song.period)) continue;
+        if (dropAt !== undefined && cands[k].t <= dropAt + 0.05 && L - silence(cands[j].t, cands[k].t) < 1.9 * song.period) continue;
         if (L > longest(cands[j].t, cands[k].t)) break;
         // Skipping a drop is not allowed.
         let skipsDrop = false;
@@ -657,7 +659,7 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
   return out;
 }
 
-/** A stretch of a source an edit used, in source seconds, and whether it opened the edit or hit the drop. */
+/** A stretch of a source an edit used, in source seconds, and whether it opened the edit, hit the drop or closed it. */
 export type Range = [start: number, end: number, hero?: boolean];
 export type Ranges = Map<string, Range[]>;
 
@@ -770,7 +772,7 @@ function momentScores(segs: Segment[]): Map<string, Moment> {
  * the yacht (when the picture model has looked: a moment showing what an earlier
  * pick shows counts for less).
  */
-function selectsOf(moments: Map<string, Moment>, k: number): Set<string> {
+function selectsOf(moments: Map<string, Moment>, k: number, spreadBy = 0.08): Set<string> {
   const left = [...moments].sort((a, b) => b[1].score - a[1].score);
   // How many of the picks so far show what each moment left shows (the same car in
   // the same place: an embedding within about 0.1 of it).
@@ -782,7 +784,7 @@ function selectsOf(moments: Map<string, Moment>, k: number): Set<string> {
     let bv = -Infinity;
     for (let i = 0; i < left.length; i++) {
       if (taken[i]) continue;
-      const v = left[i][1].score - 0.08 * same[i];
+      const v = left[i][1].score - spreadBy * same[i];
       if (v > bv) {
         bv = v;
         bi = i;
@@ -830,6 +832,8 @@ export interface AssignContext {
   variant: number;
   /** source ranges earlier variants used, to spread the footage around */
   avoid?: Ranges;
+  /** how many more edits this batch makes after this one: each needs a hook and a drop of its own */
+  toCome?: number;
   /** ranges already used in this edit (shared between acts) */
   used?: Ranges;
   /** what the slots want (default: the flex) */
@@ -878,7 +882,8 @@ function nearestSample(scan: Scan, t: number): number {
  * the edit varied by what the shots show rather than by which file they came from
  * (eight scenes of one Reel are eight shots; four clips of one car from one side
  * are one). Across a batch, each edit keeps away from the moments the earlier ones
- * used, and never opens on or drops into one of theirs, or one that looks like it.
+ * used, and never opens on or drops into a moment they opened on, dropped into or
+ * closed on, or one that looks like it.
  */
 export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): ShotEvent[] {
   if (!scans.length) throw new Error("No footage to fill the edit");
@@ -887,7 +892,10 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
   for (const s of scans) if (s.kind === "video") for (const m of s.stats.motion) motionAll.push(m);
   motionAll.sort((a, b) => a - b);
   const motionScale = motionAll.length ? motionAll[Math.floor(motionAll.length * 0.9)] || 0.1 : 0.1;
-  const importance: Record<Role, number> = { hook: 0, drop: 1, closer: 2, build: 3, body: 3 };
+  // The hook, the drop and the closer first; then the shots after the drop, where the
+  // edit pays off, before the build that sets it up (so the build doesn't use up the
+  // best of the flex).
+  const importance: Record<Role, number> = { hook: 0, drop: 1, closer: 2, body: 3, build: 4 };
   const dropStart = slots.find((sl) => sl.role === "drop")?.start;
   // A cut (edit time) that opens a new section of the song.
   const newSection = (cut: number) => !!ctx.song?.structure?.sections.some((sec) => Math.abs(sec.t - ctx.songStart - CUT_LEAD - cut) < 0.1);
@@ -899,9 +907,9 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
   const chosen: (Segment & { d: number; len: number })[] = new Array(slots.length);
   const cache = new Map<number, { segs: Segment[]; len: number; best: Map<string, Moment> }>();
   const v = ctx.variant;
-  // What the earlier edits in the batch opened on and dropped into, as pictures: this
-  // one's hook and drop should look different, not just come from another minute of
-  // the same walk around the same car.
+  // What the earlier edits in the batch opened on, dropped into and closed on, as
+  // pictures: this one's hook and drop should look different, not just come from
+  // another minute of the same walk around the same car.
   const heroLooks: ArrayLike<number>[] = [];
   for (const [id, ranges] of ctx.avoid ?? []) {
     const scan = scans.find((sc) => sc.id === id);
@@ -918,11 +926,30 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
   // (slot by slot, below) from the three best still fresh. Any good stretch of a
   // select will do, so the edits in a batch can share a great scene without
   // repeating each other's shots.
-  const moments = momentScores(segmentsFor(scans, 0.5, motionScale, false, ctx.purpose));
-  const pool = { closer: selectsOf(moments, 5 + 3 * v), rest: selectsOf(moments, Math.ceil(1.75 * slots.length)) };
-  // Fresh for a hook or a drop: not a moment an earlier edit opened on or dropped into,
-  // and not one this edit has used. (One that only looks like theirs is let in, and
-  // marked down below: better a strong shot like another edit's than a dull one.)
+  const halfSeconds = segmentsFor(scans, 0.5, motionScale, false, ctx.purpose);
+  const moments = momentScores(halfSeconds);
+  // Each edit draws its selects first from the good moments (four fifths as good as
+  // the footage's best, or better) no earlier edit in the batch used, in any role:
+  // three edits from one vlog shouldn't share their shots. When those run short, the
+  // best of the rest top them up: a strong shot seen in another edit beats filler.
+  const earlier = new Set<string>();
+  for (const [id, ranges] of ctx.avoid ?? []) {
+    const scan = scans.find((sc) => sc.id === id);
+    if (scan) for (const [x, y] of ranges) for (const t of [x + 0.02, (x + y) / 2, y - 0.02]) earlier.add(momentOf(scan, t));
+  }
+  let bestMoment = 0;
+  for (const m of moments.values()) bestMoment = Math.max(bestMoment, m.score);
+  const unused = new Map([...moments].filter(([k, m]) => !earlier.has(k) && m.score >= 0.8 * bestMoment));
+  const topUp = (k: number) => {
+    const out = selectsOf(unused, k);
+    for (const m of selectsOf(moments, k)) if (out.size < k) out.add(m);
+    return out;
+  };
+  const pool = { closer: topUp(5 + v), rest: topUp(Math.ceil(1.75 * slots.length)) };
+  // Fresh for a hook or a drop: not a moment an earlier edit opened on, dropped into
+  // or closed on, and not one this edit has used. (One that only looks like theirs is
+  // let in, and marked down below: better a strong shot like another edit's than a
+  // dull one.)
   const heroMoments = new Set<string>();
   for (const [id, ranges] of ctx.avoid ?? []) {
     const scan = scans.find((sc) => sc.id === id);
@@ -931,6 +958,28 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
   const fresh = (m: Segment) => {
     const moment = momentOf(m.scan, m.start, m.scene);
     return !heroMoments.has(moment) && !momentUses.has(moment);
+  };
+  // Better still, one no earlier edit used at all, well away from where they opened
+  // and dropped (a long video's next minute is often the same scene).
+  const unusedAnywhere = (m: Segment) => fresh(m) && !earlier.has(momentOf(m.scan, m.start, m.scene));
+  const clearOfHeroes = (m: Segment) => m.scan.kind !== "video" || !(ctx.avoid?.get(m.scan.id) ?? []).some(([x, y, hero]) => hero && Math.max(0, x - m.start, m.start - y) < spread(m.scan));
+  const heroTiers = [(m: Segment) => unusedAnywhere(m) && clearOfHeroes(m), (m: Segment) => fresh(m) && clearOfHeroes(m), unusedAnywhere, fresh];
+  // The edits still to come in the batch need hooks and drops too: once this one has
+  // its own, it leaves them the best of the rest to open on and drop into (two each),
+  // rather than spending them in its body. (Judged as the hook and the drop are: the
+  // most striking picture of the most flex, moving; and each unlike the others, since
+  // a later edit won't open on what an earlier one opened on: a yacht, a jet, a car.)
+  let reserved: Set<string> | null = null;
+  const reserve = () => {
+    const heroish = new Map<string, Moment>();
+    if (!ctx.toCome) return new Set<string>();
+    for (const g of halfSeconds) {
+      const key = momentOf(g.scan, g.start, g.scene);
+      if (earlier.has(key) || momentUses.has(key)) continue;
+      const score = g.score + 0.3 * g.peak + 0.15 * Math.min(1, g.motion) + 0.25 * (g.flex ?? 0) + 0.25 * (g.wow ?? 0);
+      if (!(heroish.get(key)?.score! >= score)) heroish.set(key, { score, emb: g.emb });
+    }
+    return selectsOf(heroish, 2 * ctx.toCome, 0.4);
   };
   for (const i of order) {
     const slot = slots[i];
@@ -947,7 +996,14 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
     const hero = r === "hook" || r === "drop";
     let top = 0;
     for (const seg of segs) top = Math.max(top, seg.score);
-    const allowed = hero ? selectsOf(momentScores(segs.filter(fresh)), 3) : r === "closer" ? pool.closer : pool.rest;
+    // (The first of those whose best is nearly as good as any fresh moment: an unused
+    // moment isn't worth a dull hook.)
+    const bestIn = (ok: (m: Segment) => boolean) => segs.reduce((b, g) => (ok(g) ? Math.max(b, g.score) : b), -Infinity);
+    const bar = 0.85 * bestIn(fresh);
+    const tier = heroTiers.find((ok) => bestIn(ok) >= bar) ?? fresh;
+    const heroPool = segs.filter(tier);
+    if (!hero && reserved === null) reserved = reserve();
+    const allowed = hero ? selectsOf(momentScores(heroPool), 3) : r === "closer" ? pool.closer : pool.rest;
     // Filler stays out of a flex edit while anything else fits the slot.
     const flexLeft = ctx.purpose !== "real" && segs.some((g) => g.filler === false && !(g.scan.kind === "video" && overlaps(used.get(g.scan.id), g.start - 0.05, g.start + len + 0.05)));
     let best: Segment | undefined;
@@ -979,6 +1035,8 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
         if (hero) s += 0.3 * seg.peak + 0.15 * Math.min(1, seg.motion) + 0.25 * (seg.flex ?? 0) + 0.25 * (seg.wow ?? 0);
         // The first frame has to read at a glance on a phone: not a dark club.
         if (r === "hook" && seg.luma !== undefined) s -= 1.2 * Math.max(0, 0.32 - seg.luma);
+        // After the drop the edit pays off: the flex goes there (the build sets it up).
+        if (r === "body" && dropStart !== undefined && slot.start >= dropStart - 0.05) s += 0.12 * (seg.flex ?? 0) + 0.08 * (seg.wow ?? 0);
         // The last shot is what the replay loops from: strong too.
         if (r === "closer") s += 0.1 * seg.peak + 0.2 * (seg.flex ?? 0) + 0.15 * (seg.wow ?? 0);
         if (video) s -= 0.22 * Math.abs(Math.min(1, seg.motion) - energy);
@@ -1055,9 +1113,15 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
         s -= 0.04 * u + (u >= 2 * fairShare ? 0.3 : 0) + (again ? 0.45 + 0.1 * (again - 1) : 0);
         if (video) {
           // Earlier edits in the batch: never the same moment, rarely one next to it, and
-          // never an opening (or a drop) near one they opened on.
+          // never an opening (or a drop) near one of their openings, drops or closers.
           const gap = apart(seg.scan);
           s -= 0.25 * nearness(ctx.avoid?.get(id), a, b, gap, false, scene) + (overlaps(ctx.avoid?.get(id), a, b) ? 0.35 : 0);
+          // (A moment an earlier edit showed at all, from any angle: seen already; one it
+          // opened on, dropped into or closed on, the shots a viewer remembers it by, more
+          // so. One kept back for a later edit's hook or drop: not in this one's body.)
+          if (earlier.has(momentOf(seg.scan, a, seg.scene))) s -= 0.2;
+          if (!hero && heroMoments.has(momentOf(seg.scan, a, seg.scene))) s -= 0.3;
+          if (!hero && reserved?.has(momentOf(seg.scan, a, seg.scene))) s -= 0.3;
           if (hero) s -= 0.6 * nearness(ctx.avoid?.get(id), a, b, 3 * gap, true, scene);
           // This edit: spread over the footage instead of taking several shots from one stretch.
           s -= 0.15 * nearness(used.get(id), a - 0.05, b + 0.05, far / 2, false, scene);
@@ -1157,19 +1221,30 @@ export function finishPlan(o: FinishOptions): EditPlan {
   const fx: FxEvent[] = [];
   if (o.fadeIn) fx.push({ kind: "fadein", start: 0, end: o.fadeIn, strength: 1 });
   // The drop's flourish turns over through a batch: a flash with a punch-in, a film
-  // burn, a punch-in with a shake. Smaller punches ride the music's strongest hits.
+  // burn, a punch-in with a shake. Whichever it is, the hit itself smears out from the
+  // middle for a few frames and splits red from blue as it lands. Smaller punches ride
+  // the music's strongest hits.
   const flourish = (["flash", "burn", "shake"] as const)[((o.variant % 3) + 3) % 3];
   const at = o.flourishAt;
   if (at !== undefined && flourish === "flash") fx.push({ kind: "flash", start: at, end: at + 5 / FPS, strength: 0.85, at });
-  if (at !== undefined && flourish === "burn") fx.push({ kind: "burn", start: at - 2 / FPS, end: at + 4 / FPS, strength: 0.9, at });
-  if (at !== undefined && flourish !== "burn") fx.push({ kind: "punch", start: at - 1 / FPS, end: at + 9 / FPS, strength: 1, at });
+  if (at !== undefined && flourish === "burn") fx.push({ kind: "burn", start: at - 2 / FPS, end: at + 5 / FPS, strength: 0.95, at });
+  if (at !== undefined && flourish !== "burn") fx.push({ kind: "punch", start: at - 1 / FPS, end: at + 10 / FPS, strength: 1.3, at });
   if (at !== undefined && flourish === "shake") fx.push({ kind: "shake", start: at, end: at + 8 / FPS, strength: 1, at });
+  if (at !== undefined) fx.push({ kind: "zoomblur", start: at - 2 / FPS, end: at + 4 / FPS, strength: 0.9, at }, { kind: "split", start: at, end: at + 6 / FPS, strength: 1, at });
   if (flourish !== "burn") for (const h of o.hits ?? []) fx.push({ kind: "punch", start: h - 1 / FPS, end: h + 8 / FPS, strength: 0.5, at: h });
   // A zoom blur across the cuts that open a phrase: six frames either side, peaking on the cut.
   for (const p of o.phrases ?? []) fx.push({ kind: "zoomblur", start: p - 6 / FPS, end: p + 6 / FPS, strength: 1, at: p });
   if (o.card) fx.push({ kind: "dip", start: cardAt - 4 / FPS, end: cardAt, strength: 1 });
   const fadeOut = o.card ? Math.min(0.8, cardHold * 0.2) : 0.6;
   const lengths = o.shots.map((s) => s.end - s.start).sort((a, b) => a - b);
+  // A card of the user's own (a motion design) is the edit's last shot, played whole:
+  // filling the frame when it's the edit's shape, inside it (over a blur of itself)
+  // when it isn't.
+  const shots = [...o.shots];
+  if (o.card?.kind === "video" && o.card.video) {
+    const same = Math.abs(Math.log((o.card.videoAspect ?? W / H) / (W / H))) < 0.03;
+    shots.push({ start: cardAt, end: duration, source: o.card.video, kind: "video", srcStart: 0, speed: 1, crop: { cx: 0.5, cy: 0.5, zoom0: 1, zoom1: 1, fit: same ? "cover" : "fit" } });
+  }
   const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
   return {
     id: `${o.id}-${o.aspect}-v${o.variant + 1}`,
@@ -1180,7 +1255,7 @@ export function finishPlan(o: FinishOptions): EditPlan {
     height: H,
     fps: FPS,
     duration,
-    shots: o.shots,
+    shots,
     fx,
     captions: o.captions,
     card: o.card ? { spec: o.card, start: cardAt, end: duration, fadeIn: 8 / FPS, fadeOut } : undefined,
@@ -1216,7 +1291,7 @@ export function finishPlan(o: FinishOptions): EditPlan {
 export function usedRanges(plan: EditPlan, into: Ranges = new Map()): Ranges {
   for (const s of plan.shots) {
     if (!into.has(s.source)) into.set(s.source, []);
-    into.get(s.source)!.push([s.srcStart, s.srcStart + sourceSpan(s), s.role === "hook" || s.role === "drop"]);
+    into.get(s.source)!.push([s.srcStart, s.srcStart + sourceSpan(s), s.role === "hook" || s.role === "drop" || s.role === "closer"]);
   }
   return into;
 }
@@ -1247,6 +1322,8 @@ export interface MontageOptions {
   caption: { style: "mood" | "pov" | "meme"; text: string } | null;
   variant: number;
   avoid?: Ranges;
+  /** how many more edits this batch makes after this one (see AssignContext) */
+  toCome?: number;
   /** speed ramps on every shot long enough (a velocity edit) */
   velocity?: boolean;
 }
@@ -1257,10 +1334,18 @@ export function planMontage(o: MontageOptions): EditPlan {
   const cuts = planCuts(o.song, win.songStart, win.cardAt, { dropAt: win.dropAt, pace, busy: pace }).map((t) => frame(Math.max(1 / FPS, t - CUT_LEAD)));
   const dropCut = win.dropAt !== undefined ? frame(win.dropAt - CUT_LEAD) : undefined;
   const slots = slotsBetween([0, ...cuts, win.cardAt], dropCut);
-  const shots = assignShots(slots, o.scans, { song: o.song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, velocity: o.velocity });
+  const shots = assignShots(slots, o.scans, { song: o.song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, toCome: o.toCome, velocity: o.velocity });
   const drop = shots.find((s) => s.role === "drop");
+  // The shot into the drop pushes in as it holds (through the silence, when the song
+  // drops out first), and the drop lands on the push.
+  const into = drop ? shots.find((s) => Math.abs(s.end - drop.start) < 1e-6) : undefined;
+  if (into && into.end - into.start >= 0.6) {
+    into.crop.zoom0 = Math.min(into.crop.zoom0, 1);
+    into.crop.zoom1 = Math.max(into.crop.zoom1, 1.12);
+  }
   const captions: CaptionEvent[] = o.caption?.text.trim() ? [{ style: o.caption.style, text: o.caption.text.trim(), start: 0, end: o.card ? win.cardAt - 4 / FPS : win.duration }] : [];
-  const hits = strongHits(o.song, win.songStart, 0.8, win.cardAt - 0.6, drop?.start);
+  // Punch-ins come after the drop: the build holds back, so the drop is its first hit.
+  const hits = strongHits(o.song, win.songStart, drop ? drop.start : 0.8, win.cardAt - 0.6, drop?.start);
   // A velocity edit also zoom-blurs across the cuts that open a four-bar phrase.
   const phrases = o.velocity ? phraseCuts(o.song, win.songStart, shots, drop?.start) : [];
   return finishPlan({

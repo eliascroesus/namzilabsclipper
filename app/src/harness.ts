@@ -197,6 +197,8 @@ export interface MontageRun {
   dump?: boolean;
   /** look at every frame the edit uses for the footage's own cuts, and plan again around them (default on) */
   settle?: boolean;
+  /** end on this video (a motion design) instead of the drawn card, as the app does with a card of the user's own */
+  cardVideo?: string;
 }
 
 /** JSON for the analysis: typed arrays as { $ta, d }, blobs left out. */
@@ -243,11 +245,16 @@ async function montage(run: MontageRun) {
     for (const sc of scans) for (const [k, im] of (sc.sheets?.images ?? []).entries()) await save(`${run.out ?? "state"}-sheet-${sc.id}-${k}.jpg`, im);
   }
   const img = await createImageBitmap(await (await fetch("/demo-dashboard.jpg")).blob());
-  const card: CardSpec | null = run.card === null ? null : { kind: "laptop", top: "start free", bottom: "namzilabs.co", accent: "#568CFF", hold: 4, draw: false, ...(run.card ?? {}) };
+  let card: CardSpec | null = run.card === null ? null : { kind: "laptop", top: "start free", bottom: "namzilabs.co", accent: "#568CFF", hold: 4, draw: false, ...(run.card ?? {}) };
+  if (run.cardVideo && card) {
+    const own = await load(run.cardVideo, "cardvideo");
+    sources.set("cardvideo", own);
+    card = { ...card, kind: "video", video: "cardvideo", videoAspect: own.info.width / Math.max(1, own.info.height), hold: Math.min(15, Math.max(1, own.info.duration)) };
+  }
   const results = [];
   const avoid: Ranges = new Map();
   for (let v = 0; v < (run.variants ?? 1); v++) {
-    const common = { song: song ?? undefined, songSource: "song", songName: run.song?.split("/").pop() ?? "", fromStart: run.fromStart ?? true, songStart: run.songStart, scans, aspect: run.aspect ?? "9x16", length: run.length ?? 14, card, variant: v, avoid, velocity: run.velocity };
+    const common = { song: song ?? undefined, songSource: "song", songName: run.song?.split("/").pop() ?? "", fromStart: run.fromStart ?? true, songStart: run.songStart, scans, aspect: run.aspect ?? "9x16", length: run.length ?? 14, card, variant: v, avoid, toCome: (run.variants ?? 1) - v - 1, velocity: run.velocity };
     const make = () =>
       run.format === "twist"
         ? planTwist({ ...common, actB: new Set((run.actB ?? []).map((i) => `clip${i}`)), captionA: run.caption?.text ?? "what they see vs...", captionB: run.captionB ?? "what they don't..." })

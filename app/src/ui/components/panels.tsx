@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { drawCard } from "../../engine/render/card";
 import { loadFonts } from "../../engine/render/fonts";
 import { FRAME_SIZE, type Aspect } from "../../engine/plan/types";
-import { MAX_LENGTH, studio, type Format, type State } from "../studio";
+import { CARD_VIDEO_LENGTH, cardHoldOf, MAX_LENGTH, studio, type Format, type State } from "../studio";
 import { Drop, fmtTime, Section, Segmented, Switch } from "./bits";
 import { SongTimeline } from "./song";
 
@@ -246,6 +246,7 @@ function CardPreview({ s }: { s: State }) {
   const k = 520 / Math.max(W, H);
   const w = Math.round(W * k);
   const h = Math.round(H * k);
+  const own = s.kit.kind === "video" ? s.kit.video : undefined;
   useEffect(() => {
     let alive = true;
     void loadFonts().then(() => {
@@ -260,9 +261,14 @@ function CardPreview({ s }: { s: State }) {
       alive = false;
     };
   }, [s.kit, s.cardVersion, W, H, k]);
+  const width = aspect === "9x16" ? 146 : aspect === "4x5" ? 208 : aspect === "1x1" ? 240 : 340;
   return (
     <div className="preview">
-      <canvas ref={canvas} width={w} height={h} style={{ width: aspect === "9x16" ? 146 : aspect === "4x5" ? 208 : aspect === "1x1" ? 240 : 340 }} />
+      {own ? (
+        <video key={own.url} src={own.url} autoPlay muted loop playsInline style={{ width, aspectRatio: `${W} / ${H}`, objectFit: Math.abs(Math.log(own.aspect / (W / H))) < 0.03 ? "cover" : "contain", background: "#000" }} />
+      ) : (
+        <canvas ref={canvas} width={w} height={h} style={{ width }} />
+      )}
     </div>
   );
 }
@@ -276,55 +282,85 @@ export function CardPanel({ s }: { s: State }) {
           <CardPreview s={s} />
           <div className="field">
             <span className="label">On the card</span>
-            <Segmented label="Device on the card" value={kit.kind} options={[{ value: "laptop", label: "Laptop (a website)" }, { value: "phone", label: "Phone (an app)" }]} onChange={(v) => studio.setKit({ kind: v })} />
+            <Segmented label="What's on the card" value={kit.kind} options={[{ value: "laptop", label: "Laptop" }, { value: "phone", label: "Phone" }, { value: "video", label: "Your video" }]} onChange={(v) => studio.setKit({ kind: v })} />
           </div>
-          <div className="field">
-            <label htmlFor="card-top">Line above</label>
-            <input id="card-top" className="input" value={kit.top} maxLength={40} onChange={(e) => studio.setKit({ top: e.target.value })} />
-          </div>
-          <div className="field">
-            <label htmlFor="card-bottom">Address or handle</label>
-            <input id="card-bottom" className="input" value={kit.bottom} maxLength={40} onChange={(e) => studio.setKit({ bottom: e.target.value })} />
-          </div>
-          <div className="field">
-            <span className="label">On the laptop</span>
-            <div className="shot-row">
-              <img src={kit.shot} alt="" />
-              <span className="name" title={kit.shotName}>
-                {kit.shotName}
+          {kit.kind === "video" ? (
+            <div className="field">
+              <span className="label">Your card</span>
+              {kit.video ? (
+                <div className="shot-row">
+                  <span className="name" title={kit.video.name}>
+                    {kit.video.name}
+                  </span>
+                  <Drop accept="video/*,.mp4,.mov,.webm" onFiles={(f) => void studio.setKitVideo(f[0])}>
+                    <Film size={15} /> Replace
+                  </Drop>
+                  <button type="button" className="btn ghost icon" aria-label="Remove your card video" onClick={() => void studio.clearKitVideo()}>
+                    <X size={15} />
+                  </button>
+                </div>
+              ) : (
+                <Drop accept="video/*,.mp4,.mov,.webm" onFiles={(f) => void studio.setKitVideo(f[0])}>
+                  <Film size={16} /> Drop your end card video
+                </Drop>
+              )}
+              <span className="hint">
+                {kit.video
+                  ? `${kit.video.length > CARD_VIDEO_LENGTH[1] + 0.05 ? `Its first ${CARD_VIDEO_LENGTH[1]}s play at the end (a card runs ${CARD_VIDEO_LENGTH[1]}s at most)` : `It plays whole at the end (${(Math.round(cardHoldOf(kit) * 10) / 10).toFixed(1)}s)`}, the song under it and its own sound off. It fills the frame when it's the edit's shape, and sits inside it when not.`
+                  : "A motion design or any clip, MP4 or MOV, played whole at the end of every edit with the song under it. Until there is one, the laptop card stands in."}
               </span>
-              <Drop accept="image/*" onFiles={(f) => void studio.setKitShot(f[0])}>
-                <ImagePlus size={15} /> Replace
-              </Drop>
-              <button type="button" className="btn ghost icon" aria-label="Back to the default screenshot" onClick={() => void studio.resetKitShot()}>
-                <RotateCcw size={15} />
-              </button>
             </div>
-            <span className="hint">{kit.kind === "phone" ? "A phone screenshot of the app. The top of it shows." : "A screenshot of the product's page, landscape. The top of it shows."}</span>
-          </div>
-          <div className="field">
-            <span className="label">Arrow</span>
-            <div className="row between">
-              <div className="swatches">
-                {ACCENTS.map((c) => (
-                  <button key={c} type="button" className="swatch" style={{ background: c }} aria-label={`Arrow colour ${c}`} aria-pressed={kit.accent.toUpperCase() === c} onClick={() => studio.setKit({ accent: c })} />
-                ))}
-                <span className="swatch custom" title="Any colour">
-                  <input type="color" value={kit.accent} onChange={(e) => studio.setKit({ accent: e.target.value })} aria-label="Pick an arrow colour" />
-                </span>
+          ) : (
+            <>
+              <div className="field">
+                <label htmlFor="card-top">Line above</label>
+                <input id="card-top" className="input" value={kit.top} maxLength={40} onChange={(e) => studio.setKit({ top: e.target.value })} />
               </div>
-              <Switch checked={kit.draw} onChange={(v) => studio.setKit({ draw: v })}>
-                Draw it on
-              </Switch>
-            </div>
-          </div>
-          <div className="field">
-            <div className="row between">
-              <label htmlFor="card-hold">Card on screen</label>
-              <span className="num muted">{kit.hold.toFixed(1)}s</span>
-            </div>
-            <input id="card-hold" type="range" min={3} max={8} step={0.5} value={kit.hold} onChange={(e) => studio.setKit({ hold: Number(e.target.value) })} />
-          </div>
+              <div className="field">
+                <label htmlFor="card-bottom">Address or handle</label>
+                <input id="card-bottom" className="input" value={kit.bottom} maxLength={40} onChange={(e) => studio.setKit({ bottom: e.target.value })} />
+              </div>
+              <div className="field">
+                <span className="label">On the laptop</span>
+                <div className="shot-row">
+                  <img src={kit.shot} alt="" />
+                  <span className="name" title={kit.shotName}>
+                    {kit.shotName}
+                  </span>
+                  <Drop accept="image/*" onFiles={(f) => void studio.setKitShot(f[0])}>
+                    <ImagePlus size={15} /> Replace
+                  </Drop>
+                  <button type="button" className="btn ghost icon" aria-label="Back to the default screenshot" onClick={() => void studio.resetKitShot()}>
+                    <RotateCcw size={15} />
+                  </button>
+                </div>
+                <span className="hint">{kit.kind === "phone" ? "A phone screenshot of the app. The top of it shows." : "A screenshot of the product's page, landscape. The top of it shows."}</span>
+              </div>
+              <div className="field">
+                <span className="label">Arrow</span>
+                <div className="row between">
+                  <div className="swatches">
+                    {ACCENTS.map((c) => (
+                      <button key={c} type="button" className="swatch" style={{ background: c }} aria-label={`Arrow colour ${c}`} aria-pressed={kit.accent.toUpperCase() === c} onClick={() => studio.setKit({ accent: c })} />
+                    ))}
+                    <span className="swatch custom" title="Any colour">
+                      <input type="color" value={kit.accent} onChange={(e) => studio.setKit({ accent: e.target.value })} aria-label="Pick an arrow colour" />
+                    </span>
+                  </div>
+                  <Switch checked={kit.draw} onChange={(v) => studio.setKit({ draw: v })}>
+                    Draw it on
+                  </Switch>
+                </div>
+              </div>
+              <div className="field">
+                <div className="row between">
+                  <label htmlFor="card-hold">Card on screen</label>
+                  <span className="num muted">{kit.hold.toFixed(1)}s</span>
+                </div>
+                <input id="card-hold" type="range" min={3} max={8} step={0.5} value={kit.hold} onChange={(e) => studio.setKit({ hold: Number(e.target.value) })} />
+              </div>
+            </>
+          )}
         </>
       ) : (
         <p className="hint" style={{ margin: 0 }}>The edits end without a promo.</p>
@@ -369,7 +405,7 @@ export function StoryPanel({ s }: { s: State }) {
 
 export function StylePanel({ s }: { s: State }) {
   const st = s.style;
-  const hold = s.kit.enabled ? s.kit.hold : 0;
+  const hold = cardHoldOf(s.kit);
   const aspects: { value: Aspect; label: string }[] = [
     { value: "9x16", label: "9:16" },
     { value: "4x3", label: "4:3" },
@@ -394,7 +430,7 @@ export function StylePanel({ s }: { s: State }) {
           <span className="num muted">{Math.round(st.length + hold)}s</span>
         </div>
         <input id="len" type="range" min={Math.round(6 + hold)} max={Math.round(MAX_LENGTH + hold)} step={1} value={Math.round(st.length + hold)} onChange={(e) => studio.setLength(Number(e.target.value) - hold)} />
-        <span className="hint">{hold ? `The whole edit, the card's last ${hold}s included. The card comes in on a bar line.` : "The whole edit. It ends on a bar line."}</span>
+        <span className="hint">{hold ? `The whole edit, the card's last ${Math.round(hold * 10) / 10}s included. The card comes in on a bar line.` : "The whole edit. It ends on a bar line."}</span>
       </div>
       {st.format === "meme" ? (
         <>

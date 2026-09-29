@@ -23,7 +23,7 @@ import {
 } from "mediabunny";
 import type { Source } from "../media/sources";
 import { centreAt } from "../plan/framing";
-import { sourceAt, sourceSpan, type EditPlan, type FxEvent, type ShotEvent } from "../plan/types";
+import { NO_GRADE, sourceAt, sourceSpan, type EditPlan, type FxEvent, type ShotEvent } from "../plan/types";
 import { drawCaption } from "./captions";
 import { drawCard } from "./card";
 import { loadFonts } from "./fonts";
@@ -130,6 +130,7 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
   let dim = 0;
   let punch = 1;
   let zoomBlur = 0;
+  let split = 0;
   const shake: [number, number] = [0, 0];
   for (const e of fx) {
     if (t < e.start - 1e-6 || t >= e.end - 1e-6) continue;
@@ -155,6 +156,10 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
       const at = e.at ?? (e.start + e.end) / 2;
       const half = Math.max(1e-6, Math.max(at - e.start, e.end - at));
       zoomBlur = Math.max(zoomBlur, e.strength * Math.max(0, 1 - Math.abs(t - at) / half) ** 1.5);
+    } else if (e.kind === "split") {
+      // Full on the hit, closing up over the frames after it.
+      const at = e.at ?? e.start;
+      if (t >= at - 1e-6) split = Math.max(split, e.strength * (1 - (t - at) / Math.max(1e-6, e.end - at)) ** 1.5);
     } else if (e.kind === "shake") {
       // A few frames of hard, decaying jolts (the same every render), with a touch of zoom so no edge shows.
       const k = Math.round((t - e.start) * fps);
@@ -165,7 +170,7 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
       punch = Math.max(punch, 1 + 0.06 * e.strength * decay);
     }
   }
-  return { flash, burn, burnPhase, dim, punch, shake, zoomBlur };
+  return { flash, burn, burnPhase, dim, punch, shake, zoomBlur, split };
 }
 
 async function blobToBase64Parts(blob: Blob, chunk = 6 * 1024 * 1024): Promise<string[]> {
@@ -243,7 +248,10 @@ export class FramePainter {
     this.lastT = t;
 
     const layers: LayerDraw[] = [];
-    const inCard = !!plan.card && t >= plan.card.start - 1e-6;
+    // (A card of the user's own is a video: it plays as the last shot, as it was made.)
+    const ownCard = plan.card?.spec.kind === "video";
+    const inCard = !!plan.card && !ownCard && t >= plan.card.start - 1e-6;
+    const inOwnCard = !!plan.card && ownCard && t >= plan.card.start - 1e-6;
     const e = fxAt(plan.fx, t, fps);
     const shot: ShotEvent | undefined = idx >= 0 ? plan.shots[idx] : undefined;
     if (shot && !inCard) {
@@ -291,7 +299,7 @@ export class FramePainter {
       comp.uploadOverlay(this.overlay);
       this.overlayKey = key;
     }
-    comp.draw({ layers, grade: plan.grade, flash: e.flash, burn: e.burn, burnPhase: e.burnPhase, dim: inCard ? 0 : e.dim, overlay: !!key, time: t, seed: 1.37, shake: e.shake, zoomBlur: inCard ? 0 : e.zoomBlur });
+    comp.draw({ layers, grade: inOwnCard ? NO_GRADE : plan.grade, flash: e.flash, burn: e.burn, burnPhase: e.burnPhase, dim: inCard ? 0 : e.dim, overlay: !!key, time: t, seed: 1.37, shake: e.shake, zoomBlur: inCard ? 0 : e.zoomBlur, split: inCard ? 0 : e.split });
   }
 
   async close() {

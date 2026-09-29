@@ -23,7 +23,7 @@ import { musicWindow, planMontage, usedRanges, type Ranges } from "../engine/pla
 import { NO_GRADE, WARM_GRADE, type Aspect, type CardSpec, type EditPlan } from "../engine/plan/types";
 import { pickCodecs, renderPlan } from "../engine/render/export";
 import { followFaces } from "../engine/vision/track";
-import { loadKit, recall, remember, saveKit, saveKitShot, loadKitShot, type KitFields } from "./kit";
+import { loadKit, recall, remember, saveKit, saveKitShot, loadKitShot, saveKitVideo, loadKitVideo, type KitFields } from "./kit";
 
 export type Status = "reading" | "scanning" | "analyzing" | "ready" | "error";
 
@@ -85,6 +85,18 @@ export interface Kit extends KitFields {
   /** object URL of the screenshot on the laptop */
   shot: string;
   shotName: string;
+  /** the user's own card, when there is one: its object URL, name, length (seconds) and width over height */
+  video?: { url: string; name: string; length: number; aspect: number };
+}
+
+/** A card video plays for its own length, within these bounds (seconds). */
+export const CARD_VIDEO_LENGTH: [number, number] = [1, 15];
+
+/** How long the card is on screen: the video's own length for a card of the user's own, none when it's off. */
+export function cardHoldOf(kit: Kit): number {
+  if (!kit.enabled) return 0;
+  if (kit.kind === "video" && kit.video) return Math.min(CARD_VIDEO_LENGTH[1], Math.max(CARD_VIDEO_LENGTH[0], kit.video.length));
+  return kit.hold;
 }
 
 export type Format = "montage" | "twist" | "meme" | "story";
@@ -336,6 +348,39 @@ class Studio {
     const saved = await loadKitShot();
     if (saved) this.set((s) => ({ kit: { ...s.kit, shot: URL.createObjectURL(saved.blob), shotName: saved.name } }));
     await this.loadCardImage();
+    const own = await loadKitVideo();
+    if (own) await this.useCardVideo(own.blob, own.name).catch(() => undefined);
+  }
+
+  /** The user's own card video, opened (to check it plays, measure it, and render it). */
+  private cardVideo: Source | null = null;
+
+  private async useCardVideo(blob: Blob, name: string) {
+    const src = await openSource("cardvideo", blob, name);
+    if (!src.video || !(src.info.duration > 0)) throw new Error(`${name} isn't a video this browser can play.`);
+    const old = this.state.kit.video?.url;
+    if (old) URL.revokeObjectURL(old);
+    this.cardVideo = src;
+    this.set((s) => ({ kit: { ...s.kit, video: { url: URL.createObjectURL(blob), name, length: src.info.duration, aspect: src.info.width / Math.max(1, src.info.height) } } }));
+  }
+
+  async setKitVideo(file: File) {
+    try {
+      await this.useCardVideo(file, file.name);
+      await saveKitVideo(file, file.name);
+      this.setKit({ kind: "video" });
+    } catch (err) {
+      this.set({ notice: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  async clearKitVideo() {
+    const old = this.state.kit.video?.url;
+    if (old) URL.revokeObjectURL(old);
+    this.cardVideo = null;
+    this.set((s) => ({ kit: { ...s.kit, video: undefined, kind: s.kit.kind === "video" ? "laptop" : s.kit.kind } }));
+    saveKit(this.state.kit);
+    await saveKitVideo(null, "");
   }
 
   private async loadCardImage() {
@@ -541,10 +586,9 @@ class Studio {
     if (s.style.format === "story") {
       const auto = [...song.drops].sort((x, y) => y.strength - x.strength)[0]?.t ?? song.downbeats[Math.floor(song.downbeats.length / 3)] ?? song.duration / 3;
       const payoff = s.sound.payoff ?? auto;
-      return { start: Math.max(0, payoff - 20), cardAt: payoff + 3.2, end: Math.min(song.duration, payoff + 3.2 + (s.kit.enabled ? s.kit.hold : 0.6)), payoff, auto: s.sound.payoff === null };
+      return { start: Math.max(0, payoff - 20), cardAt: payoff + 3.2, end: Math.min(song.duration, payoff + 3.2 + (s.kit.enabled ? cardHoldOf(s.kit) : 0.6)), payoff, auto: s.sound.payoff === null };
     }
-    const hold = s.kit.enabled ? s.kit.hold : 0;
-    const win = musicWindow(song, s.style.length, hold, s.sound.fromReel, s.sound.start ?? undefined);
+    const win = musicWindow(song, s.style.length, cardHoldOf(s.kit), s.sound.fromReel, s.sound.start ?? undefined);
     return { start: win.songStart, cardAt: win.songStart + win.cardAt, end: win.songStart + win.duration, payoff: null, auto: s.sound.start === null };
   }
 
@@ -913,7 +957,15 @@ class Studio {
       style.format === "story" && storyId
         ? { transcript: this.transcripts.get(storyId), speech: this.speech.get(storyId) ?? [], scan: this.scans.get(storyId) }
         : null;
-    const card: CardSpec | null = s.kit.enabled ? { kind: s.kit.kind, top: s.kit.top, bottom: s.kit.bottom, accent: s.kit.accent, hold: s.kit.hold, draw: s.kit.draw } : null;
+    // The user's own card video plays whole (within bounds), the song under it; with none
+    // uploaded, the laptop card stands in.
+    const own = s.kit.kind === "video" && this.cardVideo && s.kit.video ? s.kit.video : null;
+    if (own && this.cardVideo) sources.set("cardvideo", this.cardVideo);
+    const card: CardSpec | null = !s.kit.enabled
+      ? null
+      : own
+        ? { kind: "video", video: "cardvideo", videoAspect: own.aspect, hold: cardHoldOf(s.kit), top: "", bottom: "", accent: s.kit.accent, draw: false }
+        : { kind: s.kit.kind === "video" ? "laptop" : s.kit.kind, top: s.kit.top, bottom: s.kit.bottom, accent: s.kit.accent, hold: s.kit.hold, draw: s.kit.draw };
     const cardImage = this.cardImage ?? undefined;
     const fromReel = s.sound?.fromReel ?? true;
     const songStart = s.sound?.start ?? null;
@@ -961,7 +1013,7 @@ class Studio {
         try {
           this.patchJob(job.id, { status: "planning", stage: "Picking the moments" });
           await new Promise((r) => setTimeout(r, 0));
-          const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, songStart: songStart ?? undefined, scans, aspect: style.aspect, length: style.length, card, variant: base + v, avoid, velocity: style.velocity };
+          const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, songStart: songStart ?? undefined, scans, aspect: style.aspect, length: style.length, card, variant: base + v, avoid, toCome: count - v - 1, velocity: style.velocity };
           const make = (): EditPlan => {
             if (style.format === "story") {
               if (!story?.transcript || !story.scan) throw new Error("The video for this clip was taken out. Find the moments again.");

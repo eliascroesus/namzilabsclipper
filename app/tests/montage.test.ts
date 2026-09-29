@@ -246,6 +246,26 @@ describe("planners on a synthetic song (runs everywhere)", () => {
     }
   });
 
+  it("ends on the user's own card video when there is one: played whole, as it was made", () => {
+    const own: CardSpec = { kind: "video", video: "cardvideo", videoAspect: 1080 / 1920, top: "", bottom: "", accent: "#568CFF", hold: 3.2, draw: false };
+    const plan = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans, aspect: "9x16", length: 12, card: own, caption: null, variant: 0 });
+    const last = plan.shots[plan.shots.length - 1];
+    expect(last.source).toBe("cardvideo");
+    expect(last.start).toBeCloseTo(plan.card!.start, 6);
+    expect(last.end).toBeCloseTo(plan.duration, 6);
+    expect(last.end - last.start).toBeCloseTo(3.2, 1);
+    expect([last.srcStart, last.speed, last.crop.fit]).toEqual([0, 1, "cover"]);
+    // The song runs under it and fades out with it; nothing else is played from it.
+    expect(plan.music!.end).toBeCloseTo(plan.duration, 6);
+    expect(plan.sourceAudio).toBe(false);
+    // A card of another shape sits inside the frame instead of being cropped.
+    const square = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans, aspect: "9x16", length: 12, card: { ...own, videoAspect: 1 }, caption: null, variant: 0 });
+    expect(square.shots[square.shots.length - 1].crop.fit).toBe("fit");
+    // The shots before it are the same as with the drawn card of the same length.
+    const drawn = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans, aspect: "9x16", length: 12, card: { ...card, hold: 3.2 }, caption: null, variant: 0 });
+    expect(plan.shots.slice(0, -1).map((s) => [s.start, s.srcStart])).toEqual(drawn.shots.map((s) => [s.start, s.srcStart]));
+  });
+
   it("turns the drop's flourish over through a batch", () => {
     const kinds = [0, 1, 2].map((v) => planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans, aspect: "9x16", length: 12, card, caption: null, variant: v }).fx.map((f) => f.kind));
     expect(kinds[0]).toEqual(expect.arrayContaining(["flash", "punch"]));
@@ -274,14 +294,16 @@ describe("planners on a synthetic song (runs everywhere)", () => {
     // The drop gets the slowest, longest hold.
     const drop = fast.shots.find((s) => s.role === "drop");
     if (drop?.ramp) for (const s of ramped) expect(drop.ramp.slow).toBeLessThanOrEqual(s.ramp!.slow);
-    // Velocity also zoom-blurs across cuts that open a four-bar phrase (never on the drop's cut).
-    const blurs = fast.fx.filter((f) => f.kind === "zoomblur");
+    // Velocity also zoom-blurs across cuts that open a four-bar phrase (never near the
+    // drop's cut, which has a zoom blur of its own in every edit).
+    const atDrop = (f: { at?: number }) => !!drop && Math.abs(f.at! - drop.start) < 1e-6;
+    const blurs = fast.fx.filter((f) => f.kind === "zoomblur" && !atDrop(f));
     expect(blurs.length).toBeGreaterThan(0);
     for (const b of blurs) {
       expect(fast.shots.some((s) => Math.abs(s.start - b.at!) < 1e-6)).toBe(true);
       if (drop) expect(Math.abs(b.at! - drop.start)).toBeGreaterThan(1);
     }
-    expect(plain.fx.some((f) => f.kind === "zoomblur")).toBe(false);
+    expect(plain.fx.filter((f) => f.kind === "zoomblur").every(atDrop)).toBe(true);
     // No stretch of footage is used twice, counting what the ramps play.
     const ranges = usedRanges(fast);
     for (const [, rs] of ranges) {
@@ -484,5 +506,27 @@ describe("five edits from one 40 minute video", () => {
       const same = p.shots.filter((s) => before.some(([x, y]) => s.srcStart < y && s.srcStart + (s.end - s.start) * s.speed > x)).length;
       expect(same).toBeLessThanOrEqual(k < 4 ? 0 : 2);
     }
+  });
+
+  it("from a minute and a half of video, where three edits have to share: never opens, drops or closes on another's opening, drop or last shot, and rarely shows one", () => {
+    const short = longVlog(19, 90);
+    const avoid: Ranges = new Map();
+    const heroes: [number, number][] = [];
+    const isHero = (role?: string) => role === "hook" || role === "drop" || role === "closer";
+    let shown = 0;
+    for (let v = 0; v < 3; v++) {
+      const plan = planMontage({ song, songSource: "song", songName: "x", fromStart: true, scans: [short], aspect: "9x16", length: 14, card: null, caption: null, variant: v, avoid, toCome: 2 - v });
+      const ranges = plan.shots.map((s) => [s.srcStart, s.srcStart + (s.end - s.start) * s.speed] as [number, number]);
+      for (const [k, s] of plan.shots.entries()) {
+        const [a, b] = ranges[k];
+        if (!heroes.some(([x, y]) => a < y && b > x)) continue;
+        expect(isHero(s.role)).toBe(false);
+        shown++;
+      }
+      for (const [k, s] of plan.shots.entries()) if (isHero(s.role)) heroes.push(ranges[k]);
+      usedRanges(plan, avoid);
+    }
+    // (Five did before, one of them as a later edit's opening, drop or last shot.)
+    expect(shown).toBeLessThanOrEqual(2);
   });
 });

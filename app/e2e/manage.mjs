@@ -74,6 +74,16 @@ try {
   await pullEdge(strip.width * 0.15);
   const longer = await label();
   check(secs(longer) > secs(shorter) && longer.startsWith(auto.slice(0, 4)), `and lengthens them, from the same start (${longer})`);
+  // An end card of your own: a video, played whole for its own length.
+  const cardPanel = page.locator('section:has(.caps:text("End card"))');
+  await cardPanel.getByRole("button", { name: "Your video", exact: true }).click();
+  await cardPanel.locator("input[type=file]").first().setInputFiles(media("card-test.webm"));
+  await page.waitForFunction(() => document.querySelector(".preview video"), null, { timeout: 30000 });
+  const hint = await cardPanel.locator(".hint").last().textContent();
+  const withOwn = await label();
+  check(/3\.0s/.test(hint ?? "") && secs(withOwn) === secs(longer) - 1, `your own card video plays in the preview for its 3 s, and the edit's length counts it (${withOwn}; ${hint})`);
+  await cardPanel.getByRole("button", { name: "Laptop", exact: true }).click();
+  check(secs(await label()) === secs(longer), "back to the laptop card");
   await page.getByRole("button", { name: /^Story/ }).first().click();
   check(/burst hits at/.test((await label()) ?? ""), "story clips show where the burst hits");
   await page.getByRole("button", { name: /^Montage/ }).first().click();

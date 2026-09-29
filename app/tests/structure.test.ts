@@ -91,22 +91,25 @@ describe("cutting to the song's shape", () => {
     expect(song.structure!.sections.some((sec) => Math.abs(sec.t - s1) < 0.06)).toBe(true);
   });
 
-  it("builds into a break before the drop: shorter and shorter, then one shot held through the silence", () => {
+  it("holds back before a drop: on the beat, two beats a shot or more, one shot held through the silence, faster after it", () => {
     const [s0, s1] = song.structure!.breaks.find(([a]) => Math.abs(a - gapStart) < 0.1)!;
     const start = song.downbeats.find((d) => d > s0 - 12)!;
     const drop = s1 - start;
     const cuts = planCuts(song, start, drop + 6, { dropAt: drop });
     const T = song.period;
-    // The last bar before the song drops out: a cut on every beat of it.
-    const lastBar = cuts.filter((c) => c + start > s0 - 4 * T - 0.1 && c + start < s0 - 0.05);
-    expect(lastBar.length).toBeGreaterThanOrEqual(3);
-    for (let i = 1; i < lastBar.length; i++) expect(lastBar[i] - lastBar[i - 1]).toBeLessThan(1.1 * T);
-    // The bar before that: slower (two beats a shot).
-    const barBefore = cuts.filter((c) => c + start > s0 - 8 * T - 0.1 && c + start < s0 - 4 * T - 0.1);
-    for (let i = 1; i < barBefore.length; i++) expect(barBefore[i] - barBefore[i - 1]).toBeGreaterThan(1.5 * T);
+    // Up to the drop: every shot two beats or more (the one through the silence longer),
+    // and the last two bars before the song drops out cut every two beats.
+    const before = [0, ...cuts.filter((c) => c < drop - 0.05), drop];
+    for (let i = 1; i < before.length; i++) expect(before[i] - before[i - 1]).toBeGreaterThan(1.9 * T);
+    const lastBars = cuts.filter((c) => c + start > s0 - 8 * T - 0.1 && c + start < s0 - 0.05);
+    expect(lastBars.length).toBeGreaterThanOrEqual(2);
     // Nothing cuts in the silence, and the drop lands on the return.
     expect(cuts.some((c) => c + start > s0 + 0.05 && c + start < s1 - 0.05)).toBe(false);
     expect(cuts.some((c) => Math.abs(c - drop) < 0.06)).toBe(true);
+    // After it the pace picks up.
+    const after = [drop, ...cuts.filter((c) => c > drop + 0.05)];
+    const mean = (xs: number[]) => xs.reduce((a, x) => a + x, 0) / xs.length;
+    expect(mean(after.slice(1).map((c, i) => c - after[i]))).toBeLessThan(mean(before.slice(1).map((c, i) => c - before[i])));
   });
 
   it("gives a sung verse room: two beats or more a shot while the voice carries sparse drums", () => {

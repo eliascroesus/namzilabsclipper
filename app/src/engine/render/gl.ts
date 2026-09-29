@@ -39,6 +39,8 @@ export interface FrameDraw {
   shake?: [number, number];
   /** a zoom blur, 0 to 1 */
   zoomBlur?: number;
+  /** the red and blue pulled apart from the middle out (a hit's colour split), 0 to 1 */
+  split?: number;
 }
 
 const VERT = `#version 300 es
@@ -120,7 +122,7 @@ uniform sampler2D uOverlay;
 uniform bool uHasOverlay;
 uniform vec2 uOut;
 uniform float uWarm, uContrast, uSat, uVig, uGrain;
-uniform float uFlash, uBurn, uBurnPhase, uDim, uTime, uSeed, uZoomBlur;
+uniform float uFlash, uBurn, uBurnPhase, uDim, uTime, uSeed, uZoomBlur, uSplit;
 out vec4 outColor;
 float hash(vec2 p) { p = fract(p * vec2(443.897, 441.423)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }
 float noise(vec2 p) {
@@ -141,6 +143,12 @@ void main() {
     vec3 acc = vec3(0.0);
     for (int i = 0; i < 16; i++) acc += texture(uScene, mix(vec2(0.5), vPos, 1.0 - 0.14 * uZoomBlur * float(i) / 15.0)).rgb;
     c = acc / 16.0;
+  }
+  // A colour split on a hit: red pushed out from the middle, blue pulled in.
+  if (uSplit > 0.001) {
+    vec2 d = (vPos - 0.5) * 0.028 * uSplit;
+    c.r = texture(uScene, vPos + d).r;
+    c.b = texture(uScene, vPos - d).b;
   }
   // White balance towards warm.
   c *= vec3(1.0 + 0.07 * uWarm, 1.0 + 0.012 * uWarm, 1.0 - 0.1 * uWarm);
@@ -164,7 +172,7 @@ void main() {
     float n = fbm(o * vec2(2.4, 1.7) + vec2(uBurnPhase * 1.9, -uBurnPhase * 0.7) + uSeed);
     float edge = 1.0 - smoothstep(-0.1, 0.95, o.x + 0.18 * sin(o.y * 4.0 + uSeed * 3.0));
     float heat = clamp(n * 1.5 + edge * 1.1 - 1.05 + uBurn * 0.55, 0.0, 1.0) * uBurn;
-    vec3 bc = mix(vec3(0.9, 0.22, 0.03), vec3(1.0, 0.86, 0.55), smoothstep(0.2, 0.9, heat));
+    vec3 bc = mix(vec3(1.0, 0.42, 0.06), vec3(1.0, 0.9, 0.62), smoothstep(0.15, 0.8, heat));
     c = 1.0 - (1.0 - clamp(c, 0.0, 1.0)) * (1.0 - bc * heat);
   }
   c = mix(c, vec3(1.0), uFlash);
@@ -387,6 +395,7 @@ export class Compositor {
     gl.uniform1f(p.loc("uTime"), f.time);
     gl.uniform1f(p.loc("uSeed"), f.seed);
     gl.uniform1f(p.loc("uZoomBlur"), f.zoomBlur ?? 0);
+    gl.uniform1f(p.loc("uSplit"), f.split ?? 0);
     this.quad(null);
   }
 

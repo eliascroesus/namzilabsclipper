@@ -97,7 +97,7 @@ export function outputAt(shot: Pick<ShotEvent, "start" | "end" | "speed" | "ramp
 }
 
 /** flash, film burn, dip to black, fade up; a punch-in (a quick zoom on a hit), a shake, and a zoom blur across a cut */
-export type FxKind = "flash" | "burn" | "dip" | "fadein" | "punch" | "shake" | "zoomblur";
+export type FxKind = "flash" | "burn" | "dip" | "fadein" | "punch" | "shake" | "zoomblur" | "split";
 
 export interface FxEvent {
   kind: FxKind;
@@ -121,7 +121,8 @@ export interface CaptionEvent {
 }
 
 export interface CardSpec {
-  kind: "laptop" | "phone";
+  /** a device drawn with the product on it, or the user's own video (a motion design) */
+  kind: "laptop" | "phone" | "video";
   /** the line above the device, e.g. "start free" */
   top: string;
   /** the line below it, e.g. "namzilabs.co" */
@@ -133,6 +134,10 @@ export interface CardSpec {
   hold: number;
   /** draw the arrow on instead of showing it whole */
   draw: boolean;
+  /** kind "video": the source id of the video, played whole in place of a drawn card (its own sound off, the song under it) */
+  video?: string;
+  /** its width over its height, to fill the frame when it has the edit's shape and fit inside it when not */
+  videoAspect?: number;
 }
 
 export interface CardEvent {

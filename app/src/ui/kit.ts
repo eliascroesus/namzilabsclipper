@@ -1,12 +1,12 @@
 /**
- * The brand kit (the card's lines, colour and screenshot) survives a reload:
- * the text in localStorage, the screenshot in IndexedDB. Both stay in this
- * browser and nowhere else.
+ * The brand kit (the card's lines, colour, screenshot, or a video of the user's
+ * own) survives a reload: the text in localStorage, the screenshot and the video
+ * in IndexedDB. All of it stays in this browser and nowhere else.
  */
 export interface KitFields {
   enabled: boolean;
-  /** the device on the card: a laptop for a website, a phone for an app */
-  kind: "laptop" | "phone";
+  /** the device on the card (a laptop for a website, a phone for an app), or a video of the user's own */
+  kind: "laptop" | "phone" | "video";
   top: string;
   bottom: string;
   accent: string;
@@ -44,13 +44,13 @@ function db(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveKitShot(blob: Blob | null, name: string) {
+async function saveBlob(key: string, blob: Blob | null, name: string) {
   try {
     const d = await db();
     await new Promise<void>((resolve, reject) => {
       const tx = d.transaction("blobs", "readwrite");
-      if (blob) tx.objectStore("blobs").put({ blob, name }, "cardShot");
-      else tx.objectStore("blobs").delete("cardShot");
+      if (blob) tx.objectStore("blobs").put({ blob, name }, key);
+      else tx.objectStore("blobs").delete(key);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
@@ -59,11 +59,11 @@ export async function saveKitShot(blob: Blob | null, name: string) {
   }
 }
 
-export async function loadKitShot(): Promise<{ blob: Blob; name: string } | null> {
+async function loadBlob(key: string): Promise<{ blob: Blob; name: string } | null> {
   try {
     const d = await db();
     return await new Promise((resolve) => {
-      const req = d.transaction("blobs").objectStore("blobs").get("cardShot");
+      const req = d.transaction("blobs").objectStore("blobs").get(key);
       req.onsuccess = () => resolve((req.result as { blob: Blob; name: string } | undefined) ?? null);
       req.onerror = () => resolve(null);
     });
@@ -71,6 +71,13 @@ export async function loadKitShot(): Promise<{ blob: Blob; name: string } | null
     return null;
   }
 }
+
+/** The screenshot on the card's laptop or phone. */
+export const saveKitShot = (blob: Blob | null, name: string) => saveBlob("cardShot", blob, name);
+export const loadKitShot = () => loadBlob("cardShot");
+/** The user's own card: a video (a motion design) played at the end in place of the drawn card. */
+export const saveKitVideo = (blob: Blob | null, name: string) => saveBlob("cardVideo", blob, name);
+export const loadKitVideo = () => loadBlob("cardVideo");
 
 /** Keep a small value in this browser under `key` (IndexedDB), e.g. what smart picks saw in a file. */
 export async function remember(key: string, value: unknown) {
