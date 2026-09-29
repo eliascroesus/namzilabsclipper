@@ -147,6 +147,7 @@ describe("a broken beat after the drop", () => {
   const t0 = 0.1;
   const drop = t0 + 32 * T;
   const kicks: number[] = [];
+  const claps: number[] = [];
   for (let k = 0; t0 + k * T < 39.5; k++) {
     const t = t0 + k * T;
     if (t < drop - 1e-6) {
@@ -161,20 +162,27 @@ describe("a broken beat after the drop", () => {
         kicks.push(at);
       }
       hit(t + (6 * T) / 4, 1800, 0.6, 800);
+      claps.push(t + (6 * T) / 4);
       for (let q = 0; q < 8; q++) hit(t + (q * T) / 2 + T / 4, 0, 0.25, 120, true);
     }
   }
   const song = analyzeSong(y, SR);
 
-  it("cuts on the kicks wherever they land, at the drop's pace, with the drop's own shot held", () => {
+  it("cuts on the kicks and the clap wherever they land, the same way every bar, with the drop's own shot held", () => {
     expect(song.bpm).toBeCloseTo(134, 0);
     const start = song.beats.find((b) => b > 2.5)!;
     const cuts = planCuts(song, start, 16, { dropAt: drop - start }).map((c) => c + start);
     expect(cuts.some((c) => Math.abs(c - drop) < 0.03)).toBe(true);
     const after = cuts.filter((c) => c > drop + 0.03);
     expect(after.length).toBeGreaterThanOrEqual(5);
-    // Every cut after the drop on a kick (never on an empty beat), some of them between the beats.
-    for (const c of after) expect(Math.min(...kicks.map((k) => Math.abs(k - c)))).toBeLessThan(0.02);
+    // Every cut after the drop on a kick or the clap (never on an empty beat), some of
+    // them between the beats, and each bar cut the same way.
+    for (const c of after) expect(Math.min(...[...kicks, ...claps].map((k) => Math.abs(k - c)))).toBeLessThan(0.02);
+    const bar = 4 * T;
+    const inBar = (c: number) => Math.round((((c - drop) % bar) + bar) % bar / (T / 4)) % 16;
+    const first = cuts.filter((c) => c > drop - 0.03 && c < drop + bar - 0.03).map(inBar);
+    const second = cuts.filter((c) => c > drop + bar - 0.03 && c < drop + 2 * bar - 0.03).map(inBar);
+    expect(second).toEqual(first);
     const between = after.filter((c) => {
       const k = (c - t0) / T;
       return Math.abs(k - Math.round(k)) > 0.15;

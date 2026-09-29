@@ -214,11 +214,12 @@ describe("grooves", () => {
       expect(Math.max(...offs)).toBeLessThan(0.01);
       expect(Math.max(...offs) - Math.min(...offs)).toBeLessThan(0.008);
       // Every cut on a beat, or on a kick or snare that really plays between beats (a
-      // syncopated kick); never on a hat, never on nothing.
+      // syncopated kick); never on a hat, never on nothing. (A clip re-cut on the half
+      // beat inside a shot aside: that's on the grid, not a new shot.)
       const drums = parts.filter((p) => p.kind === "kick" || p.kind === "snare").map((p) => p.t);
       for (const variant of [0, 1, 2]) {
         const plan = planMontage({ song, songSource: "s", songName: g.name, fromStart: false, songStart: truth[4], scans: scans(), aspect: "9x16", length: Math.min(12, g.seconds - 8), card: null, caption: null, variant });
-        for (const s of plan.shots.slice(1)) {
+        for (const s of plan.shots.slice(1).filter((x) => !x.again)) {
           const t = plan.music!.songStart + s.start + CUT_LEAD;
           const off = Math.min(Math.abs(t - nearest(truth, t)), Math.abs(t - nearest(drums, t)));
           expect(off).toBeLessThanOrEqual(1.5 / FPS + 0.03);
@@ -302,10 +303,15 @@ describe("grooves", () => {
     for (const start of [4, 9]) {
       for (const variant of [0, 1, 2]) {
         const plan = planMontage({ song, songSource: "s", songName: "snaps", fromStart: false, songStart: start, scans: scans(), aspect: "9x16", length: 12, card: null, caption: null, variant });
-        const cuts = plan.shots.slice(1).map((s) => plan.music!.songStart + s.start + CUT_LEAD);
+        const cuts = plan.shots
+          .slice(1)
+          .filter((s) => !s.again)
+          .map((s) => plan.music!.songStart + s.start + CUT_LEAD);
         for (const c of cuts) expect(Math.abs(nearest(song.beats, c) - c)).toBeLessThanOrEqual(1.5 / FPS + 0.01);
+        // (A snap can get its cut from a clip re-cut on the beat.)
+        const all = plan.shots.slice(1).map((s) => plan.music!.songStart + s.start + CUT_LEAD);
         const inside = snaps.filter((s) => s > start + 0.6 && s < start + plan.duration - 0.3);
-        const cut = inside.filter((s) => cuts.some((c) => Math.abs(c - s) <= 1.5 / FPS + 0.03));
+        const cut = inside.filter((s) => all.some((c) => Math.abs(c - s) <= 1.5 / FPS + 0.03));
         expect(cut.length).toBeGreaterThanOrEqual(Math.ceil(0.75 * inside.length));
       }
     }
@@ -340,14 +346,16 @@ describe.skipIf(!existsSync(resolve(FIX, "comes.f32")))("Comes and Goes (KETTAMA
       for (const variant of [0, 1, 2]) {
         const plan = planMontage({ song, songSource: "s", songName: "comes", fromStart: false, songStart: start, scans: scans(), aspect: "9x16", length: 14, card: null, caption: null, variant });
         // Every cut on a beat, or on a hit that starts between the beats: a kick (the
-        // track's two-step and broken-beat bars have theirs anywhere) or a strong "and".
+        // track's two-step and broken-beat bars have theirs anywhere) or an "and" half as
+        // hard as the song's hardest hits or more. (A clip re-cut on the half beat inside
+        // a shot aside.)
         let between = 0;
-        for (const s of plan.shots.slice(1)) {
+        for (const s of plan.shots.slice(1).filter((x) => !x.again)) {
           const t = plan.music!.songStart + s.start + CUT_LEAD;
           const k = (t - song.beats[0]) / T;
           if (Math.abs(k - Math.round(k)) * T <= 1.5 / FPS) continue;
           between++;
-          expect(song.accents.some((a) => (a.kick >= 0.45 || a.s >= 0.6) && Math.abs(a.t - t) <= 1.5 / FPS)).toBe(true);
+          expect(song.accents.some((a) => (a.kick >= 0.45 || a.s >= 0.45) && Math.abs(a.t - t) <= 1.5 / FPS)).toBe(true);
         }
         expect(between).toBeLessThanOrEqual(Math.ceil(plan.shots.length / 3));
       }

@@ -53,6 +53,8 @@ export interface ShotEvent {
   audio?: boolean;
   /** a speed ramp in place of the steady speed (velocity edits) */
   ramp?: Ramp;
+  /** a re-cut of the shot before it on the beat: the same clip, a jump further on */
+  again?: boolean;
 }
 
 /**

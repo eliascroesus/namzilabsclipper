@@ -5,7 +5,7 @@
  */
 import { beatShift, hitStart } from "./attacks";
 import { melFilterbank, melSpectrogram, onsetStrength, percentile, powerSpectrogram, powerToDb, rms, smooth } from "./dsp";
-import { steadyAt, steadyGrid, trackTheHits } from "./grid";
+import { keepsHits, standoutHits, steadyAt, steadyGrid, trackTheHits } from "./grid";
 import { songStructure, type Structure } from "./structure";
 import type { Vocals } from "./vocals";
 import { beatTrack, detectOnsets, estimateTempo } from "./rhythm";
@@ -136,6 +136,29 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
     for (let i = 0; i < frames; i++) drums[i] = kick[i] + mid[i];
     const drumBpm = estimateTempo(drums, sr, hop);
     grid = steadyGrid(env, kick, mid, (60 / track.bpm) * (sr / hop), sr / hop, [(60 / drumBpm) * (sr / hop)]);
+    // A kick on 1, the "and" of 2 and 4 (3-3-2: trap, afrobeats, reggaeton, a lot of
+    // pop) repeats every beat and a half, and a steady grid can hold there too, at two
+    // thirds of the tempo: a song at 155 heard at 103, where a third of the claps fall a
+    // third of a beat off the grid and an edit cut on it misses them. The level the
+    // standout hits keep (on its beats or exactly between them) and the drums keep to
+    // at least as tightly is the beat. (Judged on equal terms: a faster level has more
+    // stretches to hold through, so either is let off one.)
+    const hits = grid ? standoutHits(env, sr / hop, onsetFrames) : [];
+    if (grid && hits.length >= 8) {
+      const first = steadyAt(env, kick, mid, grid.period, sr / hop, 0.5) ?? grid;
+      let keep = keepsHits(hits, first, sr / hop);
+      let r = first.r ?? 0;
+      for (const m of [2 / 3, 3 / 2]) {
+        const other = steadyAt(env, kick, mid, first.period * m, sr / hop, 0.5);
+        if (!other) continue;
+        const k = keepsHits(hits, other, sr / hop);
+        if (k >= keep + 0.2 && (other.r ?? 0) >= r) {
+          grid = other;
+          keep = k;
+          r = other.r ?? 0;
+        }
+      }
+    }
   }
   // Without one, the tracker's beats have to keep the song's standout hits (a snap on
   // 2 and 4): when another tempo keeps them clearly better, the song is tracked at that

@@ -20,6 +20,8 @@ export interface Grid {
   phase: number;
   /** the period measured at each lag, for checking */
   lags: { beats: number; period: number; acf: number }[];
+  /** how tightly the kick and snare keep to it over the whole song, 0 to 1 */
+  r?: number;
 }
 
 /** The autocorrelation of `x` (mean removed), normalised so lag 0 is 1. */
@@ -201,14 +203,18 @@ export function steadyGrid(env: ArrayLike<number>, low: ArrayLike<number>, mid: 
   return null;
 }
 
-/** The steady grid at about `rough` frames a beat and nowhere else; null when the song keeps none there. */
-export function steadyAt(env: ArrayLike<number>, low: ArrayLike<number>, mid: ArrayLike<number>, rough: number, fps = 22050 / 512): Grid | null {
+/**
+ * The steady grid at about `rough` frames a beat and nowhere else; null when the song
+ * keeps none there. `held` is the share of the song's stretches with drums that have
+ * to keep to it.
+ */
+export function steadyAt(env: ArrayLike<number>, low: ArrayLike<number>, mid: ArrayLike<number>, rough: number, fps = 22050 / 512, held = 0.7): Grid | null {
   const bpm = (60 * fps) / rough;
   if (!(rough > 2) || bpm < 60 || bpm > 200 || env.length < rough * 12) return null;
-  return gridAt(env, low, mid, rough);
+  return gridAt(env, low, mid, rough, held);
 }
 
-function gridAt(env: ArrayLike<number>, low: ArrayLike<number>, mid: ArrayLike<number>, rough: number): Grid | null {
+function gridAt(env: ArrayLike<number>, low: ArrayLike<number>, mid: ArrayLike<number>, rough: number, share = 0.7): Grid | null {
   const { period, lags } = refinePeriod(env, rough);
   // Steady means the long looks agree to within a third of a percent, and the
   // envelope really does repeat there.
@@ -265,8 +271,45 @@ function gridAt(env: ArrayLike<number>, low: ArrayLike<number>, mid: ArrayLike<n
     const off = ((p.off - whole.off + 1.5) % 1) - 0.5;
     if (p.r >= 0.4 * whole.r && Math.abs(off) <= 0.2) held++;
   }
-  if (checked >= 3 && held < checked * 0.7) return null;
-  return { period, phase, lags };
+  if (checked >= 3 && held < checked * share) return null;
+  return { period, phase, lags, r: whole.r };
+}
+
+/**
+ * The song's standout hits (analysis frames, and weights): onsets far above
+ * everything within a second of them, the loudest weighing most (by the square of
+ * how hard they hit: the snaps over a synth line's notes).
+ */
+export function standoutHits(env: Float32Array, fps: number, onsets: number[]): { f: number; w: number }[] {
+  const n = env.length;
+  const ref = Math.max(1e-9, percentile(env, 99.5));
+  const reach = Math.round(fps);
+  const hits: { f: number; w: number }[] = [];
+  for (const f of onsets) {
+    if (env[f] < 0.45 * ref) continue;
+    const around = Array.from(env.subarray(Math.max(0, f - reach), Math.min(n, f + reach + 1))).sort((a, b) => a - b);
+    if (env[f] >= 4 * around[around.length >> 1]) hits.push({ f, w: Math.min(1, env[f] / ref) ** 2 });
+  }
+  return hits;
+}
+
+/**
+ * How well a steady grid keeps the standout hits: the share of them (by weight) on
+ * its beats or exactly halfway between, beyond what a grid that dense would catch by
+ * chance (0 for chance, 1 for all of them).
+ */
+export function keepsHits(hits: { f: number; w: number }[], grid: Grid, fps: number): number {
+  const half = grid.period / 2;
+  const tol = 0.045 * fps;
+  let on = 0;
+  let all = 0;
+  for (const h of hits) {
+    const x = (((h.f - grid.phase) % half) + half) % half;
+    all += h.w;
+    if (Math.min(x, half - x) <= tol) on += h.w;
+  }
+  const chance = Math.min(0.95, (2 * tol) / half);
+  return all > 0 ? (on / all - chance) / (1 - chance) : 0;
 }
 
 /** Beats (analysis frames) at a tempo: its steady grid's, when the song keeps one there, or the tracker's. */
@@ -296,13 +339,7 @@ export interface TempoBeats {
 export function trackTheHits(env: Float32Array, fps: number, bpm: number, beats: number[], onsets: number[], at: (tempo: number) => TempoBeats): TempoBeats | null {
   const n = env.length;
   const ref = Math.max(1e-9, percentile(env, 99.5));
-  const reach = Math.round(fps);
-  const hits: { f: number; w: number }[] = [];
-  for (const f of onsets) {
-    if (env[f] < 0.45 * ref) continue;
-    const around = Array.from(env.subarray(Math.max(0, f - reach), Math.min(n, f + reach + 1))).sort((a, b) => a - b);
-    if (env[f] >= 4 * around[around.length >> 1]) hits.push({ f, w: Math.min(1, env[f] / ref) ** 2 });
-  }
+  const hits = standoutHits(env, fps, onsets);
   if (hits.length < 6 || beats.length < 8) return null;
   const tol = Math.max(2, Math.round(0.06 * fps));
   const judge = (bs: number[]) => {

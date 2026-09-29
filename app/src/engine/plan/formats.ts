@@ -10,7 +10,7 @@
  */
 import type { SongAnalysis } from "../audio/song";
 import type { Scan } from "../media/scan";
-import { assignShots, CUT_LEAD, finishPlan, frame, longestStretch, musicWindow, planCuts, slotsBetween, variantPace, type MusicWindow, type Ranges, type Slot } from "./montage";
+import { accentCuts, assignShots, CUT_LEAD, finishPlan, frame, longestStretch, musicWindow, planCuts, slotsBetween, variantPace, type MusicWindow, type Ranges, type Slot } from "./montage";
 import { FPS, type Aspect, type CaptionEvent, type CardSpec, type EditPlan } from "./types";
 
 interface Common {
@@ -95,7 +95,7 @@ export function planTwist(o: TwistOptions): EditPlan {
   const longest = Math.max(...poolB.map((s) => longestStretch(s, true)));
   let boundsB = [switchAt, win.cardAt];
   if (longest * 2 < dB && poolB.length > 1 && o.song) {
-    const cuts = planCuts(o.song, win.songStart, win.cardAt, { from: switchAt, pace: 4, maxShot: Math.max(1, longest) }).map((t) => frame(t - CUT_LEAD));
+    const cuts = accentCuts(o.song, win.songStart, win.cardAt, { from: switchAt, pace: 4, maxShot: Math.max(1, longest) }).map((t) => frame(t - CUT_LEAD));
     boundsB = [switchAt, ...cuts.filter((t) => t > switchAt + 0.5 && t < win.cardAt - 0.5), win.cardAt];
   }
   const slotsB: Slot[] = boundsB.slice(0, -1).map((start, i) => ({ start, end: boundsB[i + 1], role: i === boundsB.length - 2 ? "closer" : "body" }));
