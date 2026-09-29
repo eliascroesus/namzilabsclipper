@@ -55,6 +55,19 @@ describe("smart picks", () => {
     expect(flex.real![0]).toBeLessThan(0.2);
   });
 
+  it("counts the flex of a frame too dark to read for less", () => {
+    // One yacht by day, at dusk and at night, rated alike.
+    const [day, dusk, night] = [0.5, 0.25, 0.08].map((luma, k) => {
+      const scan = clip(`y${k}`, 6);
+      scan.stats.luma.fill(luma);
+      scan.look = lookFor(scan, sheets([0]), new Map([[1, { n: 1, flex: 8, wow: 5, kind: "yacht" }]]));
+      return scan;
+    });
+    scoreInterest([day, dusk, night]);
+    expect(dusk.interest![3]).toBeGreaterThan(0.9 * day.interest![3]);
+    expect(night.interest![3]).toBeLessThan(0.7 * day.interest![3]);
+  });
+
   it("asks Gemini with the sheets and a schema, and keeps only the frames it asked about", async () => {
     const calls: { parts: { text?: string; inlineData?: unknown }[]; schema: boolean }[] = [];
     vi.stubGlobal(

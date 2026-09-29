@@ -511,10 +511,11 @@ function lookAlike(a: Scan, i: number, b: Scan, j: number): number {
  */
 const cutMargin = (scan: Scan) => Math.max(0.08, 0.5 / scan.rate);
 
-/** A shot boundary in a source, and how far a shot keeps from it. */
+/** A shot boundary in a source, and how far a shot keeps from it: before it, and after it when that differs. */
 interface Bound {
   t: number;
   margin: number;
+  after?: number;
 }
 
 const boundCache = new WeakMap<Scan, { key: string; bounds: Bound[] }>();
@@ -534,7 +535,9 @@ export function boundsOf(scan: Scan): Bound[] {
   if (hit && hit.key === key) return hit.bounds;
   const checked = scan.checked ?? [];
   const inner: Bound[] = [];
-  for (const t of scan.cuts) if (!checked.some(([a, b]) => t >= a && t <= b)) inner.push({ t, margin: cutMargin(scan) });
+  // (A cut on a key frame that marks a scene change is there to the frame, if it's
+  // there at all: a narrow berth, a little wider before it.)
+  for (const t of scan.cuts) if (!checked.some(([a, b]) => t >= a && t <= b)) inner.push(scan.keyCuts ? { t, margin: 0.25, after: 0.05 } : { t, margin: cutMargin(scan) });
   for (const t of scan.exactCuts ?? []) inner.push({ t, margin: 0.07 });
   inner.sort((x, y) => x.t - y.t);
   const bounds = [{ t: scan.start, margin: 0.08 }, ...inner.filter((b) => b.t > scan.start && b.t < scan.duration), { t: scan.duration, margin: 0.08 }];
@@ -552,7 +555,7 @@ export function longestStretch(scan: Scan, acrossCuts = false): number {
   if (scan.kind === "image") return Infinity;
   const bounds = acrossCuts ? wholeSource(scan) : boundsOf(scan);
   let best = 0;
-  for (let i = 0; i + 1 < bounds.length; i++) best = Math.max(best, bounds[i + 1].t - bounds[i + 1].margin - (bounds[i].t + bounds[i].margin));
+  for (let i = 0; i + 1 < bounds.length; i++) best = Math.max(best, bounds[i + 1].t - bounds[i + 1].margin - (bounds[i].t + (bounds[i].after ?? bounds[i].margin)));
   return best;
 }
 
@@ -575,15 +578,17 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
     const bounds = acrossCuts ? wholeSource(scan) : boundsOf(scan);
     const step = 1 / scan.rate;
     for (let s = 0; s + 1 < bounds.length; s++) {
-      const lo = bounds[s].t + bounds[s].margin;
+      const lo = bounds[s].t + (bounds[s].after ?? bounds[s].margin);
       const hi = bounds[s + 1].t - bounds[s + 1].margin;
       if (hi - lo < d - 1e-6) continue;
       // Where a slot can start: an even grid, or, when the samples are sparser than
       // the slot is long (a long video skimmed by its key frames), centred on each
       // sample so every window has one.
+      // (A sample on the scene's first frame is the scene's: a video skimmed by key
+      // frames that start its scenes has most of its samples there.)
       const starts: number[] = [];
       if (step > d) {
-        for (let i = 0; i < st.t.length; i++) if (st.t[i] >= lo && st.t[i] <= hi) starts.push(Math.min(Math.max(lo, st.t[i] - d / 2), hi - d));
+        for (let i = 0; i < st.t.length; i++) if (st.t[i] >= bounds[s].t - 1e-6 && st.t[i] <= hi) starts.push(Math.min(Math.max(lo, st.t[i] - d / 2), hi - d));
       } else {
         for (let start = lo; start + d <= hi + 1e-6; start += step) starts.push(start);
       }
@@ -963,6 +968,8 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
         let s = seg.score - offList;
         // The hook and the drop: the most striking picture of the most flex, moving.
         if (hero) s += 0.3 * seg.peak + 0.15 * Math.min(1, seg.motion) + 0.25 * (seg.flex ?? 0) + 0.25 * (seg.wow ?? 0);
+        // The first frame has to read at a glance on a phone: not a dark club.
+        if (r === "hook" && seg.luma !== undefined) s -= 1.2 * Math.max(0, 0.32 - seg.luma);
         // The last shot is what the replay loops from: strong too.
         if (r === "closer") s += 0.1 * seg.peak + 0.2 * (seg.flex ?? 0) + 0.15 * (seg.wow ?? 0);
         if (video) s -= 0.22 * Math.abs(Math.min(1, seg.motion) - energy);

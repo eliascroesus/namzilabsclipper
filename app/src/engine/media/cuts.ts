@@ -12,6 +12,13 @@ import type { Source } from "./sources";
 
 const W = 32;
 const H = 18;
+/**
+ * Frames are drawn this many times larger and averaged down. Shrinking a frame 25
+ * times in one step samples it rather than averaging it, and the flicker that adds
+ * between frames (0.09 where it should be 0.07) raised the bar enough for real cuts
+ * to slip under it: on an 8 minute vlog, three that got into an edit.
+ */
+const OVER = 4;
 
 /** How different two frames look, 0 to 1: colours moving between bins, or the picture changing in place. */
 function change(h0: Float32Array, h1: Float32Array, l0: Float32Array, l1: Float32Array): number {
@@ -26,7 +33,7 @@ function change(h0: Float32Array, h1: Float32Array, l0: Float32Array, l1: Float3
  * Where the shot changes between consecutive frames: a jump well above the frames
  * around it (so steady fast motion doesn't count), returned as indexes of the
  * first frame of each new shot. The jump itself can be small (two golden-hour
- * shots share their colours) as long as it stands out.
+ * shots share their colours, a cut from black to a dim room) as long as it stands out.
  */
 export function cutFrames(changes: ArrayLike<number>): number[] {
   const out: number[] = [];
@@ -34,32 +41,54 @@ export function cutFrames(changes: ArrayLike<number>): number[] {
     const around: number[] = [];
     for (let k = Math.max(1, i - 5); k <= Math.min(changes.length - 1, i + 5); k++) if (k !== i) around.push(changes[k]);
     around.sort((a, b) => a - b);
-    const typical = around.length ? around[around.length >> 1] : 0;
-    if (changes[i] > 0.15 && changes[i] > 3 * typical + 0.05) out.push(i);
+    // The median, halfway between the middle two: a cut from a still shot into a
+    // shaky one has five calm frames on one side and five busy ones on the other,
+    // and the upper of the middle two would set the bar by the shake alone.
+    const m = around.length >> 1;
+    const typical = !around.length ? 0 : around.length % 2 ? around[m] : (around[m - 1] + around[m]) / 2;
+    if (changes[i] > 0.12 && changes[i] > 3 * typical + 0.05) out.push(i);
   }
   return out;
 }
 
 /** The exact cuts in [a, b) of a video, looking at every frame: the times of the first frames of new shots. */
 export async function findCuts(src: Source, a: number, b: number, signal?: AbortSignal): Promise<number[]> {
-  if (!src.video) return [];
-  const canvas = new OffscreenCanvas(W, H);
+  const { times, changes } = await frameChanges(src, a, b, signal);
+  return cutFrames(changes).map((i) => times[i]);
+}
+
+/** Every frame of [a, b) of a video, with how different it looks from the frame before (see change). */
+export async function frameChanges(src: Source, a: number, b: number, signal?: AbortSignal): Promise<{ times: number[]; changes: number[] }> {
+  if (!src.video) return { times: [], changes: [] };
+  const canvas = new OffscreenCanvas(W * OVER, H * OVER);
   const ctx = canvas.getContext("2d", { willReadFrequently: true, alpha: false })!;
   const times: number[] = [];
   const changes: number[] = [];
   let prevH: Float32Array | null = null;
   let prevL: Float32Array | null = null;
+  const rgb = new Float32Array(W * H * 3);
   for await (const sample of new VideoSampleSink(src.video).samples(a, b)) {
     try {
       if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
       sample.drawWithFit(ctx, { fit: "fill" });
-      const px = ctx.getImageData(0, 0, W, H).data;
+      const px = ctx.getImageData(0, 0, W * OVER, H * OVER).data;
+      rgb.fill(0);
+      for (let y = 0; y < H * OVER; y++) {
+        const row = ((y / OVER) | 0) * W;
+        for (let x = 0; x < W * OVER; x++) {
+          const p = (y * W * OVER + x) * 4;
+          const q = (row + ((x / OVER) | 0)) * 3;
+          rgb[q] += px[p];
+          rgb[q + 1] += px[p + 1];
+          rgb[q + 2] += px[p + 2];
+        }
+      }
       const hist = new Float32Array(64);
       const luma = new Float32Array(W * H);
       for (let i = 0; i < W * H; i++) {
-        const r = px[i * 4];
-        const g = px[i * 4 + 1];
-        const bl = px[i * 4 + 2];
+        const r = rgb[i * 3] / (OVER * OVER);
+        const g = rgb[i * 3 + 1] / (OVER * OVER);
+        const bl = rgb[i * 3 + 2] / (OVER * OVER);
         hist[((r >> 6) << 4) | ((g >> 6) << 2) | (bl >> 6)] += 1 / (W * H);
         luma[i] = (0.299 * r + 0.587 * g + 0.114 * bl) / 255;
       }
@@ -71,7 +100,7 @@ export async function findCuts(src: Source, a: number, b: number, signal?: Abort
       sample.close();
     }
   }
-  return cutFrames(changes).map((i) => times[i]);
+  return { times, changes };
 }
 
 /** Finds the exact cuts in the stretch [a, b] of a scanned video's source. */

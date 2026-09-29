@@ -3,7 +3,7 @@
  * URLs, runs one part of the engine for real in Chrome, and returns plain data.
  */
 import { analyzeSong, pickSection, SR, withVocals } from "./engine/audio/song";
-import { cutFinder } from "./engine/media/cuts";
+import { cutFinder, cutFrames, frameChanges } from "./engine/media/cuts";
 import { settlePlan } from "./engine/plan/settle";
 import { findVocals } from "./engine/audio/vocals";
 import { decodeMono, openSource, type Source } from "./engine/media/sources";
@@ -128,6 +128,13 @@ const harness = {
       kind: Array.from(s.look?.kind ?? []).map((k) => KINDS[k]),
     }));
   },
+  /** How the page sees a stretch of a video frame by frame: each frame's change from the one before, and the cuts it finds. */
+  async changes(url: string, a: number, b: number) {
+    const src = await load(url, "clip0");
+    const { times, changes } = await frameChanges(src, a, b);
+    return { times, changes, cuts: cutFrames(changes).map((i) => times[i]) };
+  },
+
   async scan(urls: string[]) {
     const scans: Scan[] = [];
     const timing: Record<string, number> = {};

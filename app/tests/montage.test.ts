@@ -333,6 +333,20 @@ describe("planners on a synthetic song (runs everywhere)", () => {
     }
   });
 
+  it("opens on a picture that reads at a glance, not a dark club", () => {
+    // A night out: the club rated the most striking thing in the footage, but dim; a
+    // yacht in daylight, a view and a villa a little behind it.
+    const night = lookedAt("night", [{ len: 4, kind: "party", flex: 0.95, wow: 0.95, look: 0 }], 50);
+    night.stats.luma.fill(0.24);
+    const day = lookedAt("day", (["yacht", "view", "home"] as Kind[]).map((kind, k) => ({ len: 3, kind, flex: 0.8, wow: 0.7, look: k + 1 })), 51);
+    const footage = [night, day];
+    scoreInterest(footage);
+    const plan = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans: footage, aspect: "9x16", length: 12, card: null, caption: null, variant: 0 });
+    expect(plan.shots[0].source).toBe("day");
+    // The club still has its place in the edit.
+    expect(plan.shots.some((s) => s.source === "night")).toBe(true);
+  });
+
   it("no jump cuts: two shots of one thing back to back change the framing", () => {
     // One car filmed in six clips: three framed the same way (the front, wide), three
     // others each framed their own way; and a Reel of four other flex scenes.

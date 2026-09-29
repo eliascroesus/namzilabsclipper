@@ -50,6 +50,12 @@ export interface Scan {
   stats: FrameStats;
   /** shot boundaries inside the source, in seconds (not including 0 and the end), as the skim found them */
   cuts: number[];
+  /**
+   * The skim went by key frames, and they mark the video's scene changes (an encoder
+   * that starts a key frame at every cut, as YouTube's do): the skim's cuts are on
+   * key frames, not somewhere between two samples.
+   */
+  keyCuts?: boolean;
   /** cuts found to the frame by looking at every frame of a stretch (media/cuts.ts): the first frame of each new shot */
   exactCuts?: number[];
   /** the stretches looked at frame by frame so far, [start, end] in seconds: inside them, exactCuts are all the cuts there are */
@@ -277,12 +283,23 @@ function histDistance(s: FrameStats, a: number, b: number): number {
   return d; // 0 to 2
 }
 
-/** Shot changes: a jump in the colour histogram together with a jump in the picture. */
-export function detectCuts(s: FrameStats): number[] {
+/**
+ * Shot changes: a jump in the colour histogram together with a jump in the picture,
+ * somewhere between two samples. Given the video's key frames when they mark its
+ * cuts (and the samples are those key frames, each the first frame of a scene),
+ * every sample that looks clearly different from the one before starts a new shot,
+ * on the key frames between the two (usually just the second sample): there every
+ * pair of samples is two scenes, and a change can't stand out from its neighbours.
+ */
+export function detectCuts(s: FrameStats, keys?: number[]): number[] {
   const n = s.t.length;
   const cuts: number[] = [];
   const dist = new Float32Array(n);
   for (let i = 1; i < n; i++) dist[i] = histDistance(s, i - 1, i);
+  if (keys) {
+    for (let i = 1; i < n; i++) if (dist[i] > 0.25) for (const k of keys) if (k > s.t[i - 1] + 1e-6 && k <= s.t[i] + 1e-6) cuts.push(k);
+    return cuts;
+  }
   for (let i = 1; i < n; i++) {
     // Compare against the neighbourhood so steady fast motion doesn't read as cuts.
     let local = 0;
@@ -307,20 +324,35 @@ export interface ScanOptions {
 }
 
 /**
- * The times of a track's key frames, at least `gap` seconds apart. A key frame
- * decodes on its own, so skimming a long video by its key frames skips decoding
- * everything in between.
+ * The times of a track's key frames: all of them, and a pick at least `gap` seconds
+ * apart. A key frame decodes on its own, so skimming a long video by its key frames
+ * skips decoding everything in between.
  */
-async function keyFrameTimes(track: InputVideoTrack, gap: number, signal?: AbortSignal): Promise<number[]> {
+async function keyFrameTimes(track: InputVideoTrack, gap: number, signal?: AbortSignal): Promise<{ picked: number[]; all: number[] }> {
   const sink = new EncodedPacketSink(track);
-  const out: number[] = [];
+  const picked: number[] = [];
+  const all: number[] = [];
   let p = await sink.getFirstKeyPacket({ metadataOnly: true });
   for (let guard = 0; p && guard < 200000; guard++) {
     if (signal?.aborted) break;
-    if (!out.length || p.timestamp - out[out.length - 1] >= gap) out.push(p.timestamp);
+    all.push(p.timestamp);
+    if (!picked.length || p.timestamp - picked[picked.length - 1] >= gap) picked.push(p.timestamp);
     p = await sink.getNextKeyPacket(p, { metadataOnly: true });
   }
-  return out;
+  return { picked, all };
+}
+
+/**
+ * Whether a video's key frames come where its scenes change rather than on a fixed
+ * beat: an encoder that starts one at every cut (with a longest gap between them)
+ * leaves them at irregular gaps; a phone's or a fixed-GOP encoder's come evenly.
+ */
+export function keysFollowCuts(keys: number[]): boolean {
+  if (keys.length < 9) return false;
+  const gaps = keys.slice(1).map((k, i) => k - keys[i]);
+  const mean = gaps.reduce((a, g) => a + g, 0) / gaps.length;
+  const sd = Math.sqrt(gaps.reduce((a, g) => a + (g - mean) ** 2, 0) / gaps.length);
+  return mean > 0 && sd / mean > 0.35;
 }
 
 /** Past this length a video is skimmed by its key frames. */
@@ -333,12 +365,14 @@ export async function scanVideo(src: Source, opts: ScanOptions = {}): Promise<Sc
   let rate = opts.rate ?? sampleRate(info.duration);
   const first = await video.getFirstTimestamp().catch(() => 0);
   let times: number[] = [];
+  let keys: number[] = [];
   if (!opts.rate && info.duration > LONG_VIDEO) {
-    const keys = await keyFrameTimes(video, 1 / rate, opts.signal).catch(() => []);
+    const found = await keyFrameTimes(video, 1 / rate, opts.signal).catch(() => ({ picked: [], all: [] }));
     // Key frames every few seconds are plenty; much sparser and a plain skim is better.
-    if (keys.length >= info.duration / 12) {
-      times = keys;
-      rate = keys.length / Math.max(1, info.duration);
+    if (found.picked.length >= info.duration / 12) {
+      times = found.picked;
+      keys = found.all;
+      rate = times.length / Math.max(1, info.duration);
     }
   }
   if (!times.length) {
@@ -399,7 +433,8 @@ export async function scanVideo(src: Source, opts: ScanOptions = {}): Promise<Sc
   }
   const trimmed = trimStats(stats, got);
   if (thumbAt >= 0) thumb = await grabThumb(src, thumbAt);
-  return { id: info.id, kind: "video", start: first, duration: info.duration, width: info.width, height: info.height, rate, fps: info.fps, stats: trimmed, cuts: detectCuts(trimmed), thumb, sheets: await sheets.finish() };
+  const keyCuts = keysFollowCuts(keys);
+  return { id: info.id, kind: "video", start: first, duration: info.duration, width: info.width, height: info.height, rate, fps: info.fps, stats: trimmed, cuts: detectCuts(trimmed, keyCuts ? keys : undefined), ...(keyCuts ? { keyCuts } : {}), thumb, sheets: await sheets.finish() };
 }
 
 function trimStats(s: FrameStats, n: number): FrameStats {
@@ -519,7 +554,10 @@ export function scoreInterest(scans: Scan[]): void {
       if (sc.look) {
         const kind = sc.look.kind[i];
         const quality = q;
-        q = 0.3 * quality + 0.7 * (0.6 * sc.look.flex[i] + 0.4 * sc.look.wow[i]);
+        // Whatever it shows, a dark frame reads as murk on a phone: below a fifth of full
+        // brightness the flex counts for less (half at a twelfth).
+        const seen = 1 - 0.5 * clamp01((0.2 - st.luma[i]) / 0.12);
+        q = 0.3 * quality + 0.7 * seen * (0.6 * sc.look.flex[i] + 0.4 * sc.look.wow[i]);
         if (kind === TEXT) q *= 0.2;
         else if (kind === TALKING) q *= 0.5;
         // Filler: a room, a blur, people with nothing to show off, a desk. In the edit

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { analyzeSong } from "../src/engine/audio/song";
 import { cutFrames, noteChecked } from "../src/engine/media/cuts";
 import { checkShots, settlePlan } from "../src/engine/plan/settle";
-import { PROFILE_BINS, type Scan } from "../src/engine/media/scan";
-import { boundsOf, mulberry32, planMontage } from "../src/engine/plan/montage";
+import { keysFollowCuts, PROFILE_BINS, type Scan } from "../src/engine/media/scan";
+import { boundsOf, longestStretch, mulberry32, planMontage } from "../src/engine/plan/montage";
 import { sourceSpan } from "../src/engine/plan/types";
 
 /**
@@ -75,12 +75,35 @@ describe("a long video's own cuts", () => {
     expect(bounds[3].margin).toBeGreaterThan(0.3);
   });
 
+  it("trusts key frames that follow the cuts: a narrow berth, not the whole gap between two samples", () => {
+    // A YouTube upload's key frames: one at every scene change, at uneven gaps. A phone's: every 2.5 s.
+    expect(keysFollowCuts([0, 5.46, 6.5, 7.96, 9.38, 10.5, 11.54, 12.83, 16.17, 17.29, 18.58, 20.46, 22.25])).toBe(true);
+    expect(keysFollowCuts(Array.from({ length: 20 }, (_, k) => k * 2.5))).toBe(false);
+    // Scenes of 2.4 s between skimmed cuts: guessed between samples, a shot fits nowhere;
+    // on key frames that mark them, nearly all of each scene is usable.
+    const { scan } = vlog(6, 60);
+    const cuts = Array.from({ length: 24 }, (_, k) => 2.4 * (k + 1));
+    const guessed = { ...scan, rate: 1 / 2.4, cuts };
+    expect(longestStretch(guessed)).toBeLessThan(1.2);
+    const keyed = { ...guessed, keyCuts: true };
+    expect(longestStretch(keyed)).toBeGreaterThan(2);
+    expect(boundsOf(keyed)[1]).toEqual({ t: 2.4, margin: 0.25, after: 0.05 });
+  });
+
   it("tells a cut from motion: a jump that stands out from the frames around it", () => {
     const steady = Array.from({ length: 40 }, (_, i) => 0.02 + 0.01 * Math.sin(i));
     const withCut = [...steady];
     withCut[12] = 0.26; // two golden-hour shots: a small jump, but a clear one
     withCut[30] = 0.7;
     expect(cutFrames(withCut)).toEqual([12, 30]);
+    // A cut from a still shot into a shaky one (someone walking with the camera):
+    // calm on one side, busy on the other.
+    const shaky = [0, 0.03, 0.04, 0.03, 0.05, 0.03, 0.35, 0.18, 0.12, 0.2, 0.17, 0.23, 0.11, 0.12];
+    expect(cutFrames(shaky)).toEqual([6]);
+    // A cut from black to a dim room: a small jump, but nothing around it moves.
+    const dark = Array.from({ length: 20 }, () => 0.01);
+    dark[8] = 0.13;
+    expect(cutFrames(dark)).toEqual([8]);
     // A whip pan: every frame changes a lot, none stands out.
     const whip = steady.map((v, i) => (i > 10 && i < 25 ? 0.3 + 0.05 * Math.sin(3 * i) : v));
     expect(cutFrames(whip)).toEqual([]);
