@@ -79,7 +79,9 @@ try {
   const thumbs = await page.locator(".thumb img").evaluateAll((els) => els.map((e) => e.getAttribute("src")));
   const counts = thumbs.map((t) => shots.filter((s) => s.includes(t)).length);
   console.log("shots per clip (talking, car, people):", counts.join(", "), "of", shots.length);
-  if (counts[1] <= counts[0] || counts[1] <= counts[2]) console.log("FAIL: the flex clip should lead");
+  // The flex opens the edit and outnumbers the talking. (It needn't outnumber the
+  // people too: its 9.6 s run out before a fast edit's 15 to 20 shots do.)
+  if (!shots[0]?.includes(thumbs[1]) || counts[1] <= counts[0]) console.log("FAIL: the flex clip should open the edit and outnumber the talking");
   await page.getByRole("button", { name: "Stop" }).click().catch(() => undefined);
 
   // A reload remembers the ratings: no new calls to Gemini.

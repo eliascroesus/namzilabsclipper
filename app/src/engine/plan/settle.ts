@@ -45,22 +45,25 @@ export async function checkShots(plan: EditPlan, scans: Map<string, Scan>, find:
 
 /**
  * Keeps a shot inside one shot of its source: moved to the longest clean stretch
- * around it, or slowed (to half speed at most) when that's a little short. A shot
- * with nowhere to go stays as it is.
+ * around it, or slowed (to half speed at most) when that's a little short. It only
+ * moves within what has been looked at frame by frame (past that, a cut nobody has
+ * seen yet could be anywhere). A shot with nowhere to go stays as it is.
  */
 function repair(shot: ShotEvent, scan: Scan, aspect: EditPlan["aspect"]): ShotEvent {
   const a = shot.srcStart;
   const span = sourceSpan(shot);
   const cuts = cutsInside(scan, a, a + span);
   if (!cuts.length) return shot;
+  const seen = scan.checked?.find(([x, y]) => a >= x - 1e-6 && a + span <= y + 1e-6);
+  if (!seen) return shot;
   const d = shot.end - shot.start;
   const gap = 0.07;
   // The clean stretches the shot overlaps, between the cuts inside it and the ones either side.
   const all = [scan.start, ...(scan.exactCuts ?? []), scan.duration];
   let best: [number, number] | null = null;
   for (let i = 0; i + 1 < all.length; i++) {
-    const lo = all[i] + (i ? gap : 0);
-    const hi = all[i + 1] - (i + 2 < all.length ? gap : 0);
+    const lo = Math.max(seen[0], all[i] + (i ? gap : 0));
+    const hi = Math.min(seen[1], all[i + 1] - (i + 2 < all.length ? gap : 0));
     if (hi <= a || lo >= a + span || hi - lo <= 0) continue;
     if (!best || hi - lo > best[1] - best[0]) best = [lo, hi];
   }

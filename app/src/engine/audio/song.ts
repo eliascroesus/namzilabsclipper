@@ -3,6 +3,7 @@
  * lines, every accent with its strength, how loud each moment is, where it
  * drops, and which stretch of it makes the best edit.
  */
+import { beatShift, hitStart } from "./attacks";
 import { melFilterbank, melSpectrogram, onsetStrength, percentile, powerSpectrogram, powerToDb, rms, smooth } from "./dsp";
 import { steadyGrid } from "./grid";
 import { songStructure, type Structure } from "./structure";
@@ -25,6 +26,8 @@ export interface Accent {
   mid: number;
   /** position on the beat grid, fractional (3.5 = halfway between beats 3 and 4) */
   beat: number;
+  /** its start was found to 3 ms (attacks.ts); otherwise it's read off its 23 ms frame */
+  exact?: boolean;
 }
 
 export interface Drop {
@@ -40,6 +43,8 @@ export interface SongAnalysis {
   bpm: number;
   /** the beats are a steady grid measured to the exact tempo (not the tracker's own) */
   steady: boolean;
+  /** how far the hits start from where the onset envelope puts the beats (seconds, usually negative: ahead); the times here are already moved by it */
+  shift?: number;
   /** what usually plays halfway between beats, kick and middle, 0 to 1 like an accent's */
   offbeat?: { kick: number; mid: number };
   /** bars, breaks, sections and phrases (see structure.ts) */
@@ -159,7 +164,14 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
     beatFrames = [...head, ...beatFrames, ...tail];
   }
   const period = 60 / bpm;
-  const beats = exact ?? beatFrames.map((f) => (f * hop) / sr);
+  // The beats as the envelope places them sit some way into each hit (attacks.ts); a
+  // viewer hears a hit where it starts, so every time the planner reads (beats, bar
+  // lines, accents, drops, breaks) moves onto the starts. What's measured per frame
+  // (the envelopes, loudness, the features per beat) stays where it was measured.
+  const heard = exact ?? beatFrames.map((f) => (f * hop) / sr);
+  const onsetFrames = detectOnsets(env, sr, hop);
+  const lead = beatShift(y, sr, heard, onsetFrames.map((f) => (f * hop) / sr));
+  const beats = heard.map((t) => t + lead);
 
   const peakNear = (a: Float32Array, f: number, r: number) => {
     let m = 0;
@@ -237,9 +249,14 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
     }
     return beats.length - 1 + (t - beats[beats.length - 1]) / period;
   };
-  const accents: Accent[] = detectOnsets(env, sr, hop).map((f) => {
-    const t = (f * hop) / sr;
-    return { t, s: Math.min(1, env[f] / envRef), kick: Math.min(1, peakNear(kick, f, 1) / kickRef), mid: Math.min(1, peakNear(mid, f, 1) / midRef), beat: beatPos(t) };
+  const accents: Accent[] = onsetFrames.map((f) => {
+    // Where the hit starts: about as far ahead of its frame as the song's beats are,
+    // and exactly where its attack stands out there (looked for on the hits strong
+    // enough to cut on; the rest only count towards the groove).
+    const near = (f * hop) / sr + lead;
+    const hit = env[f] >= 0.25 * envRef ? hitStart(y, sr, near - 0.035, near + 0.035) : null;
+    const t = hit?.t ?? near;
+    return { t, s: Math.min(1, env[f] / envRef), kick: Math.min(1, peakNear(kick, f, 1) / kickRef), mid: Math.min(1, peakNear(mid, f, 1) / midRef), beat: beatPos(t), ...(hit ? { exact: true } : {}) };
   });
 
   // What usually plays halfway between the beats (a house track's open hat on every
@@ -294,7 +311,7 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
 
   const structure = songStructure({ beats, beatInBar, beatLoudness, beatKick, beatSnare, beatHats });
 
-  return { sr, hop, duration, bpm, steady: !!grid, offbeat, structure, beatDrums: { kick: beatKick, snare: beatSnare, hats: beatHats }, period, beats, beatInBar, downbeats, beatStrength, beatLoudness, accents, drops, env, kick, loudness, rms: level };
+  return { sr, hop, duration, bpm, steady: !!grid, shift: lead, offbeat, structure, beatDrums: { kick: beatKick, snare: beatSnare, hats: beatHats }, period, beats, beatInBar, downbeats, beatStrength, beatLoudness, accents, drops, env, kick, loudness, rms: level };
 }
 
 /**

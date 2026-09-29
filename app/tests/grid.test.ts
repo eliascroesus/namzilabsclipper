@@ -70,12 +70,11 @@ describe("a steady grid", () => {
   it("hears the exact tempo, and puts the beat on the kick and clap, not the hats", () => {
     expect(song.steady).toBe(true);
     expect(song.bpm).toBeCloseTo(134, 1);
-    // Every beat of the grid the same small way from a real one, all the way through (no
-    // drift). Onsets read a frame late (about 23 ms); CUT_LEAD allows for that.
+    // Every beat of the grid on where a real one starts, all the way through (no drift).
     const inside = song.beats.filter((b) => b > 0.5 && b < 59);
     const offs = inside.map((b) => b - nearest(g.beats, b));
-    for (const o of offs) expect(o).toBeGreaterThan(-0.005);
-    for (const o of offs) expect(o).toBeLessThan(0.035);
+    for (const o of offs) expect(o).toBeGreaterThan(-0.01);
+    for (const o of offs) expect(o).toBeLessThan(0.01);
     expect(Math.max(...offs) - Math.min(...offs)).toBeLessThan(0.004);
   });
 
@@ -211,8 +210,8 @@ describe("grooves", () => {
       expect(song.bpm).toBeCloseTo(g.grid, 0);
       const inside = song.beats.filter((b) => b > 0.5 && b < g.seconds - 1);
       const offs = inside.map((b) => b - nearest(truth, b));
-      expect(Math.min(...offs)).toBeGreaterThan(-0.005);
-      expect(Math.max(...offs)).toBeLessThan(0.04);
+      expect(Math.min(...offs)).toBeGreaterThan(-0.01);
+      expect(Math.max(...offs)).toBeLessThan(0.01);
       expect(Math.max(...offs) - Math.min(...offs)).toBeLessThan(0.008);
       // Every cut on a beat, or on a kick or snare that really plays between beats (a
       // syncopated kick); never on a hat, never on nothing.
@@ -279,7 +278,7 @@ describe.skipIf(!existsSync(resolve(FIX, "comes.f32")))("Comes and Goes (KETTAMA
     const song = analyzeSong(new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4));
     expect(song.steady).toBe(true);
     expect(song.bpm).toBeCloseTo(134, 1);
-    expect(song.beats[0]).toBeCloseTo(0.062, 2);
+    expect(song.beats[0]).toBeCloseTo(0.012, 2);
     const drops = song.drops.map((d) => d.t);
     expect(drops.some((t) => Math.abs(t - 71.7) < 0.05)).toBe(true);
     expect(drops.some((t) => Math.abs(t - 192.6) < 0.05)).toBe(true);
@@ -287,14 +286,17 @@ describe.skipIf(!existsSync(resolve(FIX, "comes.f32")))("Comes and Goes (KETTAMA
     for (const start of [4.5, 64.5, 185.5]) {
       for (const variant of [0, 1, 2]) {
         const plan = planMontage({ song, songSource: "s", songName: "comes", fromStart: false, songStart: start, scans: scans(), aspect: "9x16", length: 14, card: null, caption: null, variant });
-        let offBeat = 0;
+        // Every cut on a beat, or on a hit that starts between the beats: a kick (the
+        // track's two-step and broken-beat bars have theirs anywhere) or a strong "and".
+        let between = 0;
         for (const s of plan.shots.slice(1)) {
-          const k = (plan.music!.songStart + s.start + CUT_LEAD - song.beats[0]) / T;
-          const onBeat = Math.abs(k - Math.round(k)) * T;
-          if (Math.abs(k - Math.floor(k) - 0.5) * T < onBeat) offBeat++;
-          else expect(onBeat).toBeLessThanOrEqual(1.5 / FPS);
+          const t = plan.music!.songStart + s.start + CUT_LEAD;
+          const k = (t - song.beats[0]) / T;
+          if (Math.abs(k - Math.round(k)) * T <= 1.5 / FPS) continue;
+          between++;
+          expect(song.accents.some((a) => (a.kick >= 0.45 || a.s >= 0.6) && Math.abs(a.t - t) <= 1.5 / FPS)).toBe(true);
         }
-        expect(offBeat).toBeLessThanOrEqual(1);
+        expect(between).toBeLessThanOrEqual(Math.ceil(plan.shots.length / 3));
       }
     }
   });
@@ -315,11 +317,11 @@ describe.skipIf(!existsSync(resolve(FIX, "comes.f32")))("Comes and Goes (KETTAMA
         expect(clip.steady).toBe(true);
         expect(clip.bpm).toBeCloseTo(134, 0);
         for (const b of clip.beats.filter((t) => t > 0.5 && t < len - 0.5)) {
-          const k = (b + start - 0.062) / T;
-          expect(Math.abs(k - Math.round(k)) * T).toBeLessThan(0.03);
+          const k = (b + start - 0.012) / T;
+          expect(Math.abs(k - Math.round(k)) * T).toBeLessThan(0.02);
         }
         clips++;
-        if (Math.round((clip.downbeats[0] + start - 0.062) / T) % 4 === 0) bars++;
+        if (Math.round((clip.downbeats[0] + start - 0.012) / T) % 4 === 0) bars++;
       }
     }
     expect(bars).toBeGreaterThanOrEqual(clips - 2);

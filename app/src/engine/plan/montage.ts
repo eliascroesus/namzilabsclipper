@@ -6,16 +6,20 @@
  * formats in formats.ts.
  */
 import { pickSection, type Accent, type SongAnalysis } from "../audio/song";
-import { PROFILE_BINS, type Scan } from "../media/scan";
+import type { Bar } from "../audio/structure";
+import { KINDS, PROFILE_BINS, type Scan } from "../media/scan";
 import { frameShot, kenBurns } from "./framing";
 import { FPS, FRAME_SIZE, sourceSpan, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type Crop, type EditPlan, type FxEvent, type Ramp, type ShotEvent } from "./types";
 
 /**
- * Cuts sit this far ahead of the beat. Measured on the reference montage: mico's
- * cuts land on average 45 ms before the beat times our analysis reports, which is
- * also where a cut reads as "on the beat" (the eye expects the picture first).
+ * Cuts sit this far ahead of the hit. The song's beats and accents are where each hit
+ * starts (audio/attacks.ts), and people forgive a picture that changes a little before
+ * the sound far more readily than one that changes after it (a sound that comes first
+ * is noticed from about 45 ms, one that comes second only from about 125 ms). A cut
+ * rounds to the nearest frame (33 ms at 30 fps), so 12 ms ahead keeps every cut
+ * between 29 ms before its hit and 5 ms after it.
  */
-export const CUT_LEAD = 0.04;
+export const CUT_LEAD = 0.012;
 export const MIN_SHOT = 0.3;
 const MAX_SHOT = 2.1;
 
@@ -51,8 +55,13 @@ export function loudnessOver(song: SongAnalysis, songStart: number, a: number, b
  * verse can be as loud as the chorus without anything like its drive.
  */
 export function energyOver(song: SongAnalysis, songStart: number, a: number, b: number): number {
+  return overBars(song, songStart, a, b, (bar) => bar.energy) ?? loudnessOver(song, songStart, a, b);
+}
+
+/** Something about the bars averaged over a stretch of the edit, by how much of it each covers (undefined without bars). */
+function overBars(song: SongAnalysis, songStart: number, a: number, b: number, of: (bar: Bar) => number): number | undefined {
   const bars = song.structure?.bars;
-  if (!bars?.length) return loudnessOver(song, songStart, a, b);
+  if (!bars?.length) return undefined;
   const s0 = songStart + a;
   const s1 = songStart + Math.max(b, a + 0.01);
   let sum = 0;
@@ -62,10 +71,26 @@ export function energyOver(song: SongAnalysis, songStart: number, a: number, b: 
     const hi = i + 1 < bars.length ? bars[i + 1].t : lo + 4 * song.period;
     const o = Math.min(hi, s1) - Math.max(lo, s0);
     if (o <= 0) continue;
-    sum += o * bars[i].energy;
+    sum += o * of(bars[i]);
     w += o;
   }
-  return w > 0 ? sum / w : loudnessOver(song, songStart, a, b);
+  return w > 0 ? sum / w : undefined;
+}
+
+/**
+ * How hard an edit should hit over a stretch of it, 0 to 1: the music's energy, with
+ * the drums counting for more than the level (a quiet build with a clap on every
+ * eighth drives an edit on as much as a loud verse does), and from the drop on at
+ * least a drop's. An edit plays its drop as its peak, hardest for the first two bars,
+ * whatever the song does next: a garage track's drop can be quieter than its build,
+ * with its kicks and claps between the beats.
+ */
+export function driveOver(song: SongAnalysis, songStart: number, a: number, b: number, dropAt?: number): number {
+  let e = energyOver(song, songStart, a, b);
+  const drums = overBars(song, songStart, a, b, (bar) => (bar.kick + bar.snare + bar.hats) / 3);
+  if (drums !== undefined) e = Math.max(e, 0.8 * drums);
+  if (dropAt !== undefined && a >= dropAt - 0.05) e = Math.max(e, a - dropAt < 8 * song.period ? 0.78 : 0.68);
+  return e;
 }
 
 /** Inside a break, where the song has dropped out (song time). */
@@ -192,9 +217,10 @@ export function hitsHard(song: SongAnalysis, a: Accent): boolean {
 
 /**
  * Where an accent sits on a steady grid (song time): exactly on its beat, or exactly
- * halfway to the next, when it's within an eighth of a beat of either. The onset
- * detector only reads whole analysis frames (23 ms); the grid is exact. Anything
- * else (a swung hit, a song without a steady grid) stays where it was heard.
+ * halfway to the next, when it's as near either as its own time can be trusted (a
+ * hit whose start was found is placed to 3 ms, one read off the onset envelope only
+ * to its 23 ms frame). Anything else (a swung hit, a hit between, a song without a
+ * steady grid) stays where it starts.
  */
 export function gridTime(song: SongAnalysis, a: Accent): number {
   if (!song.steady) return a.t;
@@ -202,11 +228,24 @@ export function gridTime(song: SongAnalysis, a: Accent): number {
   if (i < 0 || i + 1 >= song.beats.length) return a.t;
   const frac = a.beat - i;
   const q = Math.round(frac * 2) / 2;
-  if (Math.abs(frac - q) > 0.12) return a.t;
+  if (Math.abs(frac - q) > (a.exact ? 0.04 : 0.12)) return a.t;
   return song.beats[i] + q * (song.beats[i + 1] - song.beats[i]);
 }
 
-/** Cut candidates in edit time: every beat, plus strong hits on the "and" between beats. */
+/**
+ * A kick between the beats (or an 808, a bass stab): the low end drives the hit, and
+ * on the "and" it stands out from what always plays there (a techno track's rolling
+ * bass). In a broken beat (garage, breaks) the kicks land between the beats as often
+ * as on them, and a cut on the empty beat next to one reads as off. (A clap or a hat
+ * between the beats takes a cut only on the "and", and only a strong one.)
+ */
+function kickBetween(song: SongAnalysis, a: Accent): boolean {
+  const frac = a.beat - Math.floor(a.beat);
+  const usual = Math.abs(frac - 0.5) <= 0.12 ? (song.offbeat?.kick ?? 0) : 0;
+  return a.s >= 0.3 && a.kick >= Math.max(0.45, usual + 0.25) && a.kick >= 0.8 * a.s;
+}
+
+/** Cut candidates in edit time: every beat, plus strong hits on the "and" and kicks anywhere between the beats. */
 function candidates(song: SongAnalysis, songStart: number, from: number, until: number, dropAt?: number): Cand[] {
   const out: Cand[] = [];
   const inWindow: number[] = [];
@@ -229,16 +268,21 @@ function candidates(song: SongAnalysis, songStart: number, from: number, until: 
     const w = 0.25 + 0.35 * (rank.get(i) ?? 0.5) + 0.35 * song.beatStrength[i] + (down ? 0.25 : 0) + structureWeight(song, song.beats[i]);
     out.push({ t, w, down, drop: false });
   }
-  // Hits on the "and" between beats: a syncopated kick, a clap or a vocal stab, not
-  // just a hi-hat. On a steady grid the cut goes exactly halfway.
+  // Hits between the beats: a strong one on the "and" (a syncopated kick, a clap or a
+  // vocal stab, not just a hi-hat), and a kick wherever it lands (a broken beat's).
+  // The cut goes where the hit starts, exactly halfway when it's on the "and" of a
+  // steady grid.
   for (const a of song.accents) {
     const frac = a.beat - Math.floor(a.beat);
-    if (a.s < 0.6 || Math.abs(frac - 0.5) > 0.12 || !hitsHard(song, a)) continue;
+    if (frac < 0.15 || frac > 0.85) continue;
     const exact = gridTime(song, a);
     const t = exact - songStart;
     if (t <= from + 0.2 || t >= until || inBreak(song, exact)) continue;
     if (song.beats.some((b) => Math.abs(b - exact) < 0.07)) continue;
-    out.push({ t, w: 0.1 + 0.45 * a.s, down: false, drop: false });
+    let w = -Infinity;
+    if (a.s >= 0.6 && Math.abs(frac - 0.5) <= 0.12 && hitsHard(song, a)) w = 0.1 + 0.45 * a.s;
+    if (kickBetween(song, a)) w = Math.max(w, 0.15 + 0.3 * a.s + 0.3 * a.kick);
+    if (w > -Infinity) out.push({ t, w, down: false, drop: false });
   }
   out.sort((a, b) => a.t - b.t);
   if (dropAt !== undefined) {
@@ -303,10 +347,12 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, opt
     // A break's silence doesn't count against a shot's length: it's a held breath.
     const L = Math.max(MIN_SHOT, b - a - silence(a, b));
     const energy = energyOver(song, songStart, a, b);
-    let beats = beatsFor(energy);
+    let beats = beatsFor(driveOver(song, songStart, a, b, dropAt));
     // While a voice carries a verse over sparse drums, a line gets room to land: two
-    // beats at least (a sung chorus over the full kit still cuts at the chorus's pace).
-    if (energy < 0.6 && vocalOver(song, songStart, a, b) >= 0.5) beats = Math.max(beats, 2);
+    // beats at least (a sung chorus over the full kit still cuts at the chorus's pace,
+    // and so does everything after the drop).
+    const afterDrop = dropAt !== undefined && a >= dropAt - 0.05;
+    if (!afterDrop && energy < 0.6 && vocalOver(song, songStart, a, b) >= 0.5) beats = Math.max(beats, 2);
     // Into the drop the shots get shorter and shorter (a build: two beats, one, half),
     // as far as there are hits to cut on, right up to the moment the song drops out;
     // the shot on the last hit before the silence sounds for about a beat of it.
@@ -334,7 +380,8 @@ export function planCuts(song: SongAnalysis, songStart: number, end: number, opt
       const Lp = cands[j].t - cands[i].t;
       for (let k = j + 1; k < n; k++) {
         const L = cands[k].t - cands[j].t;
-        if (L < MIN_SHOT) continue;
+        // The shot on the drop holds for a beat at least: the hit lands on it.
+        if (L < MIN_SHOT || (cands[j].drop && L < 0.95 * song.period)) continue;
         if (L > longest(cands[j].t, cands[k].t)) break;
         // Skipping a drop is not allowed.
         let skipsDrop = false;
@@ -400,6 +447,8 @@ interface Segment {
   flex?: number;
   /** how striking it is as a picture, 0 to 1, when judged */
   wow?: number;
+  /** filler, when judged: talking, text, a desk, a room, people with nothing to show off, anything with next to no flex */
+  filler?: boolean;
   /** which of the source's shots it's in (an index between its cuts; -1 when it runs across them) */
   scene: number;
   /** the source samples at its in-point and out-point (for how the cuts either side of it look) */
@@ -510,6 +559,9 @@ export function longestStretch(scan: Scan, acrossCuts = false): number {
 /** What a slot is looking for: the flex (most of an edit), or the other side of it (a twist's second act). */
 export type Purpose = "flex" | "real";
 
+/** What the picture model calls filler: in a flex edit only once the flex runs out. */
+const FILLER = new Set((["talking", "text", "work", "other", "people"] as const).map((k) => KINDS.indexOf(k)));
+
 /** Every usable stretch of every source for a slot `d` seconds long. */
 function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts = false, purpose: Purpose = "flex"): Segment[] {
   const out: Segment[] = [];
@@ -582,7 +634,9 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
           flex = n ? f / n : look.flex[Math.max(0, mid)];
           wow = n ? w / n : look.wow[Math.max(0, mid)];
         }
-        out.push({ scan, start, score: sum / c, peak, motion: clamp(motion / c / motionScale, 0, 1.5), rgb: [rgb[0] / c, rgb[1] / c, rgb[2] / c], luma: luma / c, enter: clamp(st.motion[first] / motionScale, 0, 1.5), emb, flex, wow, scene: acrossCuts ? -1 : s, head: first, tail: last });
+        // (Or anything it rates as showing nothing off, whatever it calls it: someone standing in a kitchen.)
+        const filler = look ? FILLER.has(look.kind[Math.max(0, mid)]) || (flex ?? 1) < 0.33 : undefined;
+        out.push({ scan, start, score: sum / c, peak, motion: clamp(motion / c / motionScale, 0, 1.5), rgb: [rgb[0] / c, rgb[1] / c, rgb[2] / c], luma: luma / c, enter: clamp(st.motion[first] / motionScale, 0, 1.5), emb, flex, wow, filler, scene: acrossCuts ? -1 : s, head: first, tail: last });
       }
     }
   }
@@ -676,23 +730,56 @@ const dot = (a: ArrayLike<number>, b: ArrayLike<number>) => {
   return s;
 };
 
-/** Each moment of the footage (see momentOf) at the best any of the stretches scores. */
-function momentScores(segs: Segment[]): Map<string, number> {
-  const best = new Map<string, number>();
+interface Moment {
+  score: number;
+  /** what its best stretch shows (the picture model's embedding), when it looked */
+  emb?: ArrayLike<number>;
+}
+
+/** Each moment of the footage (see momentOf) at the best any of the stretches scores, with what that stretch shows. */
+function momentScores(segs: Segment[]): Map<string, Moment> {
+  const best = new Map<string, Moment>();
   for (const seg of segs) {
     const key = momentOf(seg.scan, seg.start, seg.scene);
-    best.set(key, Math.max(best.get(key) ?? -Infinity, seg.score));
+    const cur = best.get(key);
+    if (!cur || seg.score > cur.score) best.set(key, { score: seg.score, emb: seg.emb });
   }
   return best;
 }
 
 /**
  * The editor's selects: the `k` best moments of the footage (all of them, when
- * there are no more). A long video of talking and screens with a few supercars in
- * it gives the supercars; a few phone clips of a car give every clip.
+ * there are no more), each also as unlike the ones already picked as the footage
+ * allows. A long video of talking and screens with a few supercars in it gives the
+ * supercars; a few phone clips of a car give every clip; but a long stretch of one
+ * car, cut into a dozen moments, gives its best two or three and then the jet and
+ * the yacht (when the picture model has looked: a moment showing what an earlier
+ * pick shows counts for less).
  */
-function selectsOf(scores: Map<string, number>, k: number): Set<string> {
-  return new Set([...scores].sort((a, b) => b[1] - a[1]).slice(0, k).map(([m]) => m));
+function selectsOf(moments: Map<string, Moment>, k: number): Set<string> {
+  const left = [...moments].sort((a, b) => b[1].score - a[1].score);
+  // How many of the picks so far show what each moment left shows (the same car in
+  // the same place: an embedding within about 0.1 of it).
+  const same = new Float64Array(left.length);
+  const out: string[] = [];
+  const taken = new Uint8Array(left.length);
+  while (out.length < k && out.length < left.length) {
+    let bi = -1;
+    let bv = -Infinity;
+    for (let i = 0; i < left.length; i++) {
+      if (taken[i]) continue;
+      const v = left[i][1].score - 0.08 * same[i];
+      if (v > bv) {
+        bv = v;
+        bi = i;
+      }
+    }
+    taken[bi] = 1;
+    out.push(left[bi][0]);
+    const e = left[bi][1].emb;
+    if (e) for (let i = 0; i < left.length; i++) if (!taken[i] && left[i][1].emb) same[i] += clamp((dot(left[i][1].emb!, e) - 0.8) / 0.12, 0, 1);
+  }
+  return new Set(out);
 }
 
 /**
@@ -796,7 +883,7 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
   const uses = new Map<string, number>();
   const momentUses = new Map<string, number>();
   const chosen: (Segment & { d: number; len: number })[] = new Array(slots.length);
-  const cache = new Map<number, { segs: Segment[]; len: number; best: Map<string, number> }>();
+  const cache = new Map<number, { segs: Segment[]; len: number; best: Map<string, Moment> }>();
   const v = ctx.variant;
   // What the earlier edits in the batch opened on and dropped into, as pictures: this
   // one's hook and drop should look different, not just come from another minute of
@@ -841,33 +928,39 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
       cache.set(key, { ...c, best: momentScores(c.segs) });
     }
     const { segs, len, best: bestOf } = cache.get(key)!;
-    const energy = ctx.song ? energyOver(ctx.song, ctx.songStart, slot.start, slot.end) : 0.5;
+    const energy = ctx.song ? driveOver(ctx.song, ctx.songStart, slot.start, slot.end, dropStart) : 0.5;
     const r = slot.role;
     const hero = r === "hook" || r === "drop";
     let top = 0;
     for (const seg of segs) top = Math.max(top, seg.score);
     const allowed = hero ? selectsOf(momentScores(segs.filter(fresh)), 3) : r === "closer" ? pool.closer : pool.rest;
+    // Filler stays out of a flex edit while anything else fits the slot.
+    const flexLeft = ctx.purpose !== "real" && segs.some((g) => g.filler === false && !(g.scan.kind === "video" && overlaps(used.get(g.scan.id), g.start - 0.05, g.start + len + 0.05)));
     let best: Segment | undefined;
     let bestScore = -Infinity;
-    // A stretch of one of the selects nearly as good as the moment's best; failing that
-    // (a long slot only the weaker footage has a long enough stretch for), anything
-    // within reach of the best that fits (the dull, a title card, stays out); failing
-    // that, anything.
-    for (const pass of [0, 1, 2]) {
-      const relax = pass === 2;
+    // A stretch of one of the selects nearly as good as the moment's best, or else
+    // (not for the hook or the drop) anything but filler within reach of the best that
+    // fits, marked down for not being a select and for how far short of the best it
+    // falls (the dull, a title card, stays out): it gets in when the selects left
+    // would only repeat what's around the slot (the same parked car six times over),
+    // or when a long slot only the weaker footage has a long enough stretch for.
+    // Failing all that, anything.
+    for (const relax of [false, true]) {
       for (const seg of segs) {
         const id = seg.scan.id;
         const video = seg.scan.kind === "video";
         const a = seg.start;
         const b = seg.start + len;
+        let offList = 0;
         if (!relax) {
-          if ((video && overlaps(used.get(id), a - 0.05, b + 0.05)) || seg.score < top * 0.6) continue;
-          if (pass === 0) {
-            const moment = momentOf(seg.scan, a, seg.scene);
-            if (!allowed.has(moment) || seg.score < 0.8 * (bestOf.get(moment) ?? 0)) continue;
+          if ((video && overlaps(used.get(id), a - 0.05, b + 0.05)) || seg.score < top * 0.45 || (flexLeft && seg.filler)) continue;
+          const moment = momentOf(seg.scan, a, seg.scene);
+          if (!allowed.has(moment) || seg.score < 0.8 * (bestOf.get(moment)?.score ?? 0)) {
+            if (hero || seg.filler) continue;
+            offList = 0.3 + 3 * Math.max(0, top * 0.6 - seg.score);
           }
         }
-        let s = seg.score;
+        let s = seg.score - offList;
         // The hook and the drop: the most striking picture of the most flex, moving.
         if (hero) s += 0.3 * seg.peak + 0.15 * Math.min(1, seg.motion) + 0.25 * (seg.flex ?? 0) + 0.25 * (seg.wow ?? 0);
         // The last shot is what the replay loops from: strong too.
@@ -911,6 +1004,18 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
             const e = chosen[j]?.emb;
             if (e && j !== i) alike += clamp((dot(seg.emb, e) - 0.7) / 0.25, 0, 1);
           }
+          // Two shots of one thing in a row flow; a third reads as the edit running out
+          // of footage, a fourth as it being stuck. (The shots either side of the slot
+          // already chosen count: the closer is chosen early.)
+          let run = 0;
+          for (const dir of [-1, 1]) {
+            for (let j = i + dir; j >= 0 && j < chosen.length; j += dir) {
+              const e = chosen[j]?.emb;
+              if (!e || dot(seg.emb, e) < 0.85) break;
+              run++;
+            }
+          }
+          if (run >= 2) s -= run === 2 ? 0.25 : 0.5;
           s -= 0.06 * alike;
           if (hero && heroLooks.length) {
             let sim = 0;

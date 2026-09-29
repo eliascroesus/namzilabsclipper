@@ -5,7 +5,8 @@ For one video this writes, into its own folder:
 
   summary.json   duration, format, every cut, shot lengths, tempo, beats (librosa's,
                  and the steady grid the app uses when the music keeps one exact
-                 tempo), how tightly the cuts sit on the music, zoom and flash events
+                 tempo, both moved to where the hits start, as the app does), how
+                 tightly the cuts sit on the music, zoom and flash events
   frames.csv     per-frame luma, change from the previous frame, and camera
                  motion (scale, pan, rotation) estimated from tracked points
   timeline.png   onset strength with the beat grid, cuts, motion and luma on
@@ -162,6 +163,68 @@ def steady_grid(y: np.ndarray, sr: int, hop: int, env: np.ndarray, tracker_bpm: 
     return None
 
 
+def hf_flux(y: np.ndarray, sr: int, n: int = 256, hop: int = 64) -> tuple[np.ndarray, np.ndarray]:
+    """How much the spectrum above 1 kHz rises from one 3 ms step to the next (the
+    app's audio/attacks.ts): (times of the steps' window centres, flux)."""
+    mag = np.log1p(100 * np.abs(librosa.stft(y, n_fft=n, hop_length=hop, window="hann", center=True)))
+    k0 = int(round(1000 * n / sr))
+    d = np.maximum(0, np.diff(mag[k0:n // 2], axis=1)).mean(axis=0)
+    d = np.concatenate([[0.0], d])
+    return np.arange(len(d)) * hop / sr, d
+
+
+def hit_start(t: np.ndarray, d: np.ndarray, a: float, b: float):
+    """The strongest hit in [a, b) seconds traced back to where it starts: (time, strength) or None."""
+    lo, hi = np.searchsorted(t, a), np.searchsorted(t, b)
+    if hi <= lo:
+        return None
+    best = lo + int(np.argmax(d[lo:hi]))
+    f = best
+    while f > 1 and d[f - 1] > 0.33 * d[best]:
+        f -= 1
+    around = d[max(0, np.searchsorted(t, a - 0.03)):hi]
+    if d[best] < 2 * float(np.median(around)) + 1e-4:
+        return None
+    return float(t[f]), float(d[best])
+
+
+def grid_shift(t: np.ndarray, d: np.ndarray, beats: np.ndarray, onsets: np.ndarray) -> float:
+    """How far the hits start from the beats the onset envelope gives (the app's
+    beatShift): measured on the beats when most carry a clear hit, otherwise through
+    every onset; 30 ms late when there's nothing to go on."""
+    def gaps(times, most):
+        step = max(1, len(times) // most)
+        out = []
+        for x in times[::step]:
+            h = hit_start(t, d, x - 0.12, x + 0.04)
+            if h:
+                out.append((h[0] - x, h[1]))
+        return out
+
+    def clear_median(found):
+        strong = sorted(found, key=lambda g: -g[1])[:max(8, math.ceil(len(found) / 2))]
+        return float(sorted(g for g, _ in strong)[len(strong) // 2])
+
+    bounded = lambda x: min(0.05, max(-0.12, x))
+    if len(beats) < 8:
+        return 0.0
+    on_beats = gaps(beats, 240)
+    if len(on_beats) >= 24:
+        return bounded(clear_median(on_beats))
+    lag = gaps(onsets, 400)
+    near = []
+    for b in beats:
+        if len(onsets):
+            k = int(np.argmin(np.abs(onsets - b)))
+            if abs(onsets[k] - b) < 0.035:
+                near.append(onsets[k] - b)
+    if len(lag) >= 8 and len(near) >= 8:
+        return bounded(clear_median(lag) + float(sorted(near)[len(near) // 2]))
+    if len(on_beats) >= 8:
+        return bounded(clear_median(on_beats))
+    return -0.03
+
+
 def audio_analysis(video: Path, work: Path) -> dict:
     wav = work / "audio.wav"
     subprocess.run(
@@ -176,6 +239,19 @@ def audio_analysis(video: Path, work: Path) -> dict:
     grid = steady_grid(y, sr, hop, env, float(np.atleast_1d(tempo)[0])) if len(beats) >= 8 else None
     onsets = librosa.onset.onset_detect(onset_envelope=env, sr=sr, hop_length=hop, units="time", backtrack=False)
     onset_strength = np.interp(onsets, env_t, env) if len(onsets) else np.array([])
+    # The envelope places every beat and onset some way into its hit; move them all to
+    # where the hits start, as the app does, so "on the beat" means on the attack.
+    ft, fd = hf_flux(y, sr)
+    heard = np.arange(grid[1], len(y) / sr, grid[0]) if grid else np.asarray(beats, float)
+    shift = grid_shift(ft, fd, heard, np.asarray(onsets, float))
+    beats = np.asarray(beats, float) + shift
+    if grid:
+        grid = (grid[0], grid[1] + shift)
+    starts = []
+    for o in onsets:
+        h = hit_start(ft, fd, o + shift - 0.035, o + shift + 0.035)
+        starts.append(h[0] if h else o + shift)
+    onsets = np.asarray(starts, float)
     rms = librosa.feature.rms(y=y, hop_length=hop)[0]
     # Strong hits: the top quarter of onsets by strength, a stand-in for kicks, snares and drops.
     strong = onsets[onset_strength >= np.percentile(onset_strength, 75)] if len(onsets) else np.array([])
@@ -183,6 +259,7 @@ def audio_analysis(video: Path, work: Path) -> dict:
         "tempo_bpm": float(np.atleast_1d(tempo)[0]),
         "beats": [round(float(b), 3) for b in beats],
         "grid": {"bpm": round(60 / grid[0], 3), "period_s": round(grid[0], 5), "first_beat_s": round(grid[1], 4)} if grid else None,
+        "hit_shift_ms": round(shift * 1000, 1),
         "onsets": [round(float(o), 3) for o in onsets],
         "strong_onsets": [round(float(o), 3) for o in strong],
         "_env": env, "_env_t": env_t, "_rms": rms,
@@ -285,9 +362,10 @@ def sync_stats(cuts: list[float], beats: list[float], onsets: list[float], stron
     b, o, s = np.array(beats), np.array(onsets), np.array(strong)
     frame = 1.0 / fps
     per_cut = []
+    # (A silent soundtrack has no beats or onsets: nothing is near.)
+    ms = lambda values, c: round(nearest(values, c) * 1000) if len(values) else math.inf
     for c in cuts:
-        per_cut.append({"t": c, "to_beat_ms": round(nearest(b, c) * 1000), "to_onset_ms": round(nearest(o, c) * 1000),
-                        "to_strong_ms": round(nearest(s, c) * 1000)})
+        per_cut.append({"t": c, "to_beat_ms": ms(b, c), "to_onset_ms": ms(o, c), "to_strong_ms": ms(s, c)})
         if grid:
             # Signed: below zero, the cut comes before the beat (as editors cut).
             T = grid["period_s"]
@@ -431,6 +509,7 @@ def analyze(video: Path, out_root: Path, every: float) -> dict:
     zooms = zoom_events(rows, cuts, fps)
     flashes = flash_events(rows)
     sync = sync_stats(cuts, audio["beats"], audio["onsets"], audio["strong_onsets"], fps, audio["grid"])
+    sync["hit_shift_ms"] = audio["hit_shift_ms"]
     shots = np.diff([0.0] + cuts + [duration])
     summary = {
         "file": video.name,
@@ -477,7 +556,8 @@ def main():
               f"zooms={len(s['zoom_events'])} flashes={len(s['flash_events'])}")
         g = s["sync"]["grid"]
         if g:
-            print(f"{'':44s} steady grid {g['bpm']:.2f} bpm: cuts within 1.5 frames of a beat {g['within_1_frame']:.0%}, "
+            print(f"{'':44s} steady grid {g['bpm']:.2f} bpm, on the hits ({-s['sync']['hit_shift_ms']:.0f} ms ahead of the envelope): "
+                  f"cuts within 1.5 frames of a beat {g['within_1_frame']:.0%}, "
                   f"within 3 {g['within_3_frames']:.0%}, leading it by {-(g['lead_ms'] or 0)} ms (median), "
                   f"{g['on_the_and']} on an \"and\"")
 

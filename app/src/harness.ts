@@ -278,6 +278,8 @@ async function montage(run: MontageRun) {
     await save(`${base}.plan.json`, new Blob([JSON.stringify(plan, null, 1)]));
     results.push({ file: `${base}.${res.ext}`, bytes: res.blob.size, silentBytes: res.silent?.size, codecs: `${res.videoCodec}/${res.audioCodec}`, ms: res.ms, checks: plan.checks, shots: plan.shots.map((s) => [s.start.toFixed(2), s.source, s.srcStart.toFixed(2), s.role, s.score]) });
   }
+  // (Again with what the edits found of the footage's own cuts, to plan exactly as the page did.)
+  if (run.dump) await save(`${run.out ?? "state"}-state.json`, new Blob([toJSON({ song, scans })]));
   return { timing, bpm: song?.bpm, results, found: scans.filter((sc) => sc.checked).map((sc) => ({ id: sc.id, exactCuts: sc.exactCuts, checked: sc.checked })) };
 }
 

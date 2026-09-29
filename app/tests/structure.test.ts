@@ -125,6 +125,65 @@ describe("cutting to the song's shape", () => {
   });
 });
 
+describe("a broken beat after the drop", () => {
+  // 134 bpm: eight quiet bars of garage (a kick on 1 and 3, a clap on 2 and 4, hats on
+  // the "and"), then a loud drop whose kicks, with a bass under them, land between the
+  // beats as much as on them (1, the "a" of 1, 3, the "and" of 3, the "e" of 4), a clap
+  // on the "and" of 2, and nothing at all on beats 2 and 4.
+  const SR = 22050;
+  const T = 60 / 134;
+  const y = new Float32Array(SR * 40);
+  const partials = [6300, 7100, 8200, 9400, 10300];
+  const hit = (t: number, hz: number, amp: number, decay: number, hat = false) => {
+    const s0 = Math.round(t * SR);
+    for (let i = 0; i < 4000 && s0 + i < y.length; i++) {
+      const tone = hat ? partials.reduce((a, f, k) => a + Math.sin((2 * Math.PI * f * i) / SR + k), 0) / partials.length : Math.sin((2 * Math.PI * hz * i) / SR);
+      y[s0 + i] += amp * Math.exp(-i / decay) * tone;
+    }
+  };
+  const t0 = 0.1;
+  const drop = t0 + 32 * T;
+  const kicks: number[] = [];
+  for (let k = 0; t0 + k * T < 39.5; k++) {
+    const t = t0 + k * T;
+    if (t < drop - 1e-6) {
+      if (k % 2 === 0) hit(t, 55, 0.35, 900);
+      else hit(t, 1800, 0.25, 800);
+      hit(t + T / 2, 0, 0.2, 120, true);
+    } else if (k % 4 === 0) {
+      for (const step of [0, 3, 8, 10, 13]) {
+        const at = t + (step * T) / 4;
+        hit(at, 55, 0.9, 900);
+        hit(at + 0.005, 110, 0.5, 2500);
+        kicks.push(at);
+      }
+      hit(t + (6 * T) / 4, 1800, 0.6, 800);
+      for (let q = 0; q < 8; q++) hit(t + (q * T) / 2 + T / 4, 0, 0.25, 120, true);
+    }
+  }
+  const song = analyzeSong(y, SR);
+
+  it("cuts on the kicks wherever they land, at the drop's pace, with the drop's own shot held", () => {
+    expect(song.bpm).toBeCloseTo(134, 0);
+    const start = song.beats.find((b) => b > 2.5)!;
+    const cuts = planCuts(song, start, 16, { dropAt: drop - start }).map((c) => c + start);
+    expect(cuts.some((c) => Math.abs(c - drop) < 0.03)).toBe(true);
+    const after = cuts.filter((c) => c > drop + 0.03);
+    expect(after.length).toBeGreaterThanOrEqual(5);
+    // Every cut after the drop on a kick (never on an empty beat), some of them between the beats.
+    for (const c of after) expect(Math.min(...kicks.map((k) => Math.abs(k - c)))).toBeLessThan(0.02);
+    const between = after.filter((c) => {
+      const k = (c - t0) / T;
+      return Math.abs(k - Math.round(k)) > 0.15;
+    });
+    expect(between.length).toBeGreaterThanOrEqual(2);
+    // The drop's shot holds for a beat at least; the rest go at about a beat and a bit.
+    expect(after[0] - drop).toBeGreaterThan(0.95 * T);
+    const lens = after.slice(1).map((c, i) => c - after[i]).sort((a, b) => a - b);
+    expect(lens[lens.length >> 1]).toBeLessThanOrEqual(1.55 * T);
+  });
+});
+
 describe("the picture model's judgement", () => {
   // A toy text space: three descriptions along three axes, and wow poles on a fourth.
   const axis = (k: number) => Array.from({ length: 8 }, (_, d) => (d === k ? 1 : 0));

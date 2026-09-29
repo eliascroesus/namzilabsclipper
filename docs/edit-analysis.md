@@ -77,7 +77,7 @@ No transitions and no flourish: the flip is the event. nio.trade's …8678 does 
 - **Warm, cinematic grade** on all the Nio footage.
 - **Nio posts in 4:3 landscape** (960×720), keeping the YouTube framing whole instead of cropping to 9:16.
 - **Lengths:** montages 12 to 20s, stories and reactions 25 to 34s, twists about 20s, memes 8 to 11s.
-- **Cut lead:** montage cuts sit about 45 ms (a frame and a half) ahead of the beat times the analyzer finds, consistently (mico: every one of its 17 cuts). The app places its cuts the same way.
+- **Cut lead:** montage cuts land on the start of the hit. Against an onset detector's beats they look about 45 ms (a frame and a half) early, consistently (mico: every one of its 17 cuts), but those beats sit 40 ms after the hits start; measured against where each hit starts, mico's cuts land a median 3 ms after it, 94% within a frame and a half. The app puts its beats on the hit starts and cuts 12 ms ahead of them.
 
 ## Caption styles
 

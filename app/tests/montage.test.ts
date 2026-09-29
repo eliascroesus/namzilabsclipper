@@ -308,6 +308,31 @@ describe("planners on a synthetic song (runs everywhere)", () => {
     }
   });
 
+  it("a long stretch of one car doesn't take over the edit", () => {
+    // A vlog's ten scenes of one parked car (the best flex in the footage, in scene
+    // after scene), six other flex scenes in a Reel, and a friend talking.
+    const car = lookedAt("vlog", Array.from({ length: 10 }, (_, k) => ({ len: 3, kind: "car" as Kind, flex: 0.86, wow: 0.35, look: 0, frame: 20 + k })), 40);
+    const reel = lookedAt("reel", (["jet", "yacht", "home", "view", "watch", "city"] as Kind[]).map((kind, k) => ({ len: 2.5, kind, flex: 0.72, wow: 0.45, look: k + 1 })), 41);
+    const talk = lookedAt("talk", [{ len: 10, kind: "talking", flex: 0.1, wow: 0.2, look: 9 }], 42);
+    const footage = [car, reel, talk];
+    scoreInterest(footage);
+    const avoid: Ranges = new Map();
+    for (let v = 0; v < 3; v++) {
+      const plan = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans: footage, aspect: "9x16", length: 14, card: null, caption: null, variant: v, avoid });
+      usedRanges(plan, avoid);
+      let run = 0;
+      let longest = 0;
+      for (const s of plan.shots) {
+        run = s.source === "vlog" ? run + 1 : 0;
+        longest = Math.max(longest, run);
+      }
+      // A run of the car from different angles now and then, never the car and nothing else.
+      expect(longest).toBeLessThanOrEqual(3);
+      expect(plan.shots.filter((s) => s.source === "vlog").length).toBeLessThanOrEqual(Math.ceil((2 * plan.shots.length) / 3));
+      expect(plan.shots.filter((s) => s.source === "talk")).toEqual([]);
+    }
+  });
+
   it("no jump cuts: two shots of one thing back to back change the framing", () => {
     // One car filmed in six clips: three framed the same way (the front, wide), three
     // others each framed their own way; and a Reel of four other flex scenes.

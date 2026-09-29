@@ -4,11 +4,12 @@ Research behind the clipping machine's editing rules: how people perceive cuts a
 
 ## 1. Timing: where a cut has to land
 
-- **Cut 40 to 50 ms before a drum hit (1 to 1.5 frames at 30 fps), never after it.** Viewers notice audio arriving before the picture at about 45 ms and after it at about 125 ms (ITU-R BT.1359), and judge sound and picture most "together" when the picture leads a little. The best reference montage cuts 45 ms early on all 17 of its cuts. *Research.*
+- **Cut on the start of the hit, or a hair before it (within a frame), never after it.** Viewers notice audio arriving before the picture at about 45 ms and after it at about 125 ms (ITU-R BT.1359), and judge sound and picture most "together" when the picture leads a little. Measured against where each hit starts, the best reference montage cuts a median 3 ms after it, 94% of its cuts within a frame and a half. (Measured against an onset detector's beats it looks 45 ms early: those beats sit 25 to 55 ms after the hits start, where the energy peaks, so an edit cut on them lands late.) *Research and our measurement.*
 - **Soft attacks take less lead** (a sung syllable, a pad, a swelling 808): the slower the attack, the later listeners place the beat. *Research (Danielsen 2019).*
 - **No cut and no effect without something to hear under it.** Sound at the moment of a cut is what makes it go unnoticed; when the drums drop out the grid keeps ticking but nothing hides the cut, so the shot holds. *Research (Smith & Santacreu 2017).*
 - **Sync the motion inside shots, not only the cuts.** A sudden slowdown on screen (a car arriving, a door shutting, a whip pan stopping) reads as a visual beat, and lining those up with the music makes footage look like it dances. *Research (Davis & Agrawala 2018).*
 - **Mostly predictable, rarely surprising.** 75 to 85% of cuts on the beat or a strong accent; off-beat cuts only on syncopations that stand out. Listeners enjoy surprise most inside a predictable pattern; cutting every beat feels frantic. *Research (Cheung 2019) and practice.*
+- **In a broken beat, cut on the kicks where they fall.** Garage, breaks and drill put their kicks and claps between the beats (the "a" of 1, the "and" of 3) and leave beats empty; a cut on an empty beat reads as off even when it's exactly on the grid. *Practice and our measurement (KETTAMA's Comes and Goes).*
 
 ## 2. Pacing: how long a shot runs, by section
 
@@ -18,11 +19,11 @@ Research behind the clipping machine's editing rules: how people perceive cuts a
 | Verse with vocals | 2 to 4 beats | downbeats, where sung lines start |
 | Build | halving every bar or two: 4, 2, 1, half a beat | the snare roll |
 | The gap before a drop | no cut in the silence: hold | the start of the gap |
-| Drop or chorus | a 1-beat base in an accent pattern (the reference: 1-1-2-1-3); 2-beat holds on hero shots | kick and snare |
+| Drop or chorus | a 1-beat base in an accent pattern (the reference: 1-1-2-1-3); 2-beat holds on hero shots; the drop's own shot a beat at least | kick and snare, wherever they fall |
 | Breakdown or half-time | a bar, slow motion | the half-time snare |
 | Drums out, a voice carrying it | 1 to 2 bars, no shakes or flashes | phrase starts, stressed syllables |
 
-Neighbouring shots should be close in length, changing at section boundaries (film shot lengths have become correlated with their neighbours over the decades). Shots under 6 frames only in bursts within one scene. Across about 10,000 brand TikToks, editing pace was the feature most strongly linked to likes, comments, shares and saves. *Research (Cutting 2010; arXiv 2606.16053) and practice.*
+Pace follows the drums more than the level: a quiet build with a clap on every eighth drives as hard as a loud verse, and a drop is played as the edit's peak even when it's quieter than what came before (a garage drop often is). Neighbouring shots should be close in length, changing at section boundaries (film shot lengths have become correlated with their neighbours over the decades). Shots under 6 frames only in bursts within one scene. Across about 10,000 brand TikToks, editing pace was the feature most strongly linked to likes, comments, shares and saves. *Research (Cutting 2010; arXiv 2606.16053) and practice.*
 
 ## 3. Choosing the shots
 
@@ -68,12 +69,12 @@ No tool we found combines mining a long vlog for visual moments, pacing that kno
 
 Done:
 
-- An exact beat grid on the kick and snare (not the hats), from the whole song or a 15 second clip of it; bar lines from the kick and the bass; cuts 1 to 2 frames early.
+- An exact beat grid on the kick and snare (not the hats), from the whole song or a 15 second clip of it, moved onto where the hits start (found in 3 ms steps); bar lines from the kick and the bass; cuts 12 ms ahead of the hit, so never more than 5 ms after it once rounded to a frame.
 - The song's shape, bar by bar: sections, breaks, four-bar phrases; the singing (a vocal model in the page) with where each line lands and its syllables.
-- Pacing by section as in the table: a bar in breakdowns, 2 to 4 beats in verses (at least 2 while a voice carries sparse drums), a 1-beat base in drops, builds that halve into the drop, no cuts in a break's silence, cuts where sung lines land.
-- Off-beat cuts and punch-ins only on hits that stand out from what always plays there; punch-ins on kicks only.
+- Pacing by section as in the table: a bar in breakdowns, 2 to 4 beats in verses (at least 2 while a voice carries sparse drums), a 1-beat base in drops, builds that halve into the drop, no cuts in a break's silence, cuts where sung lines land. The drums count for more than the level, and the drop sets the pace for the bars after it.
+- Off-beat cuts and punch-ins only on hits that stand out from what always plays there, and on a broken beat's kicks wherever they fall; punch-ins on kicks only.
 - Moments picked by what they show: a picture model in the page (TinyCLIP) tells supercars, jets, villas and views from desks, charts, talking heads and title cards, without a key; Gemini sharpens it when there is one.
-- Selects, the way an editor pulls them: each edit comes from the best moments of all the footage (about 1.75 for every shot it has), its hook and drop from the three best no other edit in the batch opened or dropped on, and filler (a room, people with nothing to show off, a blur) only once the flex runs out. Variety comes from what the shots show, not which file they're in: the picture model's view of every shot already in the edit makes a look-alike less welcome.
+- Selects, the way an editor pulls them: each edit comes from the best moments of all the footage (about 1.75 for every shot it has), its hook and drop from the three best no other edit in the batch opened or dropped on, and filler (a room, people with nothing to show off, a blur) only once the flex runs out. Variety comes from what the shots show, not which file they're in: the picture model's view of every shot already in the edit makes a look-alike less welcome, the selects count each moment that shows what an earlier one shows for less (a long stretch of one parked car, cut into a dozen moments, gives two or three), and a third shot of one thing in a row gives way to anything else with flex, even if it wasn't among the selects.
 - Flow between shots: no jump cuts (two shots of one subject back to back have to change the framing: the colours and where the subject sits), related shots within a section, a clear change where a new section starts, cuts into movement, darker shots before the drop and a brighter one on it.
 - No cuts but the edit's own: every frame of what an edit takes from a long video is checked for the video's own cuts, and the edit is planned around them, so a shot never flashes to another scene off the beat.
 - A build that builds even when the song drops out before the drop: two beats a shot, then one on every beat of the last bar, then one shot held through the silence and the drop on the return.
