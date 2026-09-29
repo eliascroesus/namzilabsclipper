@@ -161,7 +161,7 @@ export function SongTimeline({ s }: { s: State }) {
         aria-valuemin={0}
         aria-valuemax={Math.round(D)}
         aria-valuenow={Math.round(story ? (payoff ?? 0) : start)}
-        aria-valuetext={story ? `The burst hits at ${mmss(payoff ?? 0)}` : `From ${mmss(start)} to ${mmss(Math.round(start + len))}`}
+        aria-valuetext={story ? `The burst hits at ${mmss(payoff ?? 0)}` : `From ${mmss(Math.round(start))} to ${mmss(Math.round(start) + Math.round(len))}`}
         onPointerDown={down}
         onPointerMove={move}
         onPointerUp={up}
@@ -209,7 +209,7 @@ export function SongTimeline({ s }: { s: State }) {
           {playing ? <Pause size={14} /> : <Play size={14} />}
           {playing ? "Stop" : "Play"}
         </button>
-        <span className="num muted">{story ? `The burst hits at ${mmss(payoff ?? 0)}` : `${mmss(start)} to ${mmss(Math.round(start + len))} · ${Math.round(len)}s`}</span>
+        <span className="num muted">{story ? `The burst hits at ${mmss(payoff ?? 0)}` : `${mmss(Math.round(start))} to ${mmss(Math.round(start) + Math.round(len))} · ${Math.round(len)}s`}</span>
         {!win.auto && (
           <button type="button" className="btn ghost" onClick={() => (story ? studio.setPayoff(null) : studio.setSongStart(null))} title="Let it choose again">
             <RotateCcw size={14} /> Auto
