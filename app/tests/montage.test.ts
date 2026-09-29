@@ -226,6 +226,26 @@ describe("planners on a synthetic song (runs everywhere)", () => {
     expect(auto.note.sound).toContain("Reel's 0:00");
   });
 
+  it("runs as long as asked, up to a minute, the card coming in on a bar line", () => {
+    // A 70 s song at 120 bpm, a kick on every beat and a clap on 2 and 4.
+    const SR2 = 22050;
+    const long = new Float32Array(SR2 * 70);
+    for (let b = 0; 0.1 + b * 0.5 < 69.5; b++) {
+      const s0 = Math.round((0.1 + b * 0.5) * SR2);
+      for (let i = 0; i < 3000; i++) long[s0 + i] += 0.8 * Math.exp(-i / 900) * Math.sin((2 * Math.PI * 60 * i) / SR2) + (b % 2 ? 0.4 * Math.exp(-i / 250) * Math.sin((2 * Math.PI * 1800 * i) / SR2) : 0);
+    }
+    const tune = analyzeSong(long, SR2);
+    for (const length of [20, 45, 60]) {
+      const plan = planMontage({ song: tune, songSource: "song", songName: "long", fromStart: true, scans, aspect: "9x16", length, card, caption: null, variant: 0 });
+      // The card on the bar line nearest where it was asked for (half a bar at most), and the shots up to it.
+      expect(Math.abs(plan.card!.start - length)).toBeLessThanOrEqual(2 * tune.period + 1 / FPS);
+      expect(Math.min(...tune.downbeats.map((d) => Math.abs(d - plan.music!.songStart - plan.card!.start)))).toBeLessThanOrEqual(1.5 / FPS);
+      expect(plan.shots[plan.shots.length - 1].end).toBeCloseTo(plan.card!.start, 5);
+      expect(plan.duration).toBeCloseTo(plan.card!.start + 4, 1);
+      expect(plan.music!.fadeOut).toBeGreaterThan(0.5);
+    }
+  });
+
   it("turns the drop's flourish over through a batch", () => {
     const kinds = [0, 1, 2].map((v) => planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans, aspect: "9x16", length: 12, card, caption: null, variant: v }).fx.map((f) => f.kind));
     expect(kinds[0]).toEqual(expect.arrayContaining(["flash", "punch"]));

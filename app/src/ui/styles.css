@@ -299,6 +299,11 @@ input[type="range"] { width: 100%; accent-color: var(--brand); }
 }
 .timeline .song-strip:active .window { cursor: grabbing; }
 .timeline .window .card-part { position: absolute; top: 0; bottom: 0; right: 0; background: rgba(255, 255, 255, 0.07); border-left: 1px dashed rgba(255, 255, 255, 0.45); }
+/* the box's right edge: how long the edits run */
+.timeline .window .grip { position: absolute; top: -4px; bottom: -4px; right: -9px; width: 16px; cursor: ew-resize; touch-action: none; border-radius: 4px; }
+.timeline .window .grip::after { content: ""; position: absolute; top: 50%; left: 6px; width: 4px; height: 24px; margin-top: -12px; border-radius: 2px; background: var(--brand); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45); }
+.timeline .window .grip:hover::after, .timeline .window .grip:focus-visible::after { background: #fff; }
+.timeline .window .grip:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
 .timeline .payoff { position: absolute; top: -5px; bottom: -5px; width: 3px; margin-left: -1.5px; background: var(--brand); border-radius: 2px; box-shadow: 0 0 0 4px rgba(86, 140, 255, 0.22); }
 .timeline .head { position: absolute; top: -5px; bottom: -5px; width: 2px; margin-left: -1px; background: #fff; pointer-events: none; }
 .timeline .drop-mark { pointer-events: none; }

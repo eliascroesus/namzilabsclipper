@@ -58,6 +58,22 @@ try {
   await page.locator('section:has(.caps:text("Sound"))').screenshot({ path: `${out}/timeline.png` });
   await page.getByRole("button", { name: /Auto/ }).click();
   check((await label()) === auto, "Auto puts it back");
+  // The box's right edge: how long the edits run (the label ends in the seconds).
+  const secs = (t) => Number(/(\d+)s$/.exec(t ?? "")?.[1] ?? NaN);
+  const styleLen = () => page.locator('label[for="len"] + .num').textContent();
+  const pullEdge = async (dx) => {
+    const g = await page.locator(".timeline .window .grip").boundingBox();
+    await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(g.x + g.width / 2 + dx, g.y + g.height / 2, { steps: 6 });
+    await page.mouse.up();
+  };
+  await pullEdge(-strip.width * 0.15);
+  const shorter = await label();
+  check(secs(shorter) < secs(auto) && (await styleLen())?.trim() === `${secs(shorter)}s`, `dragging the box's right edge shortens the edits, and the Length setting follows (${auto} to ${shorter}, ${await styleLen()})`);
+  await pullEdge(strip.width * 0.15);
+  const longer = await label();
+  check(secs(longer) > secs(shorter) && longer.startsWith(auto.slice(0, 4)), `and lengthens them, from the same start (${longer})`);
   await page.getByRole("button", { name: /^Story/ }).first().click();
   check(/burst hits at/.test((await label()) ?? ""), "story clips show where the burst hits");
   await page.getByRole("button", { name: /^Montage/ }).first().click();

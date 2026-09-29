@@ -1,6 +1,6 @@
 import { Pause, Play, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { studio, type State } from "../studio";
+import { MAX_LENGTH, studio, type State } from "../studio";
 
 const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
@@ -8,7 +8,8 @@ const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).
  * The sound as a strip to pick from: its loudness, its drops (orange), where
  * sung lines start (blue dots, once it has listened for the singing), and the
  * stretch the edits will use. Drag the stretch to choose where the edits start
- * in the song (it snaps to the bar lines); for story clips, drag the marker to
+ * in the song (it snaps to the bar lines), and its right edge to choose how long
+ * they run (the card comes in on a bar line); for story clips, drag the marker to
  * the moment that should hit as the talking ends. Play plays that stretch.
  */
 export function SongTimeline({ s }: { s: State }) {
@@ -18,6 +19,8 @@ export function SongTimeline({ s }: { s: State }) {
   const strip = useRef<HTMLDivElement>(null);
   const grab = useRef(0);
   const [drag, setDrag] = useState<number | null>(null);
+  // How long the footage runs before the card while the box's right edge is dragged.
+  const [stretch, setStretch] = useState<number | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const raf = useRef(0);
   const [head, setHead] = useState<number | null>(null);
@@ -35,8 +38,9 @@ export function SongTimeline({ s }: { s: State }) {
   }, [snd.url]);
 
   if (!win) return null;
-  const len = win.end - win.start;
-  const lead = win.cardAt - win.start;
+  const hold = win.end - win.cardAt;
+  const lead = stretch ?? win.cardAt - win.start;
+  const len = lead + hold;
   const snap = (t: number) => {
     let best = t;
     let bestD = Infinity;
@@ -79,6 +83,31 @@ export function SongTimeline({ s }: { s: State }) {
       else studio.setSongStart(drag);
     }
     setDrag(null);
+  };
+  // The box's right edge: how long the edits run, the card coming in on a bar line.
+  const lengthAt = (x: number) => Math.min(MAX_LENGTH, Math.max(3, Math.min(snap(timeAt(x) - hold) - start, D - start - hold - 0.2)));
+  const grip = (e: PointerEvent<HTMLSpanElement>) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setStretch(lengthAt(e.clientX));
+  };
+  const pull = (e: PointerEvent<HTMLSpanElement>) => {
+    if (stretch !== null && e.currentTarget.hasPointerCapture(e.pointerId)) setStretch(lengthAt(e.clientX));
+  };
+  const release = () => {
+    if (stretch === null) return;
+    // (A click that didn't move it leaves the length as it was.)
+    if (Math.abs(stretch - (win.cardAt - win.start)) > 0.05) studio.setLength(stretch);
+    setStretch(null);
+  };
+  const nudge = (e: KeyboardEvent<HTMLSpanElement>) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    e.stopPropagation();
+    const card = win.cardAt;
+    const next = e.key === "ArrowRight" ? marks.find((m) => m > card + 0.05) : [...marks].reverse().find((m) => m < card - 0.05);
+    if (next !== undefined) studio.setLength(next - start);
   };
   const key = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
@@ -132,7 +161,7 @@ export function SongTimeline({ s }: { s: State }) {
         aria-valuemin={0}
         aria-valuemax={Math.round(D)}
         aria-valuenow={Math.round(story ? (payoff ?? 0) : start)}
-        aria-valuetext={story ? `The burst hits at ${mmss(payoff ?? 0)}` : `From ${mmss(start)} to ${mmss(start + len)}`}
+        aria-valuetext={story ? `The burst hits at ${mmss(payoff ?? 0)}` : `From ${mmss(start)} to ${mmss(Math.round(start + len))}`}
         onPointerDown={down}
         onPointerMove={move}
         onPointerUp={up}
@@ -155,6 +184,22 @@ export function SongTimeline({ s }: { s: State }) {
         ) : (
           <span className="window" style={{ left: `${(start / D) * 100}%`, width: `${(Math.min(len, D) / D) * 100}%` }}>
             {lead < len - 0.05 && <span className="card-part" style={{ left: `${(lead / len) * 100}%` }} title="The card" />}
+            <span
+              className="grip"
+              role="slider"
+              tabIndex={0}
+              aria-label="How long the edits run"
+              aria-valuemin={3}
+              aria-valuemax={Math.round(MAX_LENGTH + hold)}
+              aria-valuenow={Math.round(len)}
+              aria-valuetext={`${Math.round(len)} seconds`}
+              title="Drag to make the edits longer or shorter"
+              onPointerDown={grip}
+              onPointerMove={pull}
+              onPointerUp={release}
+              onPointerCancel={release}
+              onKeyDown={nudge}
+            />
           </span>
         )}
         {head !== null && <span className="head" style={{ left: `${(head / D) * 100}%` }} />}
@@ -164,7 +209,7 @@ export function SongTimeline({ s }: { s: State }) {
           {playing ? <Pause size={14} /> : <Play size={14} />}
           {playing ? "Stop" : "Play"}
         </button>
-        <span className="num muted">{story ? `The burst hits at ${mmss(payoff ?? 0)}` : `${mmss(start)} to ${mmss(start + len)}`}</span>
+        <span className="num muted">{story ? `The burst hits at ${mmss(payoff ?? 0)}` : `${mmss(start)} to ${mmss(Math.round(start + len))} · ${Math.round(len)}s`}</span>
         {!win.auto && (
           <button type="button" className="btn ghost" onClick={() => (story ? studio.setPayoff(null) : studio.setSongStart(null))} title="Let it choose again">
             <RotateCcw size={14} /> Auto
@@ -174,11 +219,13 @@ export function SongTimeline({ s }: { s: State }) {
       <span className="hint">
         {story
           ? "Drag the line to the moment that should hit as the talking ends: the burst of shots starts there."
-          : win.auto
-            ? s.sound?.fromReel
-              ? "Starts at the Reel's 0:00. Drag the box to start somewhere else in the song."
-              : "It picked the strongest stretch. Drag the box to start somewhere else."
-            : "Every edit in the batch starts here. It snaps to the bar lines."}
+          : `${
+              win.auto
+                ? s.sound?.fromReel
+                  ? "Starts at the Reel's 0:00. Drag the box to start somewhere else in the song."
+                  : "It picked the strongest stretch. Drag the box to start somewhere else."
+                : "Every edit in the batch starts here. It snaps to the bar lines."
+            } Drag its right edge to make the edits longer or shorter.`}
       </span>
     </div>
   );

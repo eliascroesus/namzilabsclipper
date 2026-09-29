@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { drawCard } from "../../engine/render/card";
 import { loadFonts } from "../../engine/render/fonts";
 import { FRAME_SIZE, type Aspect } from "../../engine/plan/types";
-import { studio, type Format, type State } from "../studio";
+import { MAX_LENGTH, studio, type Format, type State } from "../studio";
 import { Drop, fmtTime, Section, Segmented, Switch } from "./bits";
 import { SongTimeline } from "./song";
 
@@ -369,6 +369,7 @@ export function StoryPanel({ s }: { s: State }) {
 
 export function StylePanel({ s }: { s: State }) {
   const st = s.style;
+  const hold = s.kit.enabled ? s.kit.hold : 0;
   const aspects: { value: Aspect; label: string }[] = [
     { value: "9x16", label: "9:16" },
     { value: "4x3", label: "4:3" },
@@ -389,10 +390,11 @@ export function StylePanel({ s }: { s: State }) {
       </div>
       <div className="field">
         <div className="row between">
-          <label htmlFor="len">Length before the card</label>
-          <span className="num muted">{st.length}s</span>
+          <label htmlFor="len">Length</label>
+          <span className="num muted">{Math.round(st.length + hold)}s</span>
         </div>
-        <input id="len" type="range" min={6} max={30} step={1} value={st.length} onChange={(e) => studio.setStyle({ length: Number(e.target.value) })} />
+        <input id="len" type="range" min={Math.round(6 + hold)} max={Math.round(MAX_LENGTH + hold)} step={1} value={Math.round(st.length + hold)} onChange={(e) => studio.setLength(Number(e.target.value) - hold)} />
+        <span className="hint">{hold ? `The whole edit, the card's last ${hold}s included. The card comes in on a bar line.` : "The whole edit. It ends on a bar line."}</span>
       </div>
       {st.format === "meme" ? (
         <>

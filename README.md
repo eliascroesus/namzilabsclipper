@@ -15,7 +15,7 @@ A clipping machine that runs in the browser. Drop in footage and a sound, and it
 
 Every edit ends on **the demo card**: black, a laptop showing your product (or a phone, for an app), the call to action above, the address below, and the hand-drawn arrow between them, slowly pulling out, exactly as the nio.trade Reels do it. Set the lines, the screenshot and the arrow colour once; they're remembered.
 
-Each result comes as an MP4 **with the song** and a copy **without it**, plus a post note. When the sound came from a Reel, the edit starts at that Reel's 0:00, so tapping the sound in Instagram and choosing **Use audio** lines every cut up with the beat. Drag the box on the song's timeline to start somewhere else; the post note then says where to start the sound.
+Each result comes as an MP4 **with the song** and a copy **without it**, plus a post note. When the sound came from a Reel, the edit starts at that Reel's 0:00, so tapping the sound in Instagram and choosing **Use audio** lines every cut up with the beat. Drag the box on the song's timeline to start somewhere else; the post note then says where to start the sound. Drag the box's right edge to make the edits longer or shorter, from a few seconds to a minute (or set **Length** under Style). The card comes in on a bar line, and the music fades out over its last moment.
 
 ## How it picks and frames
 
@@ -36,7 +36,7 @@ Each result comes as an MP4 **with the song** and a copy **without it**, plus a 
 2. Pick a format.
 3. Drop the footage. Anything Chrome plays works: iPhone MOV and MP4, screen recordings, photos (JPEG, PNG; export HEIC photos as JPEG first).
 4. Drop the sound: a Reel that uses the trending sound, or any song. The easy way to get a Reel onto the Mac: screen-record it on your iPhone with the sound on, AirDrop the recording, drop it in. Only its sound is used. (A screen recording rarely starts where the Reel does, so post the version with the song in it rather than adding the sound in the app.)
-5. Drag the box on the song's timeline to where the edits should start (it snaps to the bar lines; **Play** plays that stretch). For Story, drag the line to the moment that should hit as the talking ends.
+5. Drag the box on the song's timeline to where the edits should start (it snaps to the bar lines; **Play** plays that stretch), and its right edge to how long they should run. For Story, drag the line to the moment that should hit as the talking ends.
 6. Optional: paste a free Gemini key from [Google AI Studio](https://aistudio.google.com/apikey) (no card) for sharper picks; Story needs one. For Story, **Find the moments**, tick the ones you want and edit their hooks.
 7. **Make edits**. Download, post, add the sound in the app if you used the version without it. Delete any edit you don't want with the × on it (it stops one that's still being made).
 

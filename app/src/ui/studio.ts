@@ -200,6 +200,8 @@ function saveStyle(style: Style) {
 }
 
 const LENGTHS: Record<Format, number> = { montage: 14, twist: 18, meme: 9, story: 30 };
+/** The longest an edit's footage runs before the card, in seconds. */
+export const MAX_LENGTH = 60;
 const CLIP_LENGTHS = { short: [12, 25], medium: [18, 40], long: [30, 60] } as const;
 const KEY_STORE = "clipper.gemini.v1";
 
@@ -515,6 +517,11 @@ class Studio {
   /** Where the edits start in the song (null: back to automatic). */
   setSongStart(start: number | null) {
     this.set((s) => ({ sound: s.sound ? { ...s.sound, start } : s.sound }));
+  }
+
+  /** How long the edits' footage runs before the card, in seconds. */
+  setLength(length: number) {
+    this.setStyle({ length: Math.round(Math.min(MAX_LENGTH, Math.max(3, length)) * 10) / 10 });
   }
 
   /** Story clips: the moment of the song that hits as the talking ends (null: its drop). */
