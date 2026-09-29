@@ -53,6 +53,8 @@ Your videos never leave the computer. Without a key nothing does: both models ru
 | [`docs/build-plan.md`](docs/build-plan.md) | How the machine works, the free stack, what's done and what's next |
 | [`docs/namzilabs-context.md`](docs/namzilabs-context.md) | Namzilabs as a product: the app, its look, the content rules |
 | [`reference-edits/`](reference-edits/) | Example Reels to learn from |
+| [`rawvidneededited/`](rawvidneededited/) | Raw videos that need editing, for a page to come |
+| [`inspirationedit/`](inspirationedit/) | Edits to take after, for a page to come |
 | [`templates/endcard/laptop.html`](templates/endcard/laptop.html) | The original HTML version of the demo card |
 | [`tools/`](tools/) | The lab bench: `analyze_edit.py` measures any edit (cuts, beats, sync, motion), `render_html.py` renders HTML motion templates |
 | [`screenshots/`](screenshots/) | Real screens of the Namzilabs app |
