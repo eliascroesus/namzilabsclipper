@@ -348,7 +348,8 @@ describe.skipIf(!existsSync(resolve(FIX, "comes.f32")))("Comes and Goes (KETTAMA
         // Every cut on a beat, or on a hit that starts between the beats: a kick (the
         // track's two-step and broken-beat bars have theirs anywhere) or an "and" half as
         // hard as the song's hardest hits or more. (A clip re-cut on the half beat inside
-        // a shot aside.)
+        // a shot aside.) Two in five at most: a two-step bar's kicks are between the
+        // beats, and a beat with nothing on it gets no cut to make up the numbers.
         let between = 0;
         for (const s of plan.shots.slice(1).filter((x) => !x.again)) {
           const t = plan.music!.songStart + s.start + CUT_LEAD;
@@ -357,7 +358,7 @@ describe.skipIf(!existsSync(resolve(FIX, "comes.f32")))("Comes and Goes (KETTAMA
           between++;
           expect(song.accents.some((a) => (a.kick >= 0.45 || a.s >= 0.45) && Math.abs(a.t - t) <= 1.5 / FPS)).toBe(true);
         }
-        expect(between).toBeLessThanOrEqual(Math.ceil(plan.shots.length / 3));
+        expect(between).toBeLessThanOrEqual(Math.ceil(0.4 * plan.shots.length));
       }
     }
   });

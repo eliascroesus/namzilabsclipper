@@ -428,23 +428,34 @@ export function headPops(host: ShotEvent, next: number, beats: number[], scans: 
 }
 
 /**
- * A burst of pictures flying in, tilted on black, right after the edit's first shot:
- * `k` of them, a sixteenth each (three or four frames), at the start of the first shot
- * long enough to keep a third of a second of its own after them. The user's photos
- * first, then the best moment of clips the edit hasn't shown near there. Returns the
- * shots with the burst in, or the shots as they were when there's no room or too few
- * pictures.
+ * A burst of pictures flying in, tilted on black, early in the edit: up to `most` of
+ * them, a sixteenth each (three or four frames), in place of a whole shot after the
+ * first, the last held to the next cut. The user's photos first, then the best moment
+ * of clips the edit hasn't shown near there (the one held, a clip when there's one).
+ * Before it, pictures on the head of whoever is in the shot (headPops), on the hits in
+ * `beats`. Returns the shots with the burst in, or the shots as they were when there's
+ * no room or too few pictures.
  */
 export function photoBurst(shots: ShotEvent[], scans: Scan[], period: number, aspect: Aspect, variant: number, most = 5, beats: number[] = []): { shots: ShotEvent[]; overlays: OverlayEvent[] } {
   shots = [...shots];
-  // On the sixteenths (three frames at the least), as many as fit.
+  // On the sixteenths (three frames at the least), as many as fit, from the hit the shot
+  // starts on, the last one held to the next cut (nio.trade's …0002: four photos from a
+  // stab, then a clip on black until the next stab; the shot they replace never comes
+  // back, as coming back would be a cut on nothing). In a slot they nearly fill if
+  // there's one, to within a frame and a half.
   const piece = Math.max(period / 4, 3 / FPS);
-  // (In a shot long enough for them, or taking a whole one, to within a frame and a half: nio.trade's …0002 fills a slot with them.)
-  const fits = (s: ShotEvent, i: number, n: number) => i > 0 && !s.again && s.role !== "drop" && s.role !== "closer" && s.start >= 0.9 && s.end - s.start >= n * piece - 1.5 / FPS && !shots[i + 1]?.again;
-  let k = most;
+  const fits = (s: ShotEvent, i: number, n: number, most: number) => i > 0 && !s.again && s.role !== "drop" && s.role !== "closer" && s.start >= 0.9 && s.end - s.start >= n * piece - 1.5 / FPS && s.end - s.start <= n * piece + most && !shots[i + 1]?.again;
+  let k = 0;
   let at = -1;
-  for (; k >= 4 && at < 0; k--) at = shots.findIndex((s, i) => fits(s, i, k));
-  k++;
+  search: for (const hold of [Math.max(0.6, 1.5 * period), Infinity]) {
+    for (let n = most; n >= 4; n--) {
+      at = shots.findIndex((s, i) => fits(s, i, n, hold));
+      if (at >= 0) {
+        k = n;
+        break search;
+      }
+    }
+  }
   if (at < 0) return { shots, overlays: [] };
   const target = shots[at];
   // Before it, the pictures on someone's head (not the ones the burst shows, while there
@@ -483,15 +494,16 @@ export function photoBurst(shots: ShotEvent[], scans: Scan[], period: number, as
   const chosen = picks.slice(0, k);
   if (chosen.length < 4) return { shots, overlays: pops };
   const n = chosen.length;
-  // The shot goes on after them with a third of a second left of it; otherwise they fill it.
-  const whole = target.end - (target.start + n * piece) < 0.3;
+  // (The one held to the next cut a clip, moving, when there's one.)
+  const held = chosen.map((c) => c.scan.kind).lastIndexOf("video");
+  if (held >= 0 && held < n - 1) chosen.push(...chosen.splice(held, 1));
   const out: ShotEvent[] = [];
   for (const [j, { scan, t }] of chosen.entries()) {
     const start = frameOf(target.start + j * piece);
     const crop = frameShot({ scan, a: t, b: t + piece, aspect });
     out.push({
       start,
-      end: whole && j === n - 1 ? target.end : frameOf(target.start + (j + 1) * piece),
+      end: j === n - 1 ? target.end : frameOf(target.start + (j + 1) * piece),
       source: scan.id,
       kind: scan.kind,
       srcStart: scan.kind === "video" ? t : 0,
@@ -500,6 +512,5 @@ export function photoBurst(shots: ShotEvent[], scans: Scan[], period: number, as
       role: target.role,
     });
   }
-  const rest: ShotEvent[] = whole ? [] : [{ ...target, start: frameOf(target.start + n * piece) }];
-  return { shots: [...shots.slice(0, at), ...out, ...rest, ...shots.slice(at + 1)], overlays: pops };
+  return { shots: [...shots.slice(0, at), ...out, ...shots.slice(at + 1)], overlays: pops };
 }

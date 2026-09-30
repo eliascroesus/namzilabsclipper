@@ -138,20 +138,24 @@ describe("edit styles", () => {
     expect(burst.length).toBeGreaterThanOrEqual(4);
     expect(burst.length).toBeLessThanOrEqual(5);
     // Right after the first shot, back to back, three or four frames each, each tilted
-    // the other way from the one before, each from another source.
+    // the other way from the one before, each from another source; the last held to the
+    // next cut, a clip (nio.trade's …0002: a clip on black until the next stab).
     expect(burst[0].start).toBeCloseTo(plan.shots[1].start, 6);
     for (const [j, s] of burst.entries()) {
       const frames = Math.round((s.end - s.start) * FPS);
       expect(frames).toBeGreaterThanOrEqual(3);
-      expect(frames).toBeLessThanOrEqual(4);
+      if (j < burst.length - 1) expect(frames).toBeLessThanOrEqual(4);
       if (j) expect(Math.sign(s.crop.tilt!)).not.toBe(Math.sign(burst[j - 1].crop.tilt!));
       expect(s.crop.inset![1]).toBeLessThan(1);
     }
+    expect(burst[burst.length - 1].kind).toBe("video");
     expect(new Set(burst.map((s) => s.source)).size).toBe(burst.length);
     expect(burst.slice(0, 2).map((s) => s.source).sort()).toEqual(["photo1", "photo2"]);
-    // The shot after it keeps a third of a second at least, and the edit runs on unbroken.
+    // In place of a whole shot: the next cut is the rhythm's own, on the music (the shot
+    // they replace doesn't come back after them), and the edit runs on unbroken.
     const k = plan.shots.indexOf(burst[burst.length - 1]);
-    expect(plan.shots[k + 1].end - plan.shots[k + 1].start).toBeGreaterThanOrEqual(0.3 - 1e-6);
+    const plain = planMontage({ ...base, scans, card, style: "beat" });
+    expect(plain.shots.some((s) => Math.abs(s.start - plan.shots[k + 1].start) < 1e-6)).toBe(true);
     for (let i = 1; i < plan.shots.length; i++) expect(plan.shots[i].start).toBeCloseTo(plan.shots[i - 1].end, 6);
   });
 

@@ -10,7 +10,7 @@ import type { Bar } from "../audio/structure";
 import { KINDS, PROFILE_BINS, type Scan } from "../media/scan";
 import { boundsOf, type Bound } from "./bounds";
 import { frameShot, kenBurns } from "./framing";
-import { rhythmCuts, type Pace, type RhythmCut, type RhythmOptions } from "./rhythm";
+import { heardAt, rhythmCuts, type Pace, type RhythmCut, type RhythmOptions } from "./rhythm";
 import { mono, monoFlips, paceOf, photoBurst, styleLabel, TALK_DROP, talkEnd, talkingIntro, talky, windows, type EditStyle, type Talker } from "./styles";
 import { FPS, FRAME_SIZE, sourceSpan, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type Crop, type EditPlan, type FxEvent, type OverlayEvent, type Ramp, type ShotEvent } from "./types";
 
@@ -1552,9 +1552,10 @@ export function planMontage(o: MontageOptions): EditPlan {
   // (After the talking, the first shot is the build's, or the drop.)
   if (intro && slots.length) slots[0].role = dropCut !== undefined && Math.abs(slots[0].start - dropCut) < 0.07 ? "drop" : "build";
   // Fast re-cuts start at once: the build's clips are re-cut on the beat too, one clip
-  // over two beats (nio.trade's Ferrari, eight times in its first two seconds).
+  // over two beats (nio.trade's Ferrari, eight times in its first two seconds), on the
+  // beats the song hits (between a run of stabs, the clip plays on).
   if (style === "recut") {
-    const beats = song.beats.map((b) => lead(b - win.songStart));
+    const beats = song.beats.filter((b) => heardAt(song, b)).map((b) => lead(b - win.songStart));
     for (const slot of slots) if (slot.role === "build" || slot.role === "hook") recuts.push(...beats.filter((t) => t > slot.start + 0.3 && t < slot.end - 0.3));
   }
   for (const slot of slots) {
@@ -1569,8 +1570,11 @@ export function planMontage(o: MontageOptions): EditPlan {
   const rest = intro ? o.scans.filter((sc) => sc.id !== intro.shots[0].source) : o.scans;
   let shots = assignShots(slots, rest.length >= 2 ? rest : o.scans, { song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, toCome: o.toCome, velocity: o.velocity, used, loop: looped });
   if (intro) shots = [...intro.shots, ...shots];
-  // The beats and half beats, as cut (for pictures landing on the music).
-  const grid = song.beats.flatMap((b, i) => [b, ...(i + 1 < song.beats.length ? [(b + song.beats[i + 1]) / 2] : [])]).map((b) => lead(b - win.songStart));
+  // The beats and half beats the song hits, as cut (for pictures landing on the music).
+  const grid = song.beats
+    .flatMap((b, i) => [b, ...(i + 1 < song.beats.length ? [(b + song.beats[i + 1]) / 2] : [])])
+    .filter((b) => heardAt(song, b))
+    .map((b) => lead(b - win.songStart));
   let overlays: OverlayEvent[] = [];
   if (style === "burst") ({ shots, overlays } = photoBurst(shots, o.scans, song.period, o.aspect, o.variant, 5, grid));
   const drop = shots.find((s) => s.role === "drop");

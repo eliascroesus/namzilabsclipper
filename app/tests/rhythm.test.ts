@@ -165,6 +165,23 @@ describe("an intro of stabs out of silence, then the groove", () => {
     }
   });
 
+  it("in every style, at every pace, no cut where the song plays nothing: re-cuts (the fast re-cuts' too) only on a hit", () => {
+    // (Heard: a hit within a frame and a half, as loud as half the hits around it.)
+    const heard = (t: number) => song.accents.some((a) => Math.abs(a.t - t) <= 0.045 + 0.5 / 30 && a.s >= 0.05 && (a.ls ?? a.s) >= 0.5);
+    for (const style of ["beat", "recut", "mono", "burst", "slow", "talk"] as const) {
+      for (const pace of ["hard", "beat", "relaxed"] as const) {
+        for (const variant of [0, 1]) {
+          const plan = planMontage({ song, songSource: "s", songName: "stabs", fromStart: true, songStart: 0, scans: scans(), aspect: "9x16", length: 12, card: null, caption: null, variant, pace, style });
+          // (A photo burst's pictures fly in on the sixteenths from a hit: a flurry, not cuts.)
+          const cuts = plan.shots.slice(1).filter((s, i) => !s.crop.tilt || !plan.shots[i].crop.tilt);
+          for (const s of cuts) expect(heard(s.start + CUT_LEAD), `${style} ${pace} v${variant}: a cut at ${s.start.toFixed(3)}`).toBe(true);
+          // And before the drop, on the stabs alone.
+          for (const s of cuts.filter((s) => s.start + CUT_LEAD < drop - 0.05)) expect(near(stabs, s.start + CUT_LEAD)).toBeLessThan(0.03);
+        }
+      }
+    }
+  });
+
   it("after the drop: on the beat, never on a hat, relaxed holding longer", () => {
     const shots = { hard: 0, beat: 0, relaxed: 0 };
     for (const pace of ["hard", "beat", "relaxed"] as const) {
@@ -229,6 +246,24 @@ describe.skipIf(!existsSync(resolve(FIX, "mico.f32")))("mico's Reel", () => {
     const drop = song.drops[0].t;
     const shape = template(hitProfile(song, Math.round(beatIndex(song, drop))), song.period / 4, 0.45, 0.3, Math.max(1.5, 2 * song.period));
     expect(shape).toEqual([0, 4, 8, 16, 20]);
+  });
+});
+
+describe.skipIf(!existsSync(resolve(FIX, "n0002.f32")))("nio.trade's …0002 sound: stabs out of silence, then the groove at 156 bpm", () => {
+  it("every style cuts the intro on its stabs alone, and nothing anywhere where the song plays nothing (a user's fast cut re-cut between the stabs)", () => {
+    const buf = readFileSync(resolve(FIX, "n0002.f32"));
+    const song = analyzeSong(new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4), SR);
+    const stabs = song.accents.filter((a) => a.s >= 0.9 && a.t < 3).map((a) => a.t);
+    expect(stabs.length).toBeGreaterThanOrEqual(5);
+    const heard = (t: number) => song.accents.some((a) => Math.abs(a.t - t) <= 0.045 + 0.5 / 30 && a.s >= 0.05 && (a.ls ?? a.s) >= 0.5);
+    for (const style of ["beat", "recut", "mono", "burst", "slow"] as const) {
+      for (const pace of ["hard", "beat"] as const) {
+        const plan = planMontage({ song, songSource: "s", songName: "n0002", fromStart: true, songStart: 0, scans: scans(), aspect: "9x16", length: 10.7, card: null, caption: null, variant: 0, pace, style });
+        const cuts = plan.shots.slice(1).filter((s, i) => !s.crop.tilt || !plan.shots[i].crop.tilt);
+        for (const s of cuts) expect(heard(s.start + CUT_LEAD), `${style} ${pace}: a cut at ${s.start.toFixed(3)}`).toBe(true);
+        for (const s of cuts.filter((s) => s.start + CUT_LEAD < 2.9)) expect(Math.min(...stabs.map((t) => Math.abs(t - s.start - CUT_LEAD)))).toBeLessThan(0.03);
+      }
+    }
   });
 });
 

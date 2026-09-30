@@ -134,6 +134,18 @@ A user's montage at 111 bpm, cut hard, came back as "all over the place": it did
 
 Measured on the rendered edit: 87% of the cuts within a frame and a half of a beat (39% before), 93% on a hit (58%), and one cut between beats, the switch sound itself (14). What it makes the rules, for every pace: a cut before the drop needs something under it (a hit among the loudest around it) or a bar line; the song coming back after it drops out is cut on the sound it comes back with, not the bar the silence ends on; and nothing is cut between the beats, a clip's re-cut included, unless the song hits there every time it comes round. The user's word for steady cutting: it "cuts to the actual beat that is the loudest".
 
+### A user's fast cut on nio.trade's …0002 sound
+
+The same user's next edit, cut fast to a 156 bpm sound: "in the beginning it doesn't even cut to the beat". It's the sound of nio.trade's …0002: six stabs out of silence in the first three seconds (0.73, 1.11, 1.50, 2.25, 2.46 and 3.02 s), then the groove.
+
+| | 0 to 3 s, the stabs | 3 to 4 s | After |
+|---|---|---|---|
+| nio.trade's editor | holds the first shot through the first two stabs (photos land on his head instead), a burst of photos from the 1.50 stab held to the next, a cut on the 2.25 stab and on 3.02 | holds | on the beat |
+| The user's edit (before) | a cut on every stab, and two re-cuts between them where the song plays nothing: 1.33 s, and 2.53 s, three frames after a stab | a cut at 3.4 s on nothing | on the beat's hits |
+| Now, hard | a cut on every stab and nothing between them: 0.73, 1.10, 1.50, 2.25, 2.43, 3.00 | holds until the groove comes in, at 3.8 | on the beat's hits |
+
+Each cut on nothing came from a different device: the fast re-cuts' build re-cut on every beat, their half-beat re-cuts (exempt from the check the others had), and the pattern after the drop repeated into a bar where the song leaves the beat out. What it makes the rule, for every style and every pace: whatever places a cut, it has a hit under it (within a frame and a half, at least half as strong as the hits around it); one that misses its hit by two frames or less moves onto it, and one on nothing goes, the shot before it playing on. And a song is cut in parts: where a new section plays another pattern for two bars or more, it gets its own template from its own hits. On the reference editors' songs this raised the planner's agreement with their cuts (F 39.8 to 40.6 steady, 43.4 to 44.5 hard; mico's song 94) and kept the hits it cuts on (80% of the strongest, cutting hard, as before).
+
 ## The styles
 
 Every edit was measured again for what shapes it besides where it cuts: the colour of every shot (black and white is under 3.5 on the Lab colour scale), the drop (the biggest jump in the low end) and the shot lengths either side of it, the first shot against the last, and every time the edit goes back to a clip within 2.5 seconds of leaving it. The latest upload had one new edit, TJR's; the other file was a third copy of nio.trade's …8678.
