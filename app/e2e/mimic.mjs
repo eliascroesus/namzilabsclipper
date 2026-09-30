@@ -1,7 +1,7 @@
 // Drives the mimic page in headless Chromium, as a user would:
 //   node e2e/mimic.mjs --ref ad.mp4 --raw raw.mp4 [--extra a.jpg ...] [--music m.mp3] [--clip]
-//                      [--placement script] [--sfx none|moves|script] [--mix]
-//                      [--stills 1,2.5,20] [--no-render] [--out DIR]
+//                      [--placement auto|reference] [--fake-gemini] [--sfx none|moves|script] [--mix]
+//                      [--stills 1,2.5,20] [--again] [--no-render] [--out DIR]
 // Serves a built copy (E2E_DIST, with the speech model at dist/models/parakeet-v3),
 // saves screenshots of the page, the template, the plan and the finished video in --out.
 import { chromium } from "playwright";
@@ -38,7 +38,8 @@ try {
   const inputs = page.locator('input[type="file"]');
   const state = () => page.evaluate(() => {
     const s = window.__mimic.get();
-    return { study: s.study, hearing: s.hearing, make: s.make, extras: s.extras.map((e) => e.status) };
+    // (A picture still being looked at counts as still being read.)
+    return { study: s.study, hearing: s.hearing, make: s.make, extras: s.extras.map((e) => (e.looking ? "reading" : e.status)) };
   });
   const until = async (pred, label) => {
     let last = "";
@@ -59,16 +60,33 @@ try {
   if (opt("--music")) await inputs.nth(3).setInputFiles(resolve(opt("--music")));
   if (args.includes("--clip")) await page.evaluate(() => window.__mimic.setOption({ clip: true }));
   await until((s) => s.study.stage === "ready" && s.hearing.stage === "ready" && s.extras.every((e) => e !== "reading"), "waiting");
+  if (args.includes("--again")) {
+    // The same files dropped again: the reference as studied and the footage as heard come back from the browser's memory.
+    const t1 = Date.now();
+    await inputs.nth(0).setInputFiles(resolve(opt("--ref")));
+    await inputs.nth(1).setInputFiles(resolve(opt("--raw")));
+    await page.waitForFunction(() => window.__mimic.get().study.stage === "ready" && window.__mimic.get().hearing.stage === "ready" && window.__mimic.get().template);
+    const r = await page.evaluate(() => ({ remembered: window.__mimic.get().remembered, words: window.__mimic.get().words.length, cards: window.__mimic.get().template.cards.length }));
+    log("again", JSON.stringify({ ms: Date.now() - t1, ...r }));
+  }
   if (args.includes("--fake-gemini")) {
-    // Gemini answered here, as it would: the hook's pictures of gurus go where the script
-    // talks about get-rich schemes; anything else stays put.
+    // Gemini answered here, as it would: the picture of an agency guru where the agencies come
+    // up, the sales dashboard on the millions; nowhere for the rest.
     await page.route("https://generativelanguage.googleapis.com/**", async (route) => {
       const req = route.request();
       if (req.method() === "GET") return route.fulfill({ json: { models: [{ name: "models/gemini-2.5-flash", supportedGenerationMethods: ["generateContent"] }] } });
-      const prompt = JSON.parse(req.postData()).contents[0].parts[0].text;
-      const hit = /\[(\d+)\] \([\d.]+ s\) Det er altid trading/.exec(prompt);
-      const places = hit ? [{ group: "card1", sentence: Number(hit[1]), why: "get-rich gurus" }] : [];
-      return route.fulfill({ json: { candidates: [{ content: { parts: [{ text: JSON.stringify({ places }) }] } }] } });
+      const parts = JSON.parse(req.postData()).contents[0].parts;
+      const script = parts[0].text;
+      const word = (re) => Number(re.exec(script)?.[1] ?? -1);
+      const extras = parts
+        .map((p) => /^\nPicture "(\w+)" \((\w+)\)(?:, named "([^"]*)")?(?:, with this text on it: "([^"]*)")?/.exec(p.text ?? ""))
+        .filter(Boolean)
+        .map(([, id, , name = "", text = ""]) =>
+          /gadzhi/i.test(name) ? { id, label: "Iman Gadzhi on stage", keywords: ["agency", "bureau", "kursus"], word: word(/(\d+):Agency/), quote: "Agency", why: "the agency guru, where your agency students come up" }
+          : /stripe/i.test(text) ? { id, label: "Stripe payments dashboard", keywords: ["omsætning", "kroner", "sales"], word: word(/(\d+):millioner/), quote: "millioner danske kroner", why: "the sales figure on it is said here" }
+          : { id, label: name || "a screen", keywords: [], word: -1, quote: "", why: "" },
+        );
+      return route.fulfill({ json: { candidates: [{ content: { parts: [{ text: JSON.stringify({ extras }) }] } }] } });
     });
     await page.evaluate(() => {
       window.__mimic.setKey("test-key");
@@ -77,10 +95,20 @@ try {
   }
   if (opt("--placement")) await page.evaluate((v) => window.__mimic.setPlacement(v), opt("--placement"));
   if (args.includes("--fake-gemini")) {
-    await page.waitForFunction(() => window.__mimic.get().placing.stage !== "working");
-    const r = await page.evaluate(() => ({ placing: window.__mimic.get().placing, ai: window.__mimic.get().aiPlaces, card1: window.__mimic.plan().cards.find((c) => c.slot === "card1")?.start, why: window.__mimic.lastPlaces.card1 }));
-    log("gemini places", JSON.stringify(r));
+    await page.waitForFunction(() => window.__mimic.get().placing.stage === "ready" || window.__mimic.get().placing.stage === "error", null, { timeout: 30000 });
+    log("gemini", JSON.stringify(await page.evaluate(() => ({ placing: window.__mimic.get().placing, ai: window.__mimic.get().aiExtras }))));
   }
+  // Where each picture went, and why.
+  const placed = await page.evaluate(() => {
+    const s = window.__mimic.get();
+    const plan = window.__mimic.plan();
+    return s.extras.map((e) => {
+      const c = plan?.cards.find((x) => x.extra === e.id) ?? plan?.broll.find((x) => x.extra === e.id);
+      return { name: e.name, label: e.label, look: e.look, tags: e.tags, text: e.text, slot: c?.slot ?? null, at: c ? Math.round(c.start * 100) / 100 : null, end: c ? Math.round(c.end * 100) / 100 : null, place: window.__mimic.extraPlaces[e.id] ?? null };
+    });
+  });
+  writeFileSync(resolve(outDir, "placed.json"), JSON.stringify(placed, null, 1));
+  for (const p of placed) log("placed", JSON.stringify({ name: p.name, label: p.label, look: p.look, slot: p.slot, at: p.at, why: p.place?.why, by: p.place?.by, said: p.place?.said?.slice(0, 80) }));
   if (opt("--sfx")) await page.evaluate((v) => window.__mimic.setSfx({ sfxMode: v }), opt("--sfx"));
   await page.waitForTimeout(1500);
   await page.screenshot({ path: resolve(outDir, "page-ready.png"), fullPage: false });

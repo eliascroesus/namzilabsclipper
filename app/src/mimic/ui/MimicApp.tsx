@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ClipboardPaste, Download, Film, Image as ImageIcon, Music, Play, Sparkles, Square, Volume2, X } from "lucide-react";
 import { Drop, fmtBytes, fmtTime, Mark, Section, Segmented, Switch } from "../../ui/components/bits";
-import { sentences, type Sentence } from "../match";
+import { aboutOf, sentences, type Sentence } from "../match";
 import { SOUNDS } from "../sfx";
 import type { CaptionLook, CardSlot, MimicPlan, MimicTemplate } from "../types";
 import { CaptionPreview } from "./CaptionPreview";
@@ -51,6 +51,14 @@ function ReferencePanel({ s }: { s: State }) {
       )}
       <Bar job={s.study} />
       <Problem job={s.study} />
+      {s.remembered.reference && s.study.stage === "ready" && (
+        <div className="paste-row">
+          <span className="hint">Studied on an earlier visit, and kept in this browser.</span>
+          <button type="button" className="btn" onClick={() => mimic.restudy()}>
+            Study it again
+          </button>
+        </div>
+      )}
     </Section>
   );
 }
@@ -88,14 +96,15 @@ function FootagePanel({ s }: { s: State }) {
         <span className="hint">
           {s.ear === "local"
             ? "A speech model for 25 European languages runs here (a 670 MB download the first time, then kept in the browser). Nothing is uploaded."
-            : "The words are also checked by Gemini with your key (the sound is sent to Google); the timing stays this computer's."}
+            : "The words are also checked by Gemini with your key (the sound is sent to Google), and it reads your pictures to place them (small copies are sent); the timing stays this computer's."}
         </span>
         {s.ear === "gemini" && <input className="input" type="password" placeholder="Gemini API key" value={s.geminiKey} onChange={(e) => mimic.setKey(e.target.value.trim())} />}
         {s.footage && s.hearing.stage !== "working" && (
-          <button type="button" className="btn" onClick={() => void mimic.hear()}>
+          <button type="button" className="btn" onClick={() => void mimic.hearAgain()}>
             Hear it again
           </button>
         )}
+        {s.remembered.footage && s.hearing.stage === "ready" && <span className="hint">Heard on an earlier visit: its words, cuts and faces were kept in this browser.</span>}
       </div>
       {s.hearing.stage === "ready" && (
         <div className="field">
@@ -115,6 +124,66 @@ function PasteNote({ s, where }: { s: State; where: "extras" | "slots" }) {
   ) : null;
 }
 
+const short = (t: string, n: number) => (t.length > n ? `${t.slice(0, n)}…` : t);
+
+const KIND_WORDS: Record<string, string> = { car: "a car", watch: "a watch", jet: "a jet", yacht: "a yacht", home: "a home", view: "a view", city: "a city", travel: "travel", money: "money", fashion: "fashion", party: "a party", food: "food", sport: "sport", work: "work", talking: "someone talking", people: "people" };
+
+/** What the page made of a picture: a screenshot or a photo, what it looks like, who's in it, what's on it, what it's about. */
+function seen(e: Item): string {
+  if (e.status === "reading") return "Opening it";
+  if (e.looking) return "Reading the words on it and what it shows…";
+  const a = aboutOf(e);
+  // Most telling first (two lines show): who, what about, what it looks like, then what's on it.
+  const bits = [e.kind === "video" ? "a clip" : e.look === "screenshot" ? "a screenshot" : "a picture"];
+  if (a.who.length) bits.push(a.who.slice(0, 2).join(", "));
+  if (a.topics.length) bits.push(`about ${a.topics.slice(0, 4).join(", ")}`);
+  const kinds = (e.tags ?? []).map((k) => KIND_WORDS[k]).filter(Boolean).slice(0, 2);
+  if (kinds.length) bits.push(`looks like ${kinds.join(" or ")}`);
+  if (e.about && e.about !== e.label) bits.push(`Gemini: "${short(e.about, 40)}"`);
+  if (e.text) bits.push(`reads "${short(e.text, 48)}"`);
+  return bits.join(" · ");
+}
+
+/** A picture's name on the page: the user's or its file's, else who or what's on it, else its file's name. */
+const titleOf = (e: Item) => e.label || e.about || aboutOf(e).who[0] || e.name;
+
+/** An extra, and what the page made of it (drawn again only when it changes: the page redraws on every tick of a job). */
+const ExtraRow = memo(function ExtraRow({ e, i }: { e: Item; i: number }) {
+  return (
+    <div className={`extra${e.status === "error" ? " error" : ""}`}>
+      <div className="pic">
+        {e.thumb ? <img src={e.thumb} alt="" /> : <span className="state">{e.status === "reading" ? "Reading" : "!"}</span>}
+        <span className="badge">{i + 1}</span>
+      </div>
+      <div className="extra-text">
+        {e.status === "error" ? (
+          <span className="error-text" title={e.name}>
+            {e.error}
+          </span>
+        ) : (
+          <>
+            <input className="input" value={e.label ?? ""} placeholder={e.status === "reading" || e.looking ? "Reading it…" : "What is it? (a name, a brand)"} title={e.name} aria-label={`What ${e.name} shows`} onChange={(ev) => mimic.setLabel(e.id, ev.target.value)} />
+            <span className="hint" title={e.text || undefined}>
+              {seen(e)}
+            </span>
+          </>
+        )}
+      </div>
+      <div className="extra-tools">
+        <button type="button" aria-label={`${e.name} earlier`} onClick={() => mimic.moveExtra(e.id, -1)}>
+          <ArrowUp size={11} />
+        </button>
+        <button type="button" aria-label={`${e.name} later`} onClick={() => mimic.moveExtra(e.id, 1)}>
+          <ArrowDown size={11} />
+        </button>
+        <button type="button" className="rm" aria-label={`Remove ${e.name}`} onClick={() => mimic.removeExtra(e.id)}>
+          <X size={12} />
+        </button>
+      </div>
+    </div>
+  );
+});
+
 function ExtrasPanel({ s }: { s: State }) {
   return (
     <Section title="3 · Extras" right={s.extras.length ? `${s.extras.length}` : undefined}>
@@ -130,25 +199,11 @@ function ExtrasPanel({ s }: { s: State }) {
         </span>
       </div>
       <PasteNote s={s} where="extras" />
-      <span className="hint">They go in the reference's cards and cutaways, in this order (or pick for each slot on the right), cropped to the same shapes.</span>
+      <span className="hint">Each is read as it comes in: its name, the words on it, what it shows. It goes where you talk about it. If its name says nothing, say what it is ("Iman Gadzhi", "Stripe sales").</span>
       {s.extras.length > 0 && (
-        <div className="thumbs">
+        <div className="extras">
           {s.extras.map((e, i) => (
-            <div key={e.id} className={`thumb${e.status === "error" ? " error" : ""}`} title={e.error ?? e.name}>
-              {e.thumb ? <img src={e.thumb} alt="" /> : <div className="state">{e.status === "reading" ? "Reading" : e.error ?? e.name}</div>}
-              <span className="badge">{i + 1}</span>
-              <button type="button" className="x" aria-label={`Remove ${e.name}`} onClick={() => mimic.removeExtra(e.id)}>
-                <X size={12} />
-              </button>
-              <span className="order">
-                <button type="button" aria-label="Earlier" onClick={() => mimic.moveExtra(e.id, -1)}>
-                  <ArrowUp size={11} />
-                </button>
-                <button type="button" aria-label="Later" onClick={() => mimic.moveExtra(e.id, 1)}>
-                  <ArrowDown size={11} />
-                </button>
-              </span>
-            </div>
+            <ExtraRow key={e.id} e={e} i={i} />
           ))}
         </div>
       )}
@@ -384,6 +439,108 @@ function Slots({ s, t, plan }: { s: State; t: MimicTemplate; plan: MimicPlan | n
   return <div className="slots">{rows.map((r) => r.node)}</div>;
 }
 
+/** Where one of the user's pictures is in the edit, why, and a place of the user's choosing. */
+function PictureRow({ s, e, plan, sents }: { s: State; e: Item; plan: MimicPlan | null; sents: Sentence[] }) {
+  const t = s.template;
+  const card = plan?.cards.find((c) => c.extra === e.id);
+  const cut = plan?.broll.find((b) => b.extra === e.id);
+  const at = card?.start ?? cut?.start;
+  const slot = card?.slot ?? cut?.slot ?? "";
+  const p = mimic.extraPlaces[e.id];
+  const moved = s.extraMoved[e.id];
+  const refSlot = () => {
+    const c = t?.cards.findIndex((x) => x.id === slot) ?? -1;
+    if (c >= 0) return `card ${c + 1}`;
+    const b = t?.broll.findIndex((x) => x.id === slot) ?? -1;
+    return b >= 0 ? `cutaway ${b + 1}` : "cards";
+  };
+  let where: string;
+  if (moved === "out") where = "left out";
+  else if (at === undefined) where = !s.words.length ? "waiting for your footage's words" : moved === "slot" ? "not in the edit: the reference has no card free for it" : !p ? "not in the edit: nothing in your script is about it, and the reference has no card free for it" : "not in the edit: there's no room at that moment";
+  else if (p && slot.startsWith("x:")) where = `at ${fmtTime(at)} · ${p.by === "you" ? "you put it here" : p.why}${p.said ? ` · "${short(p.said, 70)}"` : ""}`;
+  else where = `at ${fmtTime(at)}, in the reference's ${refSlot()}${moved === "slot" || s.assign[slot] === e.id ? "" : " (nothing in your script is about it)"}`;
+  const value = moved === undefined ? "" : typeof moved === "number" ? `s${sents.find((x) => Math.abs(x.start - moved) < 0.05)?.i ?? ""}` : moved;
+  return (
+    <div className="pic-row">
+      {e.thumb ? <img src={e.thumb} alt="" /> : <span className="glyph" />}
+      <div className="slot-text">
+        <strong title={e.name}>{titleOf(e)}</strong>
+        <span className="hint">{where}</span>
+      </div>
+      <select
+        className="select"
+        aria-label={`Where ${titleOf(e)} goes`}
+        value={value}
+        onChange={(ev) => {
+          const v = ev.target.value;
+          mimic.placeExtra(e.id, v === "" ? null : v === "slot" || v === "out" ? v : sents[Number(v.slice(1))].start);
+        }}
+      >
+        <option value="">{moved === undefined ? "Where it fits" : "Where it fits (the page's pick)"}</option>
+        <option value="slot">In the reference's cards</option>
+        <option value="out">Leave it out</option>
+        {sents.length > 0 && (
+          <optgroup label="On this sentence">
+            {sents.map((x) => (
+              <option key={x.i} value={`s${x.i}`}>
+                {fmtTime(x.start)} {short(x.text, 60)}
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </select>
+    </div>
+  );
+}
+
+/** Where the user's pictures go: each where the footage talks about it, or in the reference's cards. */
+function Pictures({ s, plan }: { s: State; plan: MimicPlan | null }) {
+  const sents = useMemo(() => sentences(s.words), [s.words]);
+  const ready = s.extras.filter((e) => e.status === "ready");
+  const ask = mimic.canAsk();
+  return (
+    <section className="card">
+      <div className="section-head">
+        <span className="caps">Your pictures</span>
+        <span className="right">{s.placement === "auto" ? "each where you talk about it" : "in the reference's cards, in your order"}</span>
+      </div>
+      <div className="field">
+        <Segmented
+          label="Where they go"
+          value={s.placement}
+          onChange={(v) => mimic.setPlacement(v)}
+          options={[
+            { value: "auto", label: "Where you talk about them" },
+            { value: "reference", label: "As in the reference" },
+          ]}
+        />
+        <span className="hint">
+          {s.placement === "reference"
+            ? "In the reference's cards and cutaways, in your order, at the same point of your talk as the reference has them (its hook to the second)."
+            : ask
+              ? "Each goes on the word where you talk about it: Gemini reads your script and looks at your pictures (small copies are sent), and the page's own reading stands in until it answers. Pictures nothing is said of fill the reference's cards."
+              : "Each goes on the word where you talk about it: its name said (however the speech model spelt it), a word or an amount on it said, or what it stands for (Iman Gadzhi: agencies and courses). Pictures nothing is said of fill the reference's cards. Choose + Gemini to have it read the meaning too."}
+        </span>
+        {s.placement === "auto" && ask && s.placing.stage !== "working" && ready.length > 0 && s.words.length > 0 && (
+          <button type="button" className="btn" onClick={() => void mimic.askGeminiExtras()}>
+            Ask Gemini again
+          </button>
+        )}
+        <Bar job={s.placing} />
+        <Problem job={s.placing} />
+      </div>
+      {s.placement === "auto" && ready.length > 0 && (
+        <div className="slots">
+          {ready.map((e) => (
+            <PictureRow key={e.id} s={s} e={e} plan={plan} sents={sents} />
+          ))}
+        </div>
+      )}
+      {!ready.length && <p className="hint">Drop or paste pictures and clips under Extras.</p>}
+    </section>
+  );
+}
+
 function LookControls({ s }: { s: State }) {
   const l = s.look;
   const set = (p: Partial<CaptionLook>) => mimic.setLook(p);
@@ -494,7 +651,7 @@ function Outputs({ s }: { s: State }) {
       </div>
       {!s.reference && (
         <div className="intro">
-          <p>Drop an ad or video you want yours to look like, then your raw footage. The page studies the reference on this computer: where its captions sit and how big, how they come on word by word, the cards that slide over the talk, the cutaways, the zooms, the sound under it and how it ends. Then it edits your footage the same way, with captions from your own words and your pictures in its cards.</p>
+          <p>Drop an ad or video you want yours to look like, then your raw footage. The page studies the reference on this computer: where its captions sit and how big, how they come on word by word, the cards that slide over the talk, the cutaways, the zooms, the sound under it and how it ends. Then it edits your footage the same way, with captions from your own words and your pictures where you talk about them.</p>
         </div>
       )}
       {s.result && (
@@ -535,37 +692,13 @@ function Outputs({ s }: { s: State }) {
               </div>
             </div>
           </section>
+          <Pictures s={s} plan={plan} />
           <section className="card">
             <div className="section-head">
-              <span className="caps">Cards and cutaways</span>
+              <span className="caps">The reference's cards and cutaways</span>
               <span className="right">copy a picture and paste it straight into one</span>
             </div>
-            <div className="field">
-              <span className="label">Where they go</span>
-              <Segmented
-                label="Where they go"
-                value={s.placement}
-                onChange={(v) => mimic.setPlacement(v)}
-                options={[
-                  { value: "reference", label: "As in the reference" },
-                  { value: "script", label: "Where your script says it" },
-                ]}
-              />
-              <span className="hint">
-                {s.placement === "reference"
-                  ? "At the same point of your talk as the reference has them (its hook to the second)."
-                  : mimic.canAsk()
-                    ? "Where you talk about what they show: Gemini reads your script and sees your pictures."
-                    : "Where your words and topics match what the reference was saying over them. Choose + Gemini above for it to read the meaning, or move any of them to a sentence yourself."}
-              </span>
-              {s.placement === "script" && mimic.canAsk() && s.placing.stage !== "working" && (
-                <button type="button" className="btn" onClick={() => void mimic.askGeminiPlaces()}>
-                  Ask Gemini again
-                </button>
-              )}
-              <Bar job={s.placing} />
-              <Problem job={s.placing} />
-            </div>
+            {s.placement === "auto" && <p className="hint">They take the pictures your script doesn't talk about, and any you put in one yourself.</p>}
             <PasteNote s={s} where="slots" />
             <Slots s={s} t={t} plan={plan} />
           </section>
@@ -613,7 +746,7 @@ export function MimicApp() {
         </div>
         <div className="topnote">
           <span className="dot" />
-          <span className="long">{s.ear === "gemini" && s.geminiKey ? "Runs on this computer. Only the sound goes to Gemini." : "Runs on this computer. Nothing is uploaded."}</span>
+          <span className="long">{s.ear === "gemini" && s.geminiKey ? "Runs on this computer. Only the sound, the words and small copies of your pictures go to Gemini." : "Runs on this computer. Nothing is uploaded."}</span>
         </div>
       </header>
       <main className="main">

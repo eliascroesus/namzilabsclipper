@@ -38,6 +38,8 @@ export interface PlanInput {
    * belongs at: where its script says what it shows, or where the user put it
    */
   anchor?: Record<string, number>;
+  /** the user's pictures placed where their footage talks about them: extra id → the moment (source time) */
+  placed?: Record<string, number>;
   sfx?: SfxOptions;
   /** cut the footage's pauses down to the reference's */
   clip: boolean;
@@ -68,6 +70,21 @@ export interface SfxOptions {
 }
 
 const panFrom = (e: Edge | undefined) => (e === "right" ? 0.7 : e === "left" ? -0.7 : 0);
+
+type CardLook = Pick<CardSlot, "rect" | "radius" | "enter" | "exit">;
+
+/** The reference's card looks: its photo card, its screenshot card, its clip card (a run's way in and out), and its cutaway. */
+export function cardLooks(tpl: MimicTemplate): { photo: CardLook; screenshot: CardLook; video: CardLook; cut: MimicTemplate["broll"][number] | null } {
+  const look = (pick: (c: CardSlot) => boolean): CardLook | null => {
+    const c = tpl.cards.find(pick);
+    if (!c) return null;
+    const run = tpl.cards.filter((x) => x.run === c.run);
+    return { rect: c.rect, radius: c.radius, enter: run[0].enter, exit: run[run.length - 1].exit };
+  };
+  const plain: CardLook = { rect: [0.1, 0.2, 0.8, 0.5], radius: 0.03, enter: { kind: "slide", from: "right", dur: 0.25, ease: "out" }, exit: { kind: "slide", from: "left", dur: 0.35, ease: "in" } };
+  const photo = look((c) => c.content === "photo") ?? look(() => true) ?? plain;
+  return { photo, screenshot: look((c) => c.content === "screenshot") ?? photo, video: look((c) => c.content === "video") ?? photo, cut: tpl.broll[0] ?? null };
+}
 
 /** A clock that maps source time to edit time through the kept segments. */
 export function segmentClock(segs: Segment[]) {
@@ -177,31 +194,14 @@ export function planMimic(inp: PlanInput): MimicPlan {
     return snap(outTalk.time(refTalk.at(refT)), words, pageStarts);
   };
 
-  // 3. Cards and cutaways, with the user's pictures in them.
+  // 3. Cards and cutaways, with the user's pictures in them. First the pictures placed where
+  // the footage talks about them, then the rest in the reference's own cards and cutaways
+  // (those with room left).
   const extras = new Map(inp.extras.map((e) => [e.id, e]));
-  const used = new Set<string>();
+  const placedAt = inp.placed ?? {};
   const assigned = inp.assign ?? {};
-  for (const v of Object.values(assigned)) if (v) used.add(v);
   type Slot = { kind: "card"; slot: CardSlot } | { kind: "broll"; slot: MimicTemplate["broll"][number] };
   const slots: Slot[] = [...tpl.cards.map((slot) => ({ kind: "card" as const, slot })), ...tpl.broll.map((slot) => ({ kind: "broll" as const, slot }))].sort((a, b) => a.slot.start - b.slot.start);
-  // Clips go to cutaways and clip cards, pictures to cards, in order; only then does a slot
-  // left empty take whatever is left (so an early card doesn't take a later cutaway's clip).
-  const fill = new Map<Slot, Extra | null>();
-  const take = (want: (e: Extra) => boolean) => {
-    const e = inp.extras.find((x) => !used.has(x.id) && want(x)) ?? null;
-    if (e) used.add(e.id);
-    return e;
-  };
-  for (const s of slots) {
-    const id = s.slot.id;
-    if (id in assigned) fill.set(s, assigned[id] ? (extras.get(assigned[id]!) ?? null) : null);
-    else {
-      const wantVideo = s.kind === "broll" || s.slot.content === "video";
-      const e = take((x) => (x.kind === "video") === wantVideo);
-      if (e) fill.set(s, e);
-    }
-  }
-  for (const s of slots) if (!fill.has(s)) fill.set(s, take(() => true));
   // A moment of the footage on the edit's clock (the next moment kept, if that one was cut),
   // on the start of the word said there.
   const toOutNear = (t: number) => {
@@ -211,55 +211,156 @@ export function planMimic(inp: PlanInput): MimicPlan {
     return next ? next.start : body;
   };
   const anchored = (id: string) => (inp.anchor && id in inp.anchor ? snap(toOutNear(inp.anchor[id]), words, pageStarts, 0.6) : undefined);
-  let cards: PlanCard[] = [];
-  let broll: PlanBroll[] = [];
-  // A run of cards moves together: its first card is placed, the rest keep their gaps.
-  const runStart = new Map<number, number>();
+  // Cards that move together: a run of the reference's (its first card is placed, the rest
+  // keep their gaps), or pictures said one after another.
   const runOf = new Map<string, number>();
-  for (const s of slots) {
-    const e = fill.get(s);
-    if (!e) continue;
-    if (s.kind === "card") {
-      const c = s.slot;
-      const first = tpl.cards.find((x) => x.run === c.run)!;
-      if (!runStart.has(c.run)) runStart.set(c.run, inp.at?.[first.id] ?? anchored(first.id) ?? place(first.start));
-      const start = inp.at?.[c.id] ?? runStart.get(c.run)! + (c.start - first.start);
-      const end = start + (c.end - c.start);
-      if (start >= body - 0.3) continue;
-      runOf.set(c.id, c.run);
-      cards.push({ slot: c.id, start, end: Math.min(end, body), rect: c.rect, enter: c.enter, exit: c.exit, radius: c.radius, extra: e.id, crop: coverCrop(e, c.rect, W, H), from: 0 });
-    } else {
-      const b = s.slot;
-      const start = inp.at?.[b.id] ?? anchored(b.id) ?? place(b.start);
-      let end = start + (b.end - b.start);
-      if (e.kind === "video" && e.duration > 0) end = Math.min(end, start + e.duration);
-      if (start >= body - 0.3) continue;
-      broll.push({ slot: b.id, start, end: Math.min(end, body), extra: e.id, from: 0, zoom: [b.zoom[0], Math.max(0.8, Math.min(1.6, b.zoom[1]))], crop: { cx: e.focus?.x ?? 0.5, cy: e.focus?.y ?? 0.5 } });
+
+  // The pictures placed by the footage's words: each on its word in the reference's look for
+  // its kind, for as long as its sentence goes on (1.3 to 3 s); pictures said close together
+  // follow each other as a run (the first sliding in, the rest cutting in, the last out).
+  const looks = cardLooks(tpl);
+  const sayingEnd = (t: number) => {
+    let k = words.findIndex((w) => w.end > t);
+    if (k < 0) return t + 1.5;
+    while (k + 1 < words.length && !/[.!?…]["”')\]]*$/.test(words[k].text) && words[k + 1].start - words[k].end < 0.6) k++;
+    return words[k].end;
+  };
+  const items = inp.extras
+    .filter((e) => e.id in placedAt)
+    .map((e) => ({ e, t: snap(toOutNear(placedAt[e.id]), words, new Set(), 0.3) }))
+    .filter((x) => x.t < body - 0.6)
+    .sort((a, b) => a.t - b.t);
+  const xCards: PlanCard[] = [];
+  const xBroll: PlanBroll[] = [];
+  const fixed: { start: number; end: number }[] = [];
+  let runNo = 10000;
+  for (let j = 0; j < items.length; j++) {
+    const { e, t } = items[j];
+    const cut = e.kind === "video" && looks.cut;
+    if (cut) {
+      const end = Math.min(body, t + Math.min(e.duration > 0 ? e.duration : 4, Math.min(4, Math.max(1.5, sayingEnd(t) - t + 0.3))));
+      xBroll.push({ slot: `x:${e.id}`, start: t, end, extra: e.id, from: 0, zoom: [looks.cut!.zoom[0], Math.max(0.8, Math.min(1.6, looks.cut!.zoom[1]))], crop: { cx: e.focus?.x ?? 0.5, cy: e.focus?.y ?? 0.5 } });
+      fixed.push({ start: t, end });
+      continue;
     }
+    // A run: this picture and the next ones said before it would go.
+    const run = [items[j]];
+    while (j + 1 < items.length && !(items[j + 1].e.kind === "video" && looks.cut) && items[j + 1].t < run[run.length - 1].t + Math.min(3, Math.max(1.3, sayingEnd(run[run.length - 1].t) - run[run.length - 1].t + 0.15)) + 0.2) run.push(items[++j]);
+    const look = e.look === "screenshot" ? looks.screenshot : e.kind === "video" ? looks.video : looks.photo;
+    runNo++;
+    let at = run[0].t;
+    run.forEach((x, k) => {
+      const start = Math.max(at, x.t);
+      const next = run[k + 1];
+      const end = Math.min(body, next ? Math.max(start + 0.45, next.t) : start + Math.min(3, Math.max(1.3, sayingEnd(start) - start + 0.15)));
+      at = end;
+      const slot = `x:${x.e.id}`;
+      runOf.set(slot, runNo);
+      xCards.push({
+        slot,
+        start,
+        end,
+        rect: look.rect,
+        radius: look.radius,
+        enter: k === 0 ? look.enter : { kind: "cut", dur: 0, ease: "linear" },
+        exit: k === run.length - 1 ? look.exit : { kind: "cut", dur: 0, ease: "linear" },
+        extra: x.e.id,
+        crop: coverCrop(x.e, look.rect, W, H),
+        from: 0,
+      });
+    });
+    fixed.push({ start: run[0].t, end: at });
   }
-  // Nothing lands on top of anything else: where two come together (a run the script moved
-  // onto another), the later one waits for the earlier to go.
-  type Block = { start: number; end: number; cards: PlanCard[]; cut: PlanBroll | null };
-  const blocks: Block[] = [];
-  for (const run of new Set(cards.map((c) => runOf.get(c.slot)))) {
-    const cs = cards.filter((c) => runOf.get(c.slot) === run);
-    blocks.push({ start: Math.min(...cs.map((c) => c.start)), end: Math.max(...cs.map((c) => c.end)), cards: cs, cut: null });
-  }
-  for (const b of broll) blocks.push({ start: b.start, end: b.end, cards: [], cut: b });
-  blocks.sort((a, b) => a.start - b.start);
-  let free = 0;
-  for (const b of blocks) {
-    const shift = Math.max(0, free + 0.15 - b.start);
-    if (shift > 0) {
-      b.start += shift;
-      b.end += shift;
-      for (const c of b.cards) (c.start += shift), (c.end = Math.min(body, c.end + shift));
-      if (b.cut) (b.cut.start += shift), (b.cut.end = Math.min(body, b.cut.end + shift));
+  // A card run that runs into a cutaway stops where the cutaway starts.
+  for (const b of xBroll) for (const c of xCards.filter((x) => x.start < b.start && x.end > b.start)) c.end = Math.max(c.start + 0.45, b.start);
+
+  // The reference's cards and cutaways, each with its picture, at its moment.
+  const layout = (fill: Map<Slot, Extra | null>) => {
+    const cards: PlanCard[] = [];
+    const broll: PlanBroll[] = [];
+    const runStart = new Map<number, number>();
+    for (const s of slots) {
+      const e = fill.get(s);
+      if (!e) continue;
+      if (s.kind === "card") {
+        const c = s.slot;
+        const first = tpl.cards.find((x) => x.run === c.run)!;
+        if (!runStart.has(c.run)) runStart.set(c.run, inp.at?.[first.id] ?? anchored(first.id) ?? place(first.start));
+        const start = inp.at?.[c.id] ?? runStart.get(c.run)! + (c.start - first.start);
+        const end = start + (c.end - c.start);
+        if (start >= body - 0.3) continue;
+        runOf.set(c.id, c.run);
+        cards.push({ slot: c.id, start, end: Math.min(end, body), rect: c.rect, enter: c.enter, exit: c.exit, radius: c.radius, extra: e.id, crop: coverCrop(e, c.rect, W, H), from: 0 });
+      } else {
+        const b = s.slot;
+        const start = inp.at?.[b.id] ?? anchored(b.id) ?? place(b.start);
+        let end = start + (b.end - b.start);
+        if (e.kind === "video" && e.duration > 0) end = Math.min(end, start + e.duration);
+        if (start >= body - 0.3) continue;
+        broll.push({ slot: b.id, start, end: Math.min(end, body), extra: e.id, from: 0, zoom: [b.zoom[0], Math.max(0.8, Math.min(1.6, b.zoom[1]))], crop: { cx: e.focus?.x ?? 0.5, cy: e.focus?.y ?? 0.5 } });
+      }
     }
-    if (b.start < body - 0.3) free = b.end;
+    return { cards, broll };
+  };
+  // Nothing lands on top of anything else: the pictures placed by the words stay on them;
+  // the reference's cards and cutaways wait for anything before them to go (a run the script
+  // moved onto another), and one that would wait more than two seconds is left out. The
+  // slots left out, by id.
+  const settle = (cards: PlanCard[], broll: PlanBroll[]): Set<string> => {
+    type Block = { start: number; end: number; cards: PlanCard[]; cut: PlanBroll | null };
+    const blocks: Block[] = [];
+    for (const run of new Set(cards.map((c) => runOf.get(c.slot)))) {
+      const cs = cards.filter((c) => runOf.get(c.slot) === run);
+      blocks.push({ start: Math.min(...cs.map((c) => c.start)), end: Math.max(...cs.map((c) => c.end)), cards: cs, cut: null });
+    }
+    for (const b of broll) blocks.push({ start: b.start, end: b.end, cards: [], cut: b });
+    blocks.sort((a, b) => a.start - b.start);
+    const busy = [...fixed];
+    const gone = new Set<string>();
+    for (const b of blocks) {
+      const from = b.start;
+      for (let guard = 0; guard < 20; guard++) {
+        const hit = busy.find((x) => x.start < b.end + 0.15 && x.end + 0.15 > b.start);
+        if (!hit) break;
+        const shift = hit.end + 0.15 - b.start;
+        b.start += shift;
+        b.end += shift;
+        for (const c of b.cards) (c.start += shift), (c.end += shift);
+        if (b.cut) (b.cut.start += shift), (b.cut.end += shift);
+      }
+      if ((fixed.length && b.start - from > 2) || b.start >= body - 0.3) for (const id of [...b.cards.map((c) => c.slot), ...(b.cut ? [b.cut.slot] : [])]) gone.add(id);
+      else busy.push({ start: b.start, end: b.end });
+    }
+    return gone;
+  };
+  // Which of them have room around the pictures placed by the words (all of them in, before
+  // any is filled), so the rest of the user's pictures go only where they'll be seen.
+  const blank: Extra = { id: "", name: "", kind: "image", width: 1, height: 1, duration: 0 };
+  const trial = layout(new Map(slots.filter((s) => assigned[s.slot.id] !== null).map((s) => [s, blank])));
+  const noRoom = fixed.length ? settle(trial.cards, trial.broll) : new Set<string>();
+  // Clips go to cutaways and clip cards, pictures to cards, in order; only then does a slot
+  // left empty take whatever is left (so an early card doesn't take a later cutaway's clip).
+  const rest = inp.extras.filter((e) => !(e.id in placedAt));
+  const used = new Set<string>();
+  for (const v of Object.values(assigned)) if (v) used.add(v);
+  const take = (want: (e: Extra) => boolean) => {
+    const e = rest.find((x) => !used.has(x.id) && want(x)) ?? null;
+    if (e) used.add(e.id);
+    return e;
+  };
+  const fill = new Map<Slot, Extra | null>();
+  for (const s of slots) if (s.slot.id in assigned) fill.set(s, assigned[s.slot.id] ? (extras.get(assigned[s.slot.id]!) ?? null) : null);
+  const open = slots.filter((s) => !fill.has(s) && !noRoom.has(s.slot.id));
+  for (const s of open) {
+    const wantVideo = s.kind === "broll" || s.slot.content === "video";
+    const e = take((x) => (x.kind === "video") === wantVideo);
+    if (e) fill.set(s, e);
   }
-  cards = cards.filter((c) => c.start < body - 0.3 && c.end > c.start);
-  broll = broll.filter((b) => b.start < body - 0.3 && b.end > b.start);
+  for (const s of open) if (!fill.has(s)) fill.set(s, take(() => true));
+  const ref = layout(fill);
+  const gone = settle(ref.cards, ref.broll);
+  const cards = [...xCards, ...ref.cards.filter((c) => !gone.has(c.slot))].map((c) => ({ ...c, end: Math.min(body, c.end) })).filter((c) => c.start < body - 0.3 && c.end > c.start);
+  const broll = [...xBroll, ...ref.broll.filter((b) => !gone.has(b.slot))].map((b) => ({ ...b, end: Math.min(body, b.end) })).filter((b) => b.start < body - 0.3 && b.end > b.start);
 
   // 4. Zoom: the reference's steps between wide and close, at the same points of the talk,
   // and a jump at every cut in the footage (to hide it).

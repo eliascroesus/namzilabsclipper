@@ -17,13 +17,15 @@ import { retime } from "../asr/align";
 import { listen, releaseSpeechModel, type Word } from "../asr/client";
 import { geminiWords } from "../asr/gemini";
 import { DEFAULT_LOOK } from "../captions";
-import { geminiPlaces, geminiSounds, type AiSlot } from "../ai";
-import { fold, placeByWords, refSaid, sentences, soundsByWords, type Slot } from "../match";
+import { geminiExtras, geminiSounds } from "../ai";
+import { understand } from "../extras";
+import { fold, placeByContent, sentences, soundsByWords, type Place } from "../match";
 import { planMimic, type PlanInput } from "../plan";
 import { mimicStills, mixMimic, renderMimic, type MixExtras } from "../render";
 import { finish, isMadeSound, makeSfx, SOUNDS } from "../sfx";
 import type { CaptionLook, Extra, MimicPlan, MimicTemplate, VolumeLine } from "../types";
 import { MIX_RATE } from "../../engine/render/mix";
+import { recall, remember } from "../../ui/kit";
 import { fetchPicture, fingerprint, PASTE_KEY, PasteError, readClipboard, type Pasted } from "./paste";
 
 export type Stage = "idle" | "working" | "ready" | "error";
@@ -39,6 +41,17 @@ export interface Item {
   status: "reading" | "ready" | "error";
   error?: string;
   focus?: { x: number; y: number };
+  /** what it is (an extra): a name, the user's words, or Gemini's; the words on it; what it looks like; Gemini's keywords */
+  label?: string;
+  labelByUser?: boolean;
+  text?: string;
+  tags?: string[];
+  /** Gemini's words for what it shows, and what it would be talked about as */
+  about?: string;
+  keywords?: string[];
+  look?: "screenshot" | "photo" | "clip";
+  /** still being looked at (its text read, what it shows) */
+  looking?: boolean;
 }
 
 export interface Job {
@@ -74,11 +87,15 @@ export interface State {
   pasted: { text: string; bad: boolean; where: "extras" | "slots" } | null;
   /** a card or cutaway waiting for the next paste (when the clipboard can't be read on a click) */
   pasteSlot: string | null;
-  /** where the cards and cutaways go: as in the reference, or where the footage's script says what they show */
-  placement: "reference" | "script";
-  /** Gemini's reading of where each belongs (source times), when asked */
-  aiPlaces: Record<string, { t: number; said: string }>;
+  /** where the pictures go: where the footage talks about them (each on its word), or in the reference's cards as it has them */
+  placement: "auto" | "reference";
+  /** Gemini's reading of each picture: the moment it belongs at (source time; null: nowhere), and why */
+  aiExtras: Record<string, { t: number | null; why: string }>;
+  /** the user's own choice for a picture: a moment of the footage (source time), the reference's cards, or not at all */
+  extraMoved: Record<string, number | "slot" | "out">;
   placing: Job;
+  /** the reference was studied, or the footage heard, on an earlier visit (and taken from this browser) */
+  remembered: { reference: boolean; footage: boolean };
   /** where the user put a card or cutaway themselves (source times), by slot (a run's first card) */
   moved: Record<string, number>;
   /** sound effects: none, on the moves, or on the moves and moments of the script */
@@ -106,6 +123,22 @@ export interface State {
 }
 
 const KEY_STORE = "clipper.gemini.v1";
+
+/**
+ * What's remembered in this browser between visits, by file (its name, size and date): the
+ * reference as studied, and the footage as heard (its words, where the voice is, its cuts, the
+ * speaker's face take by take). Bump a version when what makes it changes.
+ */
+const STUDY_VERSION = 1;
+const HEAR_VERSION = 1;
+const fileKey = (f: File) => `${f.name}:${f.size}:${f.lastModified}`;
+interface Heard {
+  words: Word[];
+  speech: Run[];
+  cuts: number[];
+  face: { x: number; y: number; h: number } | null;
+  shots: { start: number; end: number; face: { x: number; y: number; h: number } | null }[];
+}
 const loadKey = () => {
   try {
     return localStorage.getItem(KEY_STORE) ?? "";
@@ -141,6 +174,14 @@ class Mimic {
   private player: AudioBufferSourceNode | null = null;
   /** where the script reading put each slot last time the edit was planned */
   lastPlaces: Record<string, { t: number; said: string; by: "words" | "gemini" | "you" }> = {};
+  /** where each picture went last time the edit was planned (placed by the footage's words), and why */
+  extraPlaces: Record<string, { t: number; said: string; why: string; by: "words" | "gemini" | "you" }> = {};
+  private looking: Promise<void> = Promise.resolve();
+  private content: { key: string; places: Record<string, Place> } | null = null;
+  private aiSig = "";
+  private aiTimer: ReturnType<typeof setTimeout> | undefined;
+  private refFile: File | null = null;
+  private footFile: File | null = null;
 
   constructor() {
     const key = loadKey();
@@ -166,9 +207,11 @@ class Mimic {
       stills: [],
       pasted: null,
       pasteSlot: null,
-      placement: "reference",
-      aiPlaces: {},
+      placement: "auto",
+      aiExtras: {},
+      extraMoved: {},
       placing: idle,
+      remembered: { reference: false, footage: false },
       moved: {},
       sfxMode: "moves",
       sfxMove: "whoosh",
@@ -217,22 +260,37 @@ class Mimic {
 
   // The reference.
 
-  async setReference(file: File) {
+  /** The reference: studied, or as studied before in this browser (unless `fresh`). */
+  async setReference(file: File, fresh = false) {
     this.studyAbort?.abort();
     const ctl = (this.studyAbort = new AbortController());
-    this.set({ reference: { id: "", name: file.name, kind: "video", duration: 0, width: 0, height: 0, status: "reading" }, template: null, study: { stage: "working", progress: 0, label: "Opening" }, result: null, moved: {}, aiPlaces: {}, cueEdits: {} });
+    this.refFile = file;
+    this.set((s) => ({ reference: { id: "", name: file.name, kind: "video", duration: 0, width: 0, height: 0, status: "reading" }, template: null, study: { stage: "working", progress: 0, label: "Opening" }, result: null, moved: {}, cueEdits: {}, remembered: { ...s.remembered, reference: false } }));
     try {
       const { src, item } = await this.open(file);
       if (item.kind !== "video") throw new Error(`${file.name} isn't a video. Drop the ad or video to copy.`);
       this.set({ reference: item });
+      const key = `mimic-study:${STUDY_VERSION}:${fileKey(file)}`;
+      const kept = fresh ? null : await recall<MimicTemplate>(key);
+      if (ctl.signal.aborted) return;
+      if (kept?.version === 1) {
+        this.set((s) => ({ template: kept, look: kept.captions ?? DEFAULT_LOOK, study: { stage: "ready", progress: 1, label: "" }, assign: {}, remembered: { ...s.remembered, reference: true } }));
+        return;
+      }
       const reader = await TextReader.get();
       const template = await analyzeReference(frameSource(src), { reader, faces: facesIn }, (p, label) => this.set({ study: { stage: "working", progress: p, label } }), ctl.signal);
       if (ctl.signal.aborted) return;
       this.set({ template, look: template.captions ?? DEFAULT_LOOK, study: { stage: "ready", progress: 1, label: "" }, assign: {} });
+      void remember(key, template);
     } catch (e) {
       if (ctl.signal.aborted) return;
       this.set({ study: { stage: "error", progress: 0, label: "", error: e instanceof Error ? e.message : String(e) } });
     }
+  }
+
+  /** Study the reference again (not as remembered). */
+  restudy() {
+    if (this.refFile) void this.setReference(this.refFile, true);
   }
 
   setLook(patch: Partial<CaptionLook>) {
@@ -241,14 +299,41 @@ class Mimic {
 
   // The footage.
 
+  private hearKey(file: File) {
+    return `mimic-hear:${HEAR_VERSION}:${this.state.ear === "gemini" && this.state.geminiKey ? "gemini" : "local"}:${fileKey(file)}`;
+  }
+
+  /** Keep the footage as heard, for the next visit. */
+  private rememberFootage() {
+    const f = this.footFile;
+    if (!f || !this.state.heard.length) return;
+    const h: Heard = { words: this.state.heard, speech: this.speech, cuts: this.rawCuts, face: this.face, shots: this.shots };
+    void remember(this.hearKey(f), h);
+  }
+
   async setFootage(file: File) {
     this.hearAbort?.abort();
     const ctl = (this.hearAbort = new AbortController());
-    this.set({ footage: { id: "", name: file.name, kind: "video", duration: 0, width: 0, height: 0, status: "reading" }, heard: [], words: [], text: "", hearing: { stage: "working", progress: 0, label: "Opening" }, result: null, moved: {}, aiPlaces: {}, aiCues: null, myCues: [] });
+    this.footFile = file;
+    // New words: Gemini is asked about the pictures again.
+    this.aiSig = "";
+    this.set((s) => ({ footage: { id: "", name: file.name, kind: "video", duration: 0, width: 0, height: 0, status: "reading" }, heard: [], words: [], text: "", hearing: { stage: "working", progress: 0, label: "Opening" }, result: null, moved: {}, aiExtras: {}, extraMoved: {}, aiCues: null, myCues: [], remembered: { ...s.remembered, footage: false } }));
     try {
       const { src, item } = await this.open(file);
       if (item.kind !== "video") throw new Error(`${file.name} isn't a video.`);
       this.set({ footage: item });
+      // Heard before in this browser: its words, cuts and faces as they were.
+      const kept = await recall<Heard>(this.hearKey(file));
+      if (ctl.signal.aborted) return;
+      if (kept?.words?.length) {
+        this.speech = kept.speech;
+        this.rawCuts = kept.cuts;
+        this.face = kept.face;
+        this.shots = kept.shots;
+        this.set((s) => ({ heard: kept.words, words: kept.words, text: kept.words.map((w) => w.text).join(" "), hearing: { stage: "ready", progress: 1, label: "" }, remembered: { ...s.remembered, footage: true } }));
+        this.askSoon();
+        return;
+      }
       // Its cuts and the speaker's face are looked for while it's heard (the speech model has a thread of its own).
       this.rawCuts = [];
       this.face = null;
@@ -263,7 +348,9 @@ class Mimic {
       if (this.state.hearing.stage === "ready") {
         this.set({ hearing: { stage: "working", progress: 0.97, label: "Finding the cuts in it" } });
         await looking;
-        if (!ctl.signal.aborted) this.set({ hearing: { stage: "ready", progress: 1, label: "" } });
+        if (ctl.signal.aborted) return;
+        this.set({ hearing: { stage: "ready", progress: 1, label: "" } });
+        this.rememberFootage();
       }
     } catch (e) {
       if (ctl.signal.aborted) return;
@@ -331,6 +418,14 @@ class Mimic {
     }
   }
 
+  /** Hear the footage again (with the other ear, or after a bad hearing), and keep it as heard now. */
+  async hearAgain() {
+    await this.hear();
+    if (this.state.hearing.stage !== "ready") return;
+    this.set((s) => ({ remembered: { ...s.remembered, footage: false } }));
+    this.rememberFootage();
+  }
+
   private async listenTo(signal?: AbortSignal) {
     const s = this.state;
     const src = s.footage ? this.sources.get(s.footage.id) : undefined;
@@ -365,6 +460,7 @@ class Mimic {
     }
     releaseSpeechModel();
     this.set({ heard, words: heard, text: heard.map((w) => w.text).join(" "), hearing: { stage: "ready", progress: 1, label: "" } });
+    this.askSoon();
   }
 
   /** The user fixed the words: they keep the times they were heard at. */
@@ -385,14 +481,42 @@ class Mimic {
         const { src, item } = await this.open(file);
         if (item.kind === "audio") throw new Error(`${file.name} is a sound. Drop music under Sound.`);
         item.focus = await this.focusOf(src);
+        item.looking = true;
         this.set((s) => ({ extras: s.extras.map((e) => (e.id === temp.id ? item : e)) }));
         ids.push(item.id);
+        // One at a time, and one that fails doesn't hold up the rest.
+        this.looking = this.looking.then(() => this.lookAt(item.id, src)).catch(() => this.set((s) => ({ extras: s.extras.map((e) => (e.id === item.id ? { ...e, looking: false } : e)) })));
       } catch (e) {
         this.set((s) => ({ extras: s.extras.map((x) => (x.id === temp.id ? { ...x, status: "error", error: e instanceof Error ? e.message : String(e) } : x)) }));
         ids.push(null);
       }
     }
     return ids;
+  }
+
+  /** What a picture is: the words on it, what it looks like, a name worth matching (in the background, one at a time). */
+  private async lookAt(id: string, src: Source) {
+    let img: ImageBitmap | null = null;
+    try {
+      if (src.image) img = src.image;
+      else {
+        const b = await grabThumb(src, Math.min(1, src.info.duration / 3), 720);
+        if (b) img = await createImageBitmap(b);
+      }
+    } catch {
+      img = null;
+    }
+    const item = this.state.extras.find((e) => e.id === id);
+    const u = await understand(img, item?.name ?? "", src.info.kind === "video");
+    if (img && img !== src.image) img.close();
+    this.set((s) => ({ extras: s.extras.map((e) => (e.id === id ? { ...e, label: e.labelByUser ? e.label : e.label || u.label, text: u.text, tags: u.tags, look: u.look, looking: false } : e)) }));
+    this.askSoon();
+  }
+
+  /** The user's words for what a picture is. */
+  setLabel(id: string, label: string) {
+    this.set((s) => ({ extras: s.extras.map((e) => (e.id === id ? { ...e, label, labelByUser: true } : e)) }));
+    this.askSoon(3000);
   }
 
   /** A card's or cutaway's name on the page ("Card 4", "Cutaway 1"). */
@@ -522,6 +646,7 @@ class Mimic {
 
   setOption(patch: Partial<Pick<State, "clip" | "tail" | "ear">>) {
     this.set(patch);
+    if (patch.ear) this.askSoon();
   }
 
   setKey(k: string) {
@@ -532,6 +657,7 @@ class Mimic {
     }
     this.model = null;
     this.set({ geminiKey: k });
+    this.askSoon();
   }
 
   // Making the edit.
@@ -551,7 +677,9 @@ class Mimic {
     const s = this.state;
     const src = s.footage ? this.sources.get(s.footage.id) : undefined;
     if (!s.template || !src) return null;
-    const extras: Extra[] = s.extras.filter((e) => e.status === "ready").map((e) => ({ id: e.id, name: e.name, kind: e.kind === "video" ? "video" : "image", width: e.width, height: e.height, duration: e.duration, focus: e.focus }));
+    const extras: Extra[] = s.extras
+      .filter((e) => e.status === "ready")
+      .map((e) => ({ id: e.id, name: e.name, kind: e.kind === "video" ? "video" : "image", width: e.width, height: e.height, duration: e.duration, focus: e.focus, label: e.label, text: e.text, tags: e.tags, about: e.about, keywords: e.keywords, look: e.look }));
     return {
       template: s.template,
       raw: { id: s.footage!.id, duration: src.info.duration, width: src.info.width, height: src.info.height, cuts: this.rawCuts, face: this.face, shots: this.shots },
@@ -574,74 +702,119 @@ class Mimic {
     };
   }
 
-  /** Each slot (a run's first card, or a cutaway) with where the reference has it and the user's pictures in it, as the edit fills them. */
-  private slotsOf(first: MimicPlan): (Slot & { kind: "pictures" | "clip"; pictures: string[] })[] {
-    const t = this.state.template!;
-    const item = (id: string) => this.state.extras.find((e) => e.id === id);
-    const out: (Slot & { kind: "pictures" | "clip"; pictures: string[] })[] = [];
-    const runs = new Map<number, MimicTemplate["cards"]>();
-    for (const c of t.cards) runs.set(c.run, [...(runs.get(c.run) ?? []), c]);
-    for (const r of runs.values()) {
-      const inIt = first.cards.filter((c) => r.some((x) => x.id === c.slot)).map((c) => item(c.extra)).filter((e): e is Item => !!e);
-      if (inIt.length) out.push({ id: r[0].id, start: r[0].start, end: r[r.length - 1].end, names: inIt.map((e) => e.name), kind: "pictures", pictures: inIt.map((e) => e.thumb).filter((u): u is string => !!u) });
-    }
-    for (const b of t.broll) {
-      const e = first.broll.find((x) => x.slot === b.id);
-      const it = e ? item(e.extra) : undefined;
-      if (it) out.push({ id: b.id, start: b.start, end: b.end, names: [it.name], kind: "clip", pictures: it.thumb ? [it.thumb] : [] });
-    }
-    return out;
+  /** Where the footage's words put each picture (worked out again only when the words or the pictures change). */
+  private contentPlaces(extras: Extra[]): Record<string, Place> {
+    const w = this.state.words;
+    const key = JSON.stringify([w.length, w[0]?.start, w[w.length - 1]?.end, this.state.text.length, extras.map((e) => [e.id, e.label, e.text, e.tags, e.about, e.keywords, e.kind])]);
+    if (this.content?.key !== key) this.content = { key, places: placeByContent(w, extras) };
+    return this.content.places;
   }
 
   plan(): MimicPlan | null {
     const s = this.state;
     const base = this.planInput();
     if (!base) return null;
+    const said = (t: number) => sentences(s.words).find((x) => x.start <= t + 0.05 && x.end >= t - 0.05)?.text ?? "";
+    // In the reference's cards: where the user moved them.
     const places: typeof this.lastPlaces = {};
-    if (s.placement === "script" && s.words.length) {
-      // Where the script says what each shows: by its words, or as Gemini read it.
-      const first = planMimic(base);
-      for (const [id, p] of Object.entries(placeByWords(s.template!, this.slotsOf(first), s.words))) places[id] = { t: p.t, said: p.said, by: "words" };
-      for (const [id, p] of Object.entries(s.aiPlaces)) places[id] = { ...p, by: "gemini" };
-    }
-    for (const [id, t] of Object.entries(s.moved)) {
-      const w = s.words.find((x) => x.start >= t - 0.05);
-      places[id] = { t, said: sentences(s.words).find((x) => x.start <= t + 0.05 && x.end >= t - 0.05)?.text ?? w?.text ?? "", by: "you" };
-    }
+    for (const [id, t] of Object.entries(s.moved)) places[id] = { t, said: said(t), by: "you" };
     this.lastPlaces = places;
-    return planMimic({ ...base, anchor: Object.fromEntries(Object.entries(places).map(([k, v]) => [k, v.t])) });
+    const anchor = Object.fromEntries(Object.entries(places).map(([k, v]) => [k, v.t]));
+    this.extraPlaces = {};
+    if (s.placement !== "auto" || !s.words.length) return planMimic({ ...base, anchor });
+    // Each picture where the footage talks about it: the user's choice, Gemini's, or the words'
+    // (one the user put in a card of the reference's stays there).
+    const local = this.contentPlaces(base.extras);
+    const placed: Record<string, number> = {};
+    const out = new Set<string>();
+    const inCards = new Set(Object.values(s.assign).filter(Boolean));
+    for (const e of base.extras) {
+      const mine = s.extraMoved[e.id];
+      if (mine === "out") out.add(e.id);
+      if (mine === "out" || mine === "slot" || inCards.has(e.id)) continue;
+      if (typeof mine === "number") {
+        placed[e.id] = mine;
+        this.extraPlaces[e.id] = { t: mine, said: said(mine), why: "you put it here", by: "you" };
+        continue;
+      }
+      const ai = s.aiExtras[e.id];
+      const l = local[e.id];
+      // Gemini's place, unless it found none where the name itself is said.
+      if (ai && (ai.t !== null || !l || l.score < 1.1)) {
+        if (ai.t !== null) {
+          placed[e.id] = ai.t;
+          this.extraPlaces[e.id] = { t: ai.t, said: said(ai.t), why: ai.why, by: "gemini" };
+        }
+        continue;
+      }
+      if (l) {
+        placed[e.id] = l.t;
+        this.extraPlaces[e.id] = { t: l.t, said: l.said, why: l.why, by: "words" };
+      }
+    }
+    return planMimic({ ...base, extras: base.extras.filter((e) => !out.has(e.id)), placed, anchor });
   }
 
-  // Where the cards go.
+  // Where the pictures go.
 
   setPlacement(placement: State["placement"]) {
     this.set({ placement });
-    if (placement === "script" && this.canAsk()) void this.askGeminiPlaces();
+    this.askSoon();
   }
 
   /** Gemini is used only where the user chose it (for the words) and gave a key. */
   canAsk = () => this.state.ear === "gemini" && !!this.state.geminiKey;
 
-  async askGeminiPlaces() {
+  /** Ask Gemini where the pictures go, once the words and the pictures are ready, and again when they change. */
+  askSoon(wait = 1200) {
     const s = this.state;
-    const base = this.planInput();
-    if (!base || !s.words.length || !this.canAsk()) return;
-    this.set({ placing: { stage: "working", progress: 0.3, label: "Gemini reading where your pictures belong" } });
+    if (!this.canAsk() || s.placement !== "auto" || !s.words.length) return;
+    const ready = s.extras.filter((e) => e.status === "ready");
+    if (!ready.length || ready.some((e) => e.looking)) return;
+    // (Only what the user or the page changed: a name Gemini gave doesn't ask it again.)
+    const sig = JSON.stringify([s.geminiKey, s.words.length, s.text.length, ready.map((e) => [e.id, e.labelByUser ? e.label : e.name, e.text?.length])]);
+    if (sig === this.aiSig) return;
+    clearTimeout(this.aiTimer);
+    this.aiTimer = setTimeout(() => {
+      this.aiSig = sig;
+      void this.askGeminiExtras();
+    }, wait);
+  }
+
+  async askGeminiExtras() {
+    const s = this.state;
+    if (!s.words.length || !this.canAsk()) return;
+    const ready = s.extras.filter((e) => e.status === "ready");
+    if (!ready.length) return;
+    this.set({ placing: { stage: "working", progress: 0.3, label: "Gemini reading your pictures and script" } });
     try {
-      const slots = this.slotsOf(planMimic(base));
-      const sents = sentences(s.words);
       this.model ??= await pickModel(s.geminiKey);
-      const ai: AiSlot[] = slots.map((x) => ({ id: x.id, kind: x.kind, said: refSaid(s.template!, x.start, x.end), names: x.names, pictures: x.pictures }));
-      const r = await geminiPlaces({ key: s.geminiKey, model: this.model, sentences: sents, slots: ai });
-      const aiPlaces: State["aiPlaces"] = {};
-      for (const [id, p] of Object.entries(r)) {
-        const sent = sents[p.sentence];
-        if (sent) aiPlaces[id] = { t: sent.start, said: sent.text };
-      }
-      this.set({ aiPlaces, placing: { stage: "ready", progress: 1, label: "" } });
+      const r = await geminiExtras({
+        key: s.geminiKey,
+        model: this.model,
+        words: s.words,
+        sentences: sentences(s.words),
+        extras: ready.map((e) => ({ id: e.id, label: e.label ?? "", text: e.text ?? "", kind: e.kind === "video" ? "clip" : e.look === "screenshot" ? "screenshot" : "picture", picture: e.thumb })),
+      });
+      const aiExtras: State["aiExtras"] = {};
+      for (const [id, x] of Object.entries(r)) aiExtras[id] = { t: x.word >= 0 ? s.words[x.word].start : null, why: x.why ? `Gemini: ${x.why}` : "Gemini" };
+      // Gemini's words for what each shows (the page's title for a picture whose name says nothing), and its keywords help the words' matching.
+      this.set((st) => ({ aiExtras, placing: { stage: "ready", progress: 1, label: "" }, extras: st.extras.map((e) => (r[e.id] ? { ...e, about: r[e.id].label, keywords: r[e.id].keywords } : e)) }));
     } catch (e) {
+      // (Asked again on the next change, or with the button.)
+      this.aiSig = "";
       this.set({ placing: { stage: "error", progress: 0, label: "", error: e instanceof Error ? e.message : String(e) } });
     }
+  }
+
+  /** The user puts a picture at a moment of the footage (source time), in the reference's cards, or out; null lets the page choose again. */
+  placeExtra(id: string, at: number | "slot" | "out" | null) {
+    this.set((s) => {
+      const extraMoved = { ...s.extraMoved };
+      if (at === null) delete extraMoved[id];
+      else extraMoved[id] = at;
+      return { extraMoved };
+    });
   }
 
   /** The user puts a card (its run) or cutaway at a moment of the footage (source time); null puts it back. */

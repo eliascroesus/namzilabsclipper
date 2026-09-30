@@ -9,9 +9,13 @@ them, the same cutaways, zooms, sound under the voice and ending. A switch decid
 your footage is also clipped (its pauses cut to the reference's) or kept as it is.
 
 Nothing is uploaded unless you choose Gemini for the words (then the sound goes to Google,
-and, when the cards are placed by your script or sounds picked from it, the transcript and
-small copies of your pictures). Everything else (the analysis, the speech model, the mix,
-the render) runs in the browser.
+and, to place your pictures or pick sounds from your script, the transcript and small copies
+of your pictures). Everything else (the analysis, the speech model, reading your pictures,
+the mix, the render) runs in the browser.
+
+A reference once studied, and footage once heard, are kept in the browser (IndexedDB, by the
+file's name, size and date): dropping the same file again takes a second instead of minutes.
+*Study it again* and *Hear it again* do them afresh.
 
 Extras can be pasted instead of dropped (`app/src/mimic/ui/paste.ts`): copy a picture in any
 tab (right-click, Copy image) and press Ctrl+V (⌘V on a Mac) anywhere on the page, or use the
@@ -106,24 +110,48 @@ On the example the analysis takes about 75 s in Node and a little longer in a br
   words tighter or looser than Inter would, each word is placed by its letters' edges, the
   reference's gap from one word to the next (the example's 0.15 of the size, where Inter
   leaves 0.26).
-- **Cards and cutaways**, with a switch for where they go:
-  - *As in the reference*: at the same point of the talk, the hook's (the first 5 s) to the
-    second, later ones at the same share of the speech through, on a caption's first word.
-  - *Where your script says it* (`match.ts`, `ai.ts`): where you talk about what they show.
-    Each run of cards (and each cutaway) is given what the reference was saying while it
-    showed (its captions, kept as the reference's script) and the names of your pictures in
-    it (a pasted picture is named by the page it came from), and those are looked for in
-    your sentences: letters three at a time with the filler words left out, the topics both
-    touch (money, shops and products, social media, gurus, students' results, the good
-    life), and the names said aloud. With + Gemini chosen, Gemini reads your script, sees
-    your pictures and picks the sentence for each, which is what finds a meaning said in
-    other words (the example's hook of gurus goes where the footage says "trading,
-    dropshipping, Amazon FBA", 29 s in). Every card and cutaway shows where it went and why,
-    and can be moved to any of your sentences by hand.
-  - A run keeps its gaps, and nothing lands on top of anything else (a later one waits for
-    the earlier to go). Your extras fill them in order (clips to cutaways and clip cards,
-    pictures to cards, then anything left over to slots still empty), or as you pick per
-    slot; each is cropped to the slot's shape about its subject (a face).
+- **Your pictures and clips** (`extras.ts`) are looked at as they come in: a name worth
+  matching (the file's, or the page's it was copied from; not a camera's "IMG_2041" or a
+  clipboard's "Pasted picture 3"), the words printed on it (read by the text reader that
+  reads the reference's captions: a dashboard's brand and amounts), what the clipper's
+  picture model sees in it (a car, a jet, money, a party, a screen of text), and so whether
+  it's a screenshot or a photo. `know.ts` holds what about 45 people and brands these ads
+  show stand for (Iman Gadzhi: agencies and courses; Andrew Tate: get-rich gurus; Stripe:
+  payments) and 18 topics as the stems of their words in Danish, Swedish, Norwegian, German
+  and English. Each extra shows what the page made of it ("a picture · Iman Gadzhi · about
+  agencies, courses, business"), and its name can be typed over ("Stripe sales").
+- **Where they go**, with a switch:
+  - *Where you talk about them* (the default, `match.ts`): every word of your footage is
+    weighed against each picture. Its name said, however the speech model spelt it (names
+    are compared by how they sound, over one word more or less than they have: "Imangachi"
+    is Iman Gadzhi); a word printed on it said; an amount on it said the way people say
+    amounts ("5 millioner danske kroner" is the dashboard's "kr. 5.234.118,00"); what it
+    stands for talked about there, more where a sentence is full of it (his photo where
+    agencies and courses come up, when his name isn't said). The best fits are taken
+    first, each picture once, a second apart unless they're in one sentence (a list said:
+    "trading, dropshipping, Amazon FBA", a picture on each). With + Gemini chosen, Gemini
+    also reads your script word by word and looks at small copies of your pictures, says
+    what each shows and the word it belongs on, quoting the words there (`ai.ts`: a model
+    counts words badly and quotes them well, so the quote is found in the script and wins
+    over a number that's off); the page's own reading stands in until it answers, and a
+    name said outright wins over Gemini finding no place.
+  - Each lands on its word in the reference's card for its kind (the reference's screenshot
+    card for a screenshot, its photo card for a photo: shape, corners, way in and out), for
+    as long as its sentence goes on (1.3 to 3 s). Pictures said close together follow each
+    other as a run (the first slides in, the next cut in, the last slides out); a clip goes
+    full frame, the way the reference's cutaway does.
+  - Pictures nothing is said of fill the reference's own cards and cutaways, in order
+    (clips to cutaways and clip cards first), where there's room around the placed ones: a
+    card of the reference's waits for one to go, and is left out rather than wait over 2 s.
+  - Every picture shows where it went and why ("at 0:22 · you say the 5.234.118 on it ·
+    'Så jeg nu starter min virksomhed...'"), and can be moved to any sentence, put in the
+    reference's cards, or left out.
+  - *As in the reference*: your pictures in the reference's cards and cutaways in your
+    order (or as you pick per slot), at the same point of the talk: the hook's (the first
+    5 s) to the second, later ones at the same share of the speech through, on a caption's
+    first word. A run of the reference's keeps its gaps, and nothing lands on top of
+    anything else. Its cards and cutaways can also be moved to any of your sentences.
+  - Each picture is cropped to its card's shape about its subject (a face).
 - **Zooms** step between wide and close (the reference's close level) where the
   reference's do, at the same share of the talk, and jump at every cut in your footage (so
   a jump cut reads as a punch-in, the way the reference hides its own).

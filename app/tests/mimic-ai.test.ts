@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { geminiPlaces, geminiSounds } from "../src/mimic/ai";
+import { findQuote, geminiExtras, geminiSounds } from "../src/mimic/ai";
 import { sentences } from "../src/mimic/match";
 import { SOUNDS } from "../src/mimic/sfx";
 import type { Word } from "../src/mimic/asr/parakeet";
@@ -23,24 +23,50 @@ function gemini(answer: object) {
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe("Gemini placing the pictures", () => {
-  it("is asked with the script sentence by sentence and each group's pictures, and its sentences come back per group", async () => {
-    const asked = gemini({ places: [{ group: "card1", sentence: 1, why: "gurus" }, { group: "broll1", sentence: -1 }, { group: "nope", sentence: 2 }] });
-    const r = await geminiPlaces({
-      key: "k",
-      model: "m",
-      sentences: sents,
-      slots: [
-        { id: "card1", kind: "pictures", said: "idioter der siger at du bliver rig", names: ["Andrew Tate.png"], pictures: ["blob:a", "blob:b"] },
-        { id: "broll1", kind: "clip", said: "", names: ["cars.mp4"], pictures: [] },
+describe("Gemini reading the pictures", () => {
+  it("is asked with the script word by word and each picture (its name, its text, a small copy), and says what each shows and the word it goes on", async () => {
+    const asked = gemini({
+      extras: [
+        { id: "x1", label: "Iman Gadzhi on stage", keywords: ["agency", "Iman"], word: 7, quote: "altid trading", why: "the agency guru, where get-rich schemes come up" },
+        { id: "x2", label: "Stripe dashboard", word: -1, quote: "" },
+        { id: "nope", label: "?", word: 2, quote: "sikkert set" },
+        { id: "x3", label: "a car", word: 999, quote: "" },
+        // Its number is off; the words it quotes are right.
+        { id: "x4", label: "a pile of cash", word: 3, quote: "fem millioner kroner" },
       ],
     });
-    expect(r).toEqual({ card1: { sentence: 1, why: "gurus" }, broll1: { sentence: -1, why: "" } });
+    const r = await geminiExtras({
+      key: "k",
+      model: "m",
+      words,
+      sentences: sents,
+      extras: [
+        { id: "x1", label: "", text: "", kind: "picture", picture: "blob:a" },
+        { id: "x2", label: "stripe", text: "Gross volume | kr. 203.412,00", kind: "screenshot", picture: "blob:b" },
+        { id: "x3", label: "", text: "", kind: "clip" },
+        { id: "x4", label: "", text: "", kind: "picture" },
+      ],
+    });
+    expect(r).toEqual({
+      x1: { label: "Iman Gadzhi on stage", keywords: ["agency", "Iman"], word: 7, why: "the agency guru, where get-rich schemes come up" },
+      x2: { label: "Stripe dashboard", keywords: [], word: -1, why: "" },
+      // A word past the script's end is no word.
+      x3: { label: "a car", keywords: [], word: -1, why: "" },
+      x4: { label: "a pile of cash", keywords: [], word: 14, why: "" },
+    });
     const parts = asked[0].parts;
-    expect(parts[0].text).toContain("[1] (");
-    expect(parts[0].text).toContain("trading og dropshipping");
+    expect(parts[0].text).toContain("7:altid 8:trading");
     expect(parts.filter((p) => p.inlineData).length).toBe(2);
-    expect(parts.some((p) => p.text?.includes('Group "card1" (2 pictures)'))).toBe(true);
+    expect(parts.some((p) => p.text?.includes('Picture "x2" (screenshot), named "stripe", with this text on it: "Gross volume | kr. 203.412,00"'))).toBe(true);
+  });
+});
+
+describe("a quote of the script", () => {
+  it("is found however it's written, nearest the word it was said to be on", () => {
+    const w = "Det er altid trading. Og det er altid trading igen.".split(" ").map((text) => ({ text }));
+    expect(findQuote(w, "altid Trading")).toBe(2);
+    expect(findQuote(w, "altid trading", 8)).toBe(7);
+    expect(findQuote(w, "aldrig")).toBe(-1);
   });
 });
 

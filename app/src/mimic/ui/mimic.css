@@ -78,3 +78,26 @@ kbd { font: 600 11px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; padd
 .cue .level { display: flex; align-items: center; gap: 6px; color: var(--muted); }
 .cue .level input { flex: 1; min-width: 0; accent-color: var(--brand); }
 @media (max-width: 700px) { .cue { grid-template-columns: 48px 1fr auto auto; } .cue .select, .cue .level { grid-column: 1 / -1; } }
+
+/* The extras, each with what the page made of it. */
+.extras { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.extra { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center; }
+.extra .pic { position: relative; width: 56px; height: 56px; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); background: var(--control); }
+.extra .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.extra .pic .state { position: absolute; inset: 0; display: grid; place-items: center; font-size: 10px; color: var(--muted); }
+.extra .pic .badge { position: absolute; left: 3px; top: 3px; font-size: 10px; font-weight: 600; padding: 0 5px; border-radius: 4px; background: rgba(0, 0, 0, 0.72); color: #fff; }
+.extra.error .pic { border-color: rgba(251, 44, 54, 0.5); }
+.extra-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.extra-text .input { height: 28px; font-size: 13px; }
+.extra-text .hint { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.extra-tools { display: grid; grid-template-columns: 22px 22px; grid-template-rows: 22px 22px; gap: 2px; }
+.extra-tools button { width: 22px; height: 22px; border: 1px solid var(--line); border-radius: 5px; background: var(--control); color: var(--muted); display: grid; place-items: center; padding: 0; cursor: pointer; }
+.extra-tools button:hover { color: var(--text); }
+.extra-tools .rm { grid-row: 1 / 3; grid-column: 2; height: 46px; }
+
+/* The user's pictures in the edit, each with where it went and why. */
+.pic-row { display: grid; grid-template-columns: 56px 1fr 240px; align-items: center; gap: 10px; }
+.pic-row img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); background: #000; }
+.pic-row .glyph { height: 56px; }
+.pic-row .select { font-size: 12px; min-width: 0; }
+@media (max-width: 700px) { .pic-row { grid-template-columns: 56px 1fr; } .pic-row select { grid-column: 1 / -1; } }

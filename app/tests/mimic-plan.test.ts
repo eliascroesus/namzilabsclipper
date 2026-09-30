@@ -272,6 +272,85 @@ describe("cards where the script says it", () => {
   });
 });
 
+describe("pictures where the footage talks about them", () => {
+  const words = say("En to tre fire fem seks syv otte ni ti elleve tolv tretten fjorten femten seksten sytten atten nitten tyve. En to tre fire fem seks syv otte ni ti elleve tolv tretten fjorten femten seksten sytten atten nitten tyve.");
+  const dur = words[words.length - 1].end + 0.5;
+  const pic = (id: string, look?: "screenshot" | "photo") => ({ id, name: `${id}.jpg`, kind: "image" as const, width: 800, height: 1000, duration: 0, look });
+  const clip = (id: string, duration: number) => ({ id, name: `${id}.mp4`, kind: "video" as const, width: 1920, height: 1080, duration, look: "clip" as const });
+  const base = {
+    template,
+    raw: { id: "raw", duration: dur, width: 608, height: 1080, cuts: [] },
+    words,
+    speech: [{ start: 0, end: dur - 0.5 }],
+    extras: [pic("a"), pic("b"), pic("c")],
+    clip: false,
+  };
+  const noOverlap = (p: ReturnType<typeof planMimic>) => {
+    const runs = new Map<string, { start: number; end: number }>();
+    for (const c of p.cards) {
+      // A run's cards follow each other: one block.
+      const k = c.slot.startsWith("x:") ? `x${Math.round(c.start * 1000)}` : c.slot;
+      runs.set(k, { start: c.start, end: c.end });
+    }
+    const blocks = [...p.cards.map((c) => ({ start: c.start, end: c.end })), ...p.broll.map((b) => ({ start: b.start, end: b.end }))].sort((x, y) => x.start - y.start);
+    for (let i = 1; i < blocks.length; i++) expect(blocks[i].start).toBeGreaterThanOrEqual(blocks[i - 1].end - 1e-6);
+  };
+
+  it("each on its word, in the reference's card for its kind, for as long as its sentence goes on", () => {
+    const w = words[8];
+    const plan = planMimic({ ...base, extras: [pic("shot", "screenshot")], placed: { shot: w.start } });
+    const card = plan.cards.find((c) => c.extra === "shot")!;
+    expect(card.slot).toBe("x:shot");
+    expect(card.start).toBeCloseTo(w.start, 6);
+    // The reference's screenshot card (card 3): its shape, its way in and out.
+    expect(card.rect).toEqual(template.cards[2].rect);
+    expect(card.enter).toEqual(template.cards[2].enter);
+    expect(card.exit).toEqual(template.cards[2].exit);
+    expect(card.end - card.start).toBeGreaterThanOrEqual(1.3 - 1e-9);
+    expect(card.end - card.start).toBeLessThanOrEqual(3 + 1e-9);
+    // A photo gets the photo card's shape (card 1's run: in as card 1, out as card 2).
+    const photo = planMimic({ ...base, extras: [pic("face")], placed: { face: w.start } }).cards[0];
+    expect(photo.rect).toEqual(template.cards[0].rect);
+    expect(photo.exit).toEqual(template.cards[1].exit);
+  });
+
+  it("said close together, they follow each other as a run: the first slides in, the next cut in, the last slides out", () => {
+    const plan = planMimic({ ...base, placed: { a: words[3].start, b: words[5].start } });
+    const [x, y] = ["a", "b"].map((id) => plan.cards.find((c) => c.extra === id)!);
+    expect(x.start).toBeCloseTo(words[3].start, 6);
+    expect(x.enter.kind).toBe("slide");
+    expect(x.exit.kind).toBe("cut");
+    expect(y.start).toBeCloseTo(x.end, 6);
+    expect(y.start).toBeCloseTo(words[5].start, 6);
+    expect(y.enter.kind).toBe("cut");
+    expect(y.exit.kind).toBe("slide");
+    // A whoosh in, a swipe as the picture changes, a whoosh out.
+    expect(plan.sfx.find((c) => c.key === "in:x:a")?.sound).toBe("whoosh");
+    expect(plan.sfx.find((c) => c.key === "swap:x:b")?.sound).toBe("swipe");
+    expect(plan.sfx.find((c) => c.key === "out:x:b")?.sound).toBe("whoosh");
+    // The one left over goes in the reference's own card, clear of the run.
+    expect(plan.cards.find((c) => c.extra === "c")?.slot).toMatch(/^card/);
+    noOverlap(plan);
+  });
+
+  it("a clip goes full frame as the reference's cutaway; the reference's cards make way, or stay out if they'd wait over 2 s", () => {
+    const short = planMimic({ ...base, extras: [...base.extras, clip("v", 1)], placed: { v: words[1].start } });
+    const cut = short.broll.find((b) => b.extra === "v")!;
+    expect(cut.slot).toBe("x:v");
+    expect(cut.start).toBeCloseTo(words[1].start, 6);
+    expect(cut.end).toBeCloseTo(words[1].start + 1, 6);
+    expect(cut.zoom).toEqual(template.broll[0].zoom);
+    // The hook's cards wait for it to go.
+    const c1 = short.cards.find((c) => c.slot === "card1")!;
+    expect(c1.extra).toBe("a");
+    expect(c1.start).toBeCloseTo(cut.end + 0.15, 6);
+    noOverlap(short);
+    const long = planMimic({ ...base, extras: [...base.extras, clip("v", 4)], placed: { v: words[1].start } });
+    expect(long.cards.some((c) => c.slot === "card1" || c.slot === "card2")).toBe(false);
+    noOverlap(long);
+  });
+});
+
 describe("the music", () => {
   const words = say("En to tre fire fem seks syv otte ni ti elleve tolv tretten fjorten femten seksten sytten atten nitten tyve.");
   const dur = words[words.length - 1].end + 0.5;

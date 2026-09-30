@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { fold, nameWords, placeByWords, sentences, soundsByWords, topicsIn } from "../src/mimic/match";
-import { DEFAULT_LOOK } from "../src/mimic/captions";
+import { aboutOf, amountsAt, fold, nameWords, placeByContent, sentences, soundsByWords } from "../src/mimic/match";
+import { amounts, conceptsOf, conceptsOfWord, entitiesIn, sameAmount, soundsLike, topicWeights } from "../src/mimic/know";
+import { labelFromName } from "../src/mimic/extras";
 import { addSfx, SFX_UNDER, talkRms } from "../src/mimic/render";
 import { makeSfx, SOUNDS } from "../src/mimic/sfx";
-import type { MimicTemplate } from "../src/mimic/types";
+import type { Extra } from "../src/mimic/types";
 import type { Word } from "../src/mimic/asr/parakeet";
 
 /** Sentences said one after another, 0.3 s a word, 1 s between sentences. */
@@ -20,24 +21,7 @@ function say(...lines: string[]): Word[] {
   return out;
 }
 
-const tpl = (script: MimicTemplate["script"]): MimicTemplate => ({
-  version: 1,
-  name: "ref",
-  duration: 60,
-  width: 1080,
-  height: 1920,
-  speech: [{ start: 0, end: 58 }],
-  captions: DEFAULT_LOOK,
-  cards: [],
-  broll: [],
-  zoom: null,
-  sound: { bed: null, sfx: [] },
-  tail: 0,
-  speaker: null,
-  maxPause: 0.3,
-  script,
-  notes: [],
-});
+const pic = (id: string, o: Partial<Extra> = {}): Extra => ({ id, name: `${id}.jpg`, kind: "image", width: 1000, height: 1000, duration: 0, ...o });
 
 describe("the footage's sentences", () => {
   it("end at a full stop, a long pause, or 24 words", () => {
@@ -48,44 +32,119 @@ describe("the footage's sentences", () => {
 
   it("read captions and speech alike: Danish letters spelt out, words run together", () => {
     expect(fold("Præcis på gøre")).toBe(fold("praecispagore"));
-    expect([...topicsIn("200tusindkroner pa deres forste maned")]).toEqual(expect.arrayContaining(["money", "results"]));
+    expect([...conceptsOf("200tusindkroner pa deres forste maned")]).toContain("money");
+    expect([...conceptsOf("200kr")]).toContain("money");
+  });
+});
+
+describe("names, topics and amounts", () => {
+  it("hears a name however the speech model spelt it", () => {
+    expect(soundsLike("Imangachi", "Iman Gadzhi")).toBeGreaterThanOrEqual(0.75);
+    expect(entitiesIn("jeg lærte det af Imangachi").map((e) => e.name)).toContain("Iman Gadzhi");
+    expect(entitiesIn("Andrew Tates venner").map((e) => e.name)).toContain("Andrew Tate");
+    expect(entitiesIn("en helt almindelig dag")).toEqual([]);
+  });
+
+  it("knows what the people and brands stand for, and topics in the Nordic languages and English", () => {
+    expect([...conceptsOf("Imangachi")]).toEqual(expect.arrayContaining(["agency", "course", "business"]));
+    expect([...conceptsOf("Jeg startede et marketing bureau")]).toContain("agency");
+    expect([...conceptsOf("Stripe")]).toEqual(expect.arrayContaining(["money", "sales"]));
+    expect(aboutOf({ label: "imangadzhi" })).toEqual({ who: ["Iman Gadzhi"], topics: expect.arrayContaining(["agencies", "courses"]) });
+  });
+
+  it("hears a topic in a word the speech model misspelt, but not in a word that only looks alike", () => {
+    expect(conceptsOfWord("arbetrage")).toContain("agency");
+    expect(conceptsOfWord("Arbetra")).toContain("agency");
+    expect(conceptsOfWord("jegpart")).toContain("events");
+    expect(conceptsOfWord("tradition")).not.toContain("trading");
+  });
+
+  it("weighs what a person stands for first above the rest", () => {
+    const w = topicWeights("Iman Gadzhi");
+    expect(w.get("agency")).toBe(1);
+    expect(w.get("course")).toBe(0.5);
+    expect(w.get("gurus")).toBeLessThan(0.5);
+  });
+
+  it("reads amounts said and printed as the same figure", () => {
+    expect(amounts("200 tusind kroner")).toEqual([200000]);
+    expect(amounts("kr. 203.412,00 DKK 5,234,000 $40K")).toEqual([203412, 5234000, 40000]);
+    expect(sameAmount(200000, 203412)).toBe(true);
+    expect(sameAmount(200000, 5234000)).toBe(false);
+    expect(amountsAt(say("Jeg har tjent fem millioner kroner"))).toEqual([{ i: 3, v: 5e6 }]);
+  });
+
+  it("names a picture by its file, not by a camera's or a clipboard's name", () => {
+    expect(labelFromName("andrew-tate_2023.jpg")).toBe("andrew tate");
+    expect(labelFromName("Iman Gadzhi - Wikipedia.png")).toBe("Iman Gadzhi");
+    expect(labelFromName("IMG_2041.JPG")).toBe("");
+    expect(labelFromName("Pasted picture 3.png")).toBe("");
     expect(nameWords("Andrew Tate - Wikipedia.png")).toEqual(["andrew", "tate"]);
   });
 });
 
-describe("placing the reference's cards by the footage's script", () => {
-  // The reference: sales at 20 s, a picture of a guru at 40 s. The footage says them the other way round.
-  const reference = tpl([
-    { start: 19, end: 21, text: "og nu har jeg solgt for over 200tusind kroner pa enenkelt webshop." },
-    { start: 39, end: 41, text: "Jeg viser hvad jeg laver til daglig." },
-  ]);
+describe("putting pictures where the footage talks about them", () => {
   const words = say(
     "Du har sikkert set mig på TikTok.",
-    "Jeg har lært alt af Andrew Tate og hans venner.",
+    "Jeg lærte det hele af Imangachi da jeg startede.",
     "Det tog lang tid at komme i gang.",
-    "Nu har jeg solgt for over to millioner kroner på min webshop.",
+    "Nu har jeg solgt for over 200 tusind kroner på min webshop.",
     "Tak fordi du så med.",
   );
+  const at = (text: string) => words.findIndex((x) => x.text.replace(/[.,]$/, "") === text);
 
-  it("puts each where the footage says what it shows: by its words and topics, or its picture's name said", () => {
-    const places = placeByWords(
-      reference,
-      [
-        { id: "sales", start: 19.5, end: 20.5, names: ["stripe.png"] },
-        { id: "guru", start: 39.5, end: 40.5, names: ["Andrew Tate.png"] },
-      ],
-      words,
-    );
-    const at = (id: string) => words.find((w) => Math.abs(w.start - places[id].t) < 1e-9)!;
-    expect(places.sales.said).toMatch(/solgt for over to millioner/);
-    expect(places.guru.said).toMatch(/Andrew Tate/);
-    // On the word that says it.
-    expect(at("guru").text).toBe("Andrew");
+  it("on its name, said however the speech model spelt it", () => {
+    const p = placeByContent(words, [pic("iman", { label: "Iman Gadzhi" })]);
+    expect(p.iman.w).toBe(at("Imangachi"));
+    expect(p.iman.t).toBe(words[at("Imangachi")].start);
+    expect(p.iman.why).toContain('you say "Imangachi"');
+    expect(p.iman.said).toBe("Jeg lærte det hele af Imangachi da jeg startede.");
   });
 
-  it("leaves one that nothing fits where the reference has it", () => {
-    const places = placeByWords(tpl([{ start: 9, end: 11, text: "zebra xylofon kvantefysik" }]), [{ id: "odd", start: 9.5, end: 10.5, names: [] }], words);
-    expect(places.odd).toBeUndefined();
+  it("on an amount printed on it, said the way people say amounts", () => {
+    const p = placeByContent(words, [pic("stripe", { text: "Stripe | Gross volume | kr. 203.412,00", look: "screenshot" })]);
+    expect(p.stripe.w).toBe(at("200"));
+    expect(p.stripe.why).toContain("203.412");
+  });
+
+  it("on a word Gemini gave for what it shows", () => {
+    const p = placeByContent(words, [pic("shop", { keywords: ["webshop", "online store"] })]);
+    expect(p.shop.w).toBe(at("webshop"));
+  });
+
+  it("on what it stands for when its name isn't said, where the sentence is full of it", () => {
+    const talk = say("Du har sikkert set mig på TikTok.", "Det tog lang tid at komme i gang.", "Jeg startede et marketing bureau med kunder i hele Norden.", "Tak fordi du så med.");
+    const p = placeByContent(talk, [pic("iman", { label: "Iman Gadzhi" })]);
+    expect(talk[p.iman.w].text).toBe("marketing");
+    expect(p.iman.why).toBe("you talk about agencies");
+  });
+
+  it("on what it mainly stands for: an agency guru where agencies come up, not where coaching does", () => {
+    const talk = say("Jeg er den eneste coach i Danmark med en garanti.", "Mine elever har bygget et arbetrage agency på to uger.", "Tak fordi du så med.");
+    const p = placeByContent(talk, [pic("iman", { label: "Iman Gadzhi" })]);
+    expect(talk[p.iman.w].text).toBe("arbetrage");
+    expect(p.iman.why).toBe("you talk about agencies");
+  });
+
+  it("on a word of its name said, however it was heard", () => {
+    const talk = say("Vi holdt en kæmpe fest i Mami sidste sommer.", "Tak fordi du så med.");
+    const p = placeByContent(talk, [pic("yacht", { label: "yacht party miami", kind: "video" })]);
+    expect(talk[p.yacht.w].text).toBe("Mami");
+    expect(p.yacht.why).toBe('"Mami" is in its name');
+  });
+
+  it("follows a list said with its pictures in one sentence, and leaves out one nothing is said of", () => {
+    const list = say("Det er altid trading, dropshipping eller Amazon FBA.", "Og så går der et år.");
+    const p = placeByContent(list, [pic("amazon", { label: "Amazon FBA seller central", look: "screenshot" }), pic("chart", { label: "bitcoin chart" }), pic("cat", { label: "min kat" })]);
+    expect(list[p.amazon.w].text).toBe("Amazon");
+    expect(list[p.chart.w].text).toBe("trading,");
+    expect(p.cat).toBeUndefined();
+  });
+
+  it("takes each picture once, never two on one word", () => {
+    const p = placeByContent(words, [pic("a", { label: "Iman Gadzhi" }), pic("b", { label: "Iman Gadzhi course" })]);
+    expect(p.a.w).toBe(at("Imangachi"));
+    expect(p.b?.w).not.toBe(p.a.w);
   });
 
   it("marks money said for a cash register, not more than one in 6 s", () => {

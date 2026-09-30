@@ -148,6 +148,17 @@ export interface Extra {
   duration: number;
   /** where the picture's subject is (a face), to crop around */
   focus?: { x: number; y: number };
+  /** what it is, in a few words: its name, the user's words for it, or Gemini's */
+  label?: string;
+  /** the words printed on it */
+  text?: string;
+  /** what the picture model sees in it, most likely first */
+  tags?: string[];
+  /** Gemini's words for what it shows and what it's about, when asked */
+  about?: string;
+  keywords?: string[];
+  /** a screenshot (lines of small text), a photo, or a clip */
+  look?: "screenshot" | "photo" | "clip";
 }
 
 export interface PlanWord {
