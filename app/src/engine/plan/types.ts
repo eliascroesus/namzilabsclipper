@@ -33,6 +33,10 @@ export interface Crop {
    * (t in seconds from the shot's start), joined by straight lines; replaces the pan
    */
   path?: number[];
+  /** the picture as a card turned this many degrees (clockwise) on black, a photo flying in (see inset) */
+  tilt?: number;
+  /** the card's size in the frame at the shot's start and end (1 = the whole frame); the picture fills it */
+  inset?: [number, number];
 }
 
 export interface ShotEvent {
@@ -98,8 +102,12 @@ export function outputAt(shot: Pick<ShotEvent, "start" | "end" | "speed" | "ramp
   return (lo + hi) / 2;
 }
 
-/** flash, film burn, dip to black, fade up; a punch-in (a quick zoom on a hit), a shake, and a zoom blur across a cut */
-export type FxKind = "flash" | "burn" | "dip" | "fadein" | "punch" | "shake" | "zoomblur" | "split";
+/**
+ * flash, film burn, dip to black, fade up; a punch-in (a quick zoom on a hit), a shake,
+ * a zoom blur across a cut, a colour split; and black and white (on at its start, off at
+ * its end, hard: a talking intro before the drop, a shot turning to colour on a hit)
+ */
+export type FxKind = "flash" | "burn" | "dip" | "fadein" | "punch" | "shake" | "zoomblur" | "split" | "mono";
 
 export interface FxEvent {
   kind: FxKind;
@@ -204,6 +212,12 @@ export interface EditPlan {
   music?: MusicEvent;
   /** play the footage's own sound too (dialogue), with the music ducked under it */
   sourceAudio: boolean;
+  /**
+   * the footage's own voice brought to this many dB against the song where it plays in
+   * full (a phone's voice can sit 15 dB under a mastered song): a talking intro, clear,
+   * with the drop still landing harder
+   */
+  levelVoice?: number;
   grade: Grade;
   note: PostNote;
   /** measurements the quality gate checks, filled by the planner */

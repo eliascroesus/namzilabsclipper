@@ -30,6 +30,8 @@ export interface Word {
   end: number;
   /** how sure the model was of its least sure piece, 0 to 1 */
   conf: number;
+  /** a break typed after it in the words: a new line of the caption, or (an empty line) a new caption */
+  br?: "line" | "page";
 }
 
 export interface DecoderState {

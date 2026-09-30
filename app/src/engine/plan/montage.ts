@@ -9,7 +9,8 @@ import { pickSection, type Accent, type SongAnalysis } from "../audio/song";
 import type { Bar } from "../audio/structure";
 import { KINDS, PROFILE_BINS, type Scan } from "../media/scan";
 import { frameShot, kenBurns } from "./framing";
-import { rhythmCuts } from "./rhythm";
+import { rhythmCuts, type RhythmCut, type RhythmOptions } from "./rhythm";
+import { mono, monoFlips, photoBurst, styleLabel, TALK_DROP, talkEnd, talkingIntro, talky, type EditStyle, type Talker } from "./styles";
 import { FPS, FRAME_SIZE, sourceSpan, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type Crop, type EditPlan, type FxEvent, type Ramp, type ShotEvent } from "./types";
 
 /**
@@ -172,9 +173,9 @@ function cardTime(song: SongAnalysis, songStart: number, target: number, availab
  * `start` when the user picked where; otherwise at the Reel's 0:00, or on the
  * song's strongest stretch.
  */
-export function musicWindow(song: SongAnalysis, length: number, cardHold: number, fromStart: boolean, start?: number): MusicWindow {
+export function musicWindow(song: SongAnalysis, length: number, cardHold: number, fromStart: boolean, start?: number, dropIn?: [number, number]): MusicWindow {
   const picked = start !== undefined && Number.isFinite(start);
-  const section = picked ? { start: 0, drop: undefined } : pickSection(song, length + cardHold, fromStart);
+  const section = picked ? { start: 0, drop: undefined } : pickSection(song, length + cardHold, fromStart, dropIn);
   const songStart = picked ? clamp(start, 0, Math.max(0, song.duration - 3)) : fromStart ? 0 : section.start;
   const available = song.duration - songStart;
   // A short sound shortens the card first (to 2.5 s), then the footage (to 3 s);
@@ -458,6 +459,13 @@ export interface Slot {
 const RECUT_JUMP = 0.35;
 /** Each re-cut punches in a little further. */
 const RECUT_ZOOM = 0.1;
+/**
+ * Back to a clip within this many seconds of leaving it, with another in between, is
+ * the edit hopping back and forth (A, B, A a second later). The references never do it
+ * outside a conversation's shot and reverse shot: a clip either carries on, a jump
+ * further into it, or comes back well after (docs/edit-analysis.md).
+ */
+const RETURN_GAP = 2.5;
 
 interface Segment {
   scan: Scan;
@@ -684,9 +692,10 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
           wow = n ? w / n : look.wow[Math.max(0, mid)];
         }
         // (Or anything it rates as showing nothing off, whatever it calls it: someone standing in
-        // a kitchen. In a clip the user picked, only talking and text.)
+        // a kitchen. In a clip the user picked, only talking and text, and all of a talking clip
+        // but its real flex.)
         const kind = look?.kind[Math.max(0, mid)];
-        const filler = look ? (hand.has(scan.id) ? NEVER.has(kind!) : FILLER.has(kind!) || (flex ?? 1) < 0.33) : undefined;
+        const filler = look ? (hand.has(scan.id) ? NEVER.has(kind!) || (talky(scan) && (flex ?? 0) < 0.7) : FILLER.has(kind!) || (flex ?? 1) < 0.33) : undefined;
         out.push({ scan, start, score: sum / c, peak, motion: clamp(motion / c / motionScale, 0, 1.5), rgb: [rgb[0] / c, rgb[1] / c, rgb[2] / c], luma: luma / c, enter: clamp(st.motion[first] / motionScale, 0, 1.5), emb, flex, wow, filler, scene: acrossCuts ? -1 : s, head: first, tail: last });
       }
     }
@@ -759,12 +768,30 @@ function nearness(ranges: Range[] | undefined, a: number, b: number, scale: numb
 function momentOf(scan: Scan, t: number, scene?: number): string {
   if (scan.kind === "image") return scan.id;
   const bounds = boundsOf(scan);
-  let k = scene ?? -1;
-  if (k < 0) {
-    k = 0;
-    while (k + 2 < bounds.length && t >= bounds[k + 1].t) k++;
-  }
+  const k = scene !== undefined && scene >= 0 ? scene : sceneAt(scan, t);
   return `${scan.id}|${k}|${Math.floor((t - bounds[k].t) / Math.max(6, 2 * spread(scan)))}`;
+}
+
+/** Which of a source's shots a time is in (an index between its cuts). */
+function sceneAt(scan: Scan, t: number): number {
+  const bounds = boundsOf(scan);
+  let k = 0;
+  while (k + 2 < bounds.length && t >= bounds[k + 1].t) k++;
+  return k;
+}
+
+/**
+ * Whether two stretches show the same footage: one picture; one shot of a clip the user
+ * picked (a phone clip is one place, whichever second of it); or in a long video, the
+ * same shot within a few seconds. (Another of a compilation's shots, even of the same
+ * car from another angle, is a new shot: a cutaway and back to it is how montages cut.)
+ */
+function sameFootage(a: Pick<Segment, "scan" | "start" | "scene">, b: Pick<Segment, "scan" | "start" | "scene">, hand: Set<string>): boolean {
+  if (a.scan !== b.scan) return false;
+  if (a.scan.kind === "image") return true;
+  const scene = (g: Pick<Segment, "scan" | "start" | "scene">) => (g.scene >= 0 ? g.scene : sceneAt(g.scan, g.start));
+  if (scene(a) !== scene(b)) return false;
+  return hand.has(a.scan.id) || Math.abs(a.start - b.start) < Math.max(4, 2 * spread(a.scan));
 }
 
 /** The source's shot a segment is in, as [start, end) seconds (the whole source when it runs across cuts). */
@@ -875,6 +902,12 @@ export interface AssignContext {
   purpose?: Purpose;
   /** velocity edit: shots ramp from slow motion on the hit to a rush into the next cut */
   velocity?: boolean;
+  /**
+   * end on the moment the edit opens on (a loop): the last shot is the footage just
+   * before the first shot's first frame (or the first shot again), known before the
+   * shots around it are picked, so none of them repeats it
+   */
+  loop?: boolean;
 }
 
 /** A velocity ramp takes this much more footage than the slot is long. */
@@ -1032,15 +1065,62 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
     if (!ctx.toCome) return new Set<string>();
     for (const g of halfSeconds) {
       const key = momentOf(g.scan, g.start, g.scene);
-      if (earlier.has(key) || momentUses.has(key)) continue;
+      if (earlier.has(key) || momentUses.has(key) || g.filler) continue;
       const score = g.score + 0.3 * g.peak + 0.15 * Math.min(1, g.motion) + 0.25 * (g.flex ?? 0) + 0.25 * (g.wow ?? 0);
       if (!(heroish.get(key)?.score! >= score)) heroish.set(key, { score, emb: g.emb });
     }
     return selectsOf(heroish, 2 * ctx.toCome, 0.4);
   };
+  // Back to footage the edit left a moment ago, something else in between (see
+  // RETURN_GAP): the less in between, the worse, and with just one shot between (A, B,
+  // A) only when nothing else will do. (A run of it all the way, the clip carried on,
+  // isn't a return.)
+  const returning = (seg: Segment, i: number) => {
+    let cost = 0;
+    let hop = false;
+    for (let j = 0; j < chosen.length; j++) {
+      const other = chosen[j];
+      const between = Math.abs(j - i) - 1;
+      if (!other || between < 1) continue;
+      const gap = j < i ? slots[i].start - slots[j].end : slots[j].start - slots[i].end;
+      if (gap >= RETURN_GAP || !sameFootage(other, seg, hand)) continue;
+      let run = true;
+      for (let k = Math.min(i, j) + 1; k < Math.max(i, j) && run; k++) run = !!chosen[k] && sameFootage(chosen[k], seg, hand);
+      if (run) continue;
+      cost += between === 1 ? 0.7 : between === 2 ? 0.45 : 0.12;
+      hop ||= between === 1;
+    }
+    return { cost, hop };
+  };
+  // The loop's last shot: the hook's footage, from just before it (or the hook again).
+  const last = slots.length - 1;
+  const looping = !!ctx.loop && slots.length >= 3 && slots[last].role === "closer";
+  if (looping) slots[last] = { ...slots[last], pieces: undefined };
+  const take = (i: number, best: Segment, len: number) => {
+    chosen[i] = { ...best, d: slots[i].end - slots[i].start, len };
+    const id = best.scan.id;
+    if (!used.has(id)) used.set(id, []);
+    used.get(id)!.push([best.start, best.start + len]);
+    uses.set(id, (uses.get(id) ?? 0) + 1);
+    const moment = momentOf(best.scan, best.start, best.scene);
+    momentUses.set(moment, (momentUses.get(moment) ?? 0) + 1);
+    turnUses.set(turnOf(best), (turnUses.get(turnOf(best)) ?? 0) + 1);
+  };
   for (const i of order) {
     const slot = slots[i];
     const d = slot.end - slot.start;
+    if (looping && i === last && chosen[0]) {
+      const hook = chosen[0];
+      let start = hook.start;
+      if (hook.scan.kind === "video") {
+        const [lo] = sceneOf(hook);
+        const bounds = boundsOf(hook.scan);
+        const floor = Math.max(hook.scan.start + 0.05, Number.isFinite(lo) ? lo + (bounds[hook.scene]?.after ?? bounds[hook.scene]?.margin ?? 0.08) : hook.scan.start + 0.05);
+        if (hook.start - d >= floor) start = hook.start - d;
+      }
+      take(i, { ...hook, start }, d);
+      continue;
+    }
     // A re-cut run needs the footage its jumps pass over too.
     const need = slot.pieces ? d + (slot.pieces.length - 1) * RECUT_JUMP : ctx.velocity && d >= RAMP_MIN ? d * RAMP_FOOTAGE : d;
     const key = Math.round(need * FPS);
@@ -1066,20 +1146,21 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
     const hero = r === "hook" || r === "drop";
     let top = 0;
     for (const seg of segs) top = Math.max(top, seg.score);
+    // Filler stays out of a flex edit while anything else fits the slot (and so out of the
+    // running for the hook and the drop).
+    const flexLeft = ctx.purpose !== "real" && segs.some((g) => g.filler === false && !(g.scan.kind === "video" && overlaps(used.get(g.scan.id), g.start - 0.05, g.start + len + 0.05)));
     // (The first of those whose best is nearly as good as any fresh moment: an unused
     // moment isn't worth a dull hook. Judged on pictures unlike what the earlier edits
     // opened on, dropped into and closed on, while there are any: one like theirs is
     // marked down below, and shouldn't decide where the rest come from.)
     const likeAHero = (g: Segment) => !!g.emb && heroLooks.some((e) => dot(g.emb!, e) > 0.9);
     const unlike = hero && segs.some((g) => fresh(g) && !likeAHero(g));
-    const bestIn = (ok: (m: Segment) => boolean) => segs.reduce((b, g) => (ok(g) && !(unlike && likeAHero(g)) ? Math.max(b, g.score) : b), -Infinity);
+    const bestIn = (ok: (m: Segment) => boolean) => segs.reduce((b, g) => (ok(g) && !(unlike && likeAHero(g)) && !(flexLeft && g.filler) ? Math.max(b, g.score) : b), -Infinity);
     const bar = 0.85 * bestIn(fresh);
     const tier = heroTiers.find((ok) => bestIn(ok) >= bar) ?? fresh;
-    const heroPool = segs.filter(tier);
+    const heroPool = segs.filter((g) => tier(g) && !(flexLeft && g.filler));
     if (!hero && reserved === null) reserved = reserve();
     const allowed = hero ? selectsOf(momentScores(heroPool), 3) : r === "closer" ? pool.closer : pool.rest;
-    // Filler stays out of a flex edit while anything else fits the slot.
-    const flexLeft = ctx.purpose !== "real" && segs.some((g) => g.filler === false && !(g.scan.kind === "video" && overlaps(used.get(g.scan.id), g.start - 0.05, g.start + len + 0.05)));
     const fewest = turns.size ? fewestTurns() : 0;
     let best: Segment | undefined;
     let bestScore = -Infinity;
@@ -1100,8 +1181,12 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
         const turn = turns.has(turnOf(seg)) ? turnOf(seg) : null;
         // (Never the same picture twice in a row: that's the same shot again, not a cut.)
         const twice = !video && [i - 1, i + 1].some((nb) => chosen[nb]?.scan.id === id);
+        const back = returning(seg, i);
         if (!relax) {
-          if ((video && overlaps(used.get(id), a - 0.05, b + 0.05)) || seg.score < top * (turn ? 0.25 : 0.45) || (flexLeft && seg.filler) || (turn && hadItsTurn(turn)) || twice) continue;
+          if ((video && overlaps(used.get(id), a - 0.05, b + 0.05)) || seg.score < top * (turn ? 0.25 : 0.45) || (flexLeft && seg.filler) || (turn && hadItsTurn(turn)) || twice || back.hop) continue;
+          // (The hook and the drop from their tier itself, not just a moment of it: a long
+          // video's moment runs most of a minute.)
+          if (hero && !tier(seg)) continue;
           const moment = momentOf(seg.scan, a, seg.scene);
           if (!allowed.has(moment) || seg.score < 0.8 * (bestOf.get(moment)?.score ?? 0)) {
             if (hero || seg.filler) continue;
@@ -1122,14 +1207,20 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
         else s -= 0.12 * energy + (hero ? 0.1 : 0);
         const far = video ? spread(seg.scan) : 0;
         const scene = sceneOf(seg);
+        let carries = false;
         for (const nb of [i - 1, i + 1]) {
           const other = chosen[nb];
           if (!other) continue;
           if (other.scan.id === id) {
             // Two shots of one clip back to back: fine from different scenes of a
-            // compilation, a jump cut from the same one.
+            // compilation, a jump cut from the same one; unless it carries the clip on, a
+            // jump further into it past what the shot before showed (a re-cut, the way the
+            // references cut one car eight times), which is better than coming back to it
+            // (below). Not into the drop or out of the hook: those are new pictures.
             const sameScene = other.scene === seg.scene || other.scene < 0 || seg.scene < 0;
-            s -= !video ? 0.4 : sameScene ? 0.12 + 0.28 * Math.exp(-Math.abs(other.start - a) / Math.max(2, far / 3)) : 0.05;
+            const onward = video && sameScene && r !== "drop" && r !== "hook" && slots[nb].role !== "drop" && slots[nb].role !== "hook" && (nb < i ? a >= other.start + other.len + 0.3 : other.start >= b + 0.3);
+            s -= !video ? 0.4 : onward ? 0.1 : sameScene ? 0.12 + 0.28 * Math.exp(-Math.abs(other.start - a) / Math.max(2, far / 3)) : 0.05;
+            carries ||= onward;
           }
           s -= 0.12 * Math.max(0, 1 - colourDistance(other.rgb, seg.rgb) / 0.12);
           // What the two shots show (the picture model's view): nearly the same picture
@@ -1148,6 +1239,7 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
             s -= 0.8 * clamp((sim - 0.7) / 0.15, 0, 1) * alike;
           } else s -= 0.3 * clamp((alike - 0.6) / 0.3, 0, 1);
         }
+        s -= back.cost;
         if (seg.emb) {
           // Variety over the whole edit: each shot already in it that looks like this one
           // (the same car in the same place, from another angle) makes it less welcome,
@@ -1189,7 +1281,8 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
         // the user picked, though, waits for the others' turns before it comes back.
         // The same moment twice in one edit is a repeat, whatever it shows (though with
         // too little footage to go round, a third or fourth time costs less than a jump cut).
-        const again = momentUses.get(momentOf(seg.scan, a, seg.scene)) ?? 0;
+        // (Carrying a clip on is its moment again by design.)
+        const again = carries ? 0 : momentUses.get(momentOf(seg.scan, a, seg.scene)) ?? 0;
         s -= (turn ? turnPenalty(turn, fewest) : 0.04 * u + (u >= 2 * fairShare ? 0.3 : 0)) + (again ? 0.45 + 0.1 * (again - 1) : 0);
         if (video) {
           // Earlier edits in the batch: never the same moment, rarely one next to it, and
@@ -1204,12 +1297,13 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
           if (!hero && reserved?.has(momentOf(seg.scan, a, seg.scene))) s -= 0.3;
           if (hero) s -= 0.6 * nearness(ctx.avoid?.get(id), a, b, 3 * gap, true, scene);
           // This edit: spread over the footage instead of taking several shots from one stretch.
-          s -= 0.15 * nearness(used.get(id), a - 0.05, b + 0.05, far / 2, false, scene);
+          if (!carries) s -= 0.15 * nearness(used.get(id), a - 0.05, b + 0.05, far / 2, false, scene);
         } else {
           if (u > 0) s -= 0.5;
           if (ctx.avoid?.has(id)) s -= hero ? 0.6 : 0.3;
         }
         if (relax && overlaps(used.get(id), a - 0.05, b + 0.05)) s -= 0.6;
+        if (relax && flexLeft && seg.filler) s -= 0.5;
         s += 0.12 * taste(ctx.variant, seg.scan, a);
         s += (rand() - 0.5) * 0.04;
         if (s > bestScore) {
@@ -1220,22 +1314,25 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
       if (best) break;
     }
     if (!best) throw new Error("No footage to fill the edit");
-    chosen[i] = { ...best, d, len: best.len ?? len };
+    take(i, best, best.len ?? len);
     // The drop shouldn't look like the hook either.
     if (hero && best.emb) heroLooks.push(best.emb);
-    const id = best.scan.id;
-    if (!used.has(id)) used.set(id, []);
-    used.get(id)!.push([best.start, best.start + (best.len ?? len)]);
-    uses.set(id, (uses.get(id) ?? 0) + 1);
-    const moment = momentOf(best.scan, best.start, best.scene);
-    momentUses.set(moment, (momentUses.get(moment) ?? 0) + 1);
-    turnUses.set(turnOf(best), (turnUses.get(turnOf(best)) ?? 0) + 1);
   }
 
   let kb = ctx.variant;
-  return slots.flatMap((slot, i): ShotEvent[] => {
+  const out: ShotEvent[] = [];
+  for (const [i, slot] of slots.entries()) out.push(...shotsFor(slot, i, out[out.length - 1]));
+  return out;
+
+  function shotsFor(slot: Slot, i: number, before?: ShotEvent): ShotEvent[] {
     const seg = chosen[i];
     const d = slot.end - slot.start;
+    if (looping && i === last && out[0]) {
+      // Framed as the first shot starts, and still, so the replay runs straight on.
+      const first = out[0];
+      const zoom = first.crop.zoom0;
+      return [{ start: slot.start, end: slot.end, source: seg.scan.id, kind: seg.scan.kind, srcStart: seg.start, speed: 1, crop: { ...first.crop, zoom0: zoom, zoom1: zoom, cx1: undefined, cy1: undefined, path: undefined }, role: slot.role, score: Math.round(seg.score * 100) / 100 }];
+    }
     if (slot.pieces && slot.pieces.length > 1) {
       // One clip re-cut on the beat: each piece a jump further into it (as far as the
       // footage goes), each punched in a little more.
@@ -1258,7 +1355,14 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
     const ramp = ctx.velocity && seg.scan.kind === "video" && d >= RAMP_MIN && seg.len >= d * RAMP_FOOTAGE - 1e-6 ? rampFor(d, seg.len, seg.scan.fps ?? 30, slot.role === "drop") : undefined;
     const speed = !ramp && seg.scan.kind === "video" && seg.len < d - 1e-6 ? Math.max(0.5, seg.len / d) : 1;
     let crop = cropFor(seg.scan, seg.start, seg.start + (ramp ? seg.len : d * speed), ctx.aspect);
-    if (seg.scan.kind === "image") {
+    // The clip carried on from the shot before, a jump further into it: a re-cut, framed
+    // as that shot was and punched in a little further.
+    const prev = i > 0 ? chosen[i - 1] : undefined;
+    const onward = !!before && !!prev && seg.scan.kind === "video" && before.source === seg.scan.id && before.kind === "video" && sameFootage(prev, seg, hand) && seg.start >= before.srcStart + sourceSpan(before) + 0.25 - 1e-6;
+    if (onward) {
+      const zoom = Math.min(1.35, Math.max(before.crop.zoom0, before.crop.zoom1) * (1 + RECUT_ZOOM));
+      crop = { ...before.crop, zoom0: zoom, zoom1: zoom, path: undefined };
+    } else if (seg.scan.kind === "image") {
       // Ken Burns: a slow push, alternating in and out, drifting towards the subject.
       crop = kenBurns(crop, [crop.cx, crop.cy], kb++ % 2 === 0);
     } else if (seg.motion < 0.18) {
@@ -1266,8 +1370,8 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
       if (ctx.variant % 2) crop.zoom0 = 1.045;
       else crop.zoom1 = 1.04;
     }
-    return [{ start: slot.start, end: slot.end, source: seg.scan.id, kind: seg.scan.kind, srcStart: seg.start, speed, ...(ramp ? { ramp } : {}), crop, role: slot.role, score: Math.round(seg.score * 100) / 100 }];
-  });
+    return [{ start: slot.start, end: slot.end, source: seg.scan.id, kind: seg.scan.kind, srcStart: seg.start, speed, ...(ramp ? { ramp } : {}), crop, role: slot.role, score: Math.round(seg.score * 100) / 100, ...(onward ? { again: true } : {}) }];
+  }
 }
 
 /** Slots between cut points, with the drop, hook and closer marked. */
@@ -1423,42 +1527,96 @@ export interface MontageOptions {
   toCome?: number;
   /** speed ramps on every shot long enough (a velocity edit) */
   velocity?: boolean;
+  /** how the edit is shaped (styles.ts); the straight montage, on the beat, when absent */
+  style?: EditStyle;
+  /** clips with someone talking in them, and where: a talking edit opens on one */
+  talkers?: Talker[];
+  /** with no card: end on the moment the edit opens on, so the replay loops without a seam */
+  loop?: boolean;
 }
 
 export function planMontage(o: MontageOptions): EditPlan {
-  const win = musicWindow(o.song, o.length, o.card ? o.card.hold : 0, o.fromStart, o.songStart);
+  const style = o.style ?? "beat";
+  const song = o.song;
+  const win = musicWindow(song, o.length, o.card ? o.card.hold : 0, o.fromStart, o.songStart, style === "talk" ? TALK_DROP : undefined);
   const pace = variantPace(o.variant);
+  const lead = (t: number) => frame(Math.max(1 / FPS, t - CUT_LEAD));
+  const calm = win.dropAt === undefined && driveOver(song, win.songStart, 0, win.cardAt) < 0.6;
+  // A talking edit: someone talking up to the drop (or a bar line two fifths in), then
+  // the edit. Where the clip runs out of talking first, calm shots a bar each carry on
+  // to the drop, as TJR's build does; with no one talking, they're the whole build.
+  const handover = style === "talk" ? talkEnd(song, win.songStart, win.cardAt, win.dropAt) : undefined;
+  const intro = handover !== undefined ? talkingIntro(o.scans, o.talkers ?? [], lead(handover), o.aspect, o.variant, o.avoid) : null;
+  const dropAt = handover ?? win.dropAt;
+  // (Talking that runs out just short of the drop holds on to it.)
+  if (intro && handover !== undefined && lead(handover) - intro.end < 0.35) {
+    intro.shots[intro.shots.length - 1].end = lead(handover);
+    intro.end = lead(handover);
+  }
   // On the beat: every two beats into the drop, one two-bar pattern after it with one
   // clip carried over a beat in every bar, and at the end of every four bars (two, in
-  // every other edit) one clip re-cut on the half beat (rhythm.ts).
-  const calm = win.dropAt === undefined && driveOver(o.song, win.songStart, 0, win.cardAt) < 0.6;
-  const rhythm = rhythmCuts(o.song, win.songStart, win.cardAt, { dropAt: win.dropAt, pace, calm, stutter: o.variant % 2 ? "often" : true, carry: o.variant % 2 ? 1 : 0 });
-  const lead = (t: number) => frame(Math.max(1 / FPS, t - CUT_LEAD));
+  // every other edit) one clip re-cut on the half beat (rhythm.ts). Faster re-cuts:
+  // every bar, a little faster. Slow: a bar a shot, then two beats.
+  const beat = { pace, calm, stutter: (o.variant % 2 ? "often" : true) as boolean | "often", carry: (o.variant % 2 ? 1 : 0) as 0 | 1 };
+  const opts: RhythmOptions = style === "recut" ? { pace: 0.9 * pace, calm, stutter: "bar", carry: o.variant % 2 ? 0 : 1 } : style === "slow" ? { pace, calm, slow: true } : beat;
+  let rhythm: RhythmCut[];
+  if (handover !== undefined) {
+    const build = rhythmCuts(song, win.songStart, handover, { from: intro ? intro.end + CUT_LEAD : 0, slow: true }).filter((c) => c.t < handover - 0.3);
+    rhythm = [...build, { t: handover }, ...rhythmCuts(song, win.songStart, win.cardAt, { ...opts, from: handover })];
+  } else rhythm = rhythmCuts(song, win.songStart, win.cardAt, { ...opts, dropAt: win.dropAt });
   const cuts = rhythm.filter((c) => !c.again).map((c) => lead(c.t));
   const recuts = rhythm.filter((c) => c.again).map((c) => lead(c.t));
-  const dropCut = win.dropAt !== undefined ? frame(win.dropAt - CUT_LEAD) : undefined;
-  const slots = slotsBetween([0, ...cuts, win.cardAt], dropCut);
+  const dropCut = dropAt !== undefined ? frame(dropAt - CUT_LEAD) : undefined;
+  const from = intro ? intro.end : 0;
+  const slots = slotsBetween([from, ...cuts.filter((t) => t > from + 0.2), win.cardAt], dropCut);
+  // (After the talking, the first shot is the build's, or the drop.)
+  if (intro && slots.length) slots[0].role = dropCut !== undefined && Math.abs(slots[0].start - dropCut) < 0.07 ? "drop" : "build";
+  // Fast re-cuts start at once: the build's clips are re-cut on the beat too, one clip
+  // over two beats (nio.trade's Ferrari, eight times in its first two seconds).
+  if (style === "recut") {
+    const beats = song.beats.map((b) => lead(b - win.songStart));
+    for (const slot of slots) if (slot.role === "build" || slot.role === "hook") recuts.push(...beats.filter((t) => t > slot.start + 0.3 && t < slot.end - 0.3));
+  }
   for (const slot of slots) {
     const inner = recuts.filter((t) => t > slot.start + 0.02 && t < slot.end - 0.02);
     if (inner.length) slot.pieces = [slot.start, ...inner, slot.end].slice(1).map((t, j, a) => t - (j ? a[j - 1] : slot.start));
   }
-  const shots = assignShots(slots, o.scans, { song: o.song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, toCome: o.toCome, velocity: o.velocity });
+  const used: Ranges = new Map();
+  if (intro) used.set(intro.shots[0].source, [[intro.range[0] - 1, intro.range[1] + 1]]);
+  const looped = !!o.loop && !o.card && style !== "talk";
+  // After the talking, the edit is the other footage (TJR's build and payoff are two
+  // places), unless there's hardly any.
+  const rest = intro ? o.scans.filter((sc) => sc.id !== intro.shots[0].source) : o.scans;
+  let shots = assignShots(slots, rest.length >= 2 ? rest : o.scans, { song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, toCome: o.toCome, velocity: o.velocity, used, loop: looped });
+  if (intro) shots = [...intro.shots, ...shots];
+  if (style === "burst") shots = photoBurst(shots, o.scans, song.period, o.aspect, o.variant);
   const drop = shots.find((s) => s.role === "drop");
   // The shot into the drop pushes in as it holds (through the silence, when the song
   // drops out first), and the drop lands on the push.
   const into = drop ? shots.find((s) => Math.abs(s.end - drop.start) < 1e-6) : undefined;
-  if (into && into.end - into.start >= 0.6) {
+  if (into && into.end - into.start >= 0.6 && !into.audio) {
     into.crop.zoom0 = Math.min(into.crop.zoom0, 1);
     into.crop.zoom1 = Math.max(into.crop.zoom1, 1.12);
   }
+  // Slow: every clip pushes in or pulls out, slowly (the photos already do).
+  if (style === "slow") {
+    let k = o.variant;
+    for (const s of shots) {
+      if (s.kind !== "video" || s.again || s === shots[shots.length - 1]) continue;
+      const z = Math.max(1, s.crop.zoom0, s.crop.zoom1);
+      [s.crop.zoom0, s.crop.zoom1] = k++ % 2 ? [z * 1.07, z] : [z, z * 1.07];
+    }
+  }
   const captions: CaptionEvent[] = o.caption?.text.trim() ? [{ style: o.caption.style, text: o.caption.text.trim(), start: 0, end: o.card ? win.cardAt - 4 / FPS : win.duration }] : [];
   // Punch-ins come after the drop: the build holds back, so the drop is its first hit.
-  const hits = strongHits(o.song, win.songStart, drop ? drop.start : 0.8, win.cardAt - 0.6, drop?.start);
+  // (None in a slow edit, and no flourish on its drop: the cut is enough.)
+  const quiet = style === "slow";
+  const hits = quiet ? [] : strongHits(song, win.songStart, drop ? drop.start : 0.8, win.cardAt - 0.6, drop?.start);
   // A velocity edit also zoom-blurs across the cuts that open a four-bar phrase.
-  const phrases = o.velocity ? phraseCuts(o.song, win.songStart, shots, drop?.start) : [];
-  return finishPlan({
-    id: "montage",
-    label: `Montage ${o.variant + 1}`,
+  const phrases = o.velocity && !quiet ? phraseCuts(song, win.songStart, shots, drop?.start) : [];
+  const plan = finishPlan({
+    id: style === "beat" ? "montage" : style,
+    label: `${styleLabel(style)} ${o.variant + 1}`,
     format: "montage",
     aspect: o.aspect,
     shots,
@@ -1469,11 +1627,33 @@ export function planMontage(o: MontageOptions): EditPlan {
     card: o.card,
     captions,
     variant: o.variant,
-    flourishAt: drop?.start,
+    flourishAt: quiet ? undefined : drop?.start,
     hits,
     phrases,
-    bpm: o.song.bpm,
+    bpm: song.bpm,
   });
+  // Black and white: a talking edit's build and a flipping edit's, up to the drop (a
+  // flipping edit with no drop turns at the bar line two fifths in); and in a flipping
+  // edit, a shot or two after the drop turning to colour on a beat.
+  const flipAt = style === "mono" ? (dropCut ?? lead(talkEnd(song, win.songStart, win.cardAt))) : style === "talk" ? dropCut : undefined;
+  if (flipAt !== undefined && flipAt > 0.5) plan.fx.push(mono(0, flipAt));
+  if (style === "mono") {
+    const beats = song.beats.map((b) => frame(b - win.songStart - CUT_LEAD));
+    plan.fx.push(...monoFlips(shots, beats, (flipAt ?? 0) + 4 * song.period));
+  }
+  if (intro && plan.music) {
+    // The voice over the song, the song coming up under the calm shots after it, and all
+    // the way on the drop.
+    const end = intro.end;
+    const drop = dropCut ?? end;
+    plan.music.gainPoints = [[0, 0.22], [Math.max(0, end - 0.12), 0.22], ...(drop - end > 0.3 ? ([[end + 0.1, 0.55], [drop - 0.03, 0.55]] as [number, number][]) : []), [drop, 1]];
+    plan.note.sound = "The talking at the start is in the file with its own voice, the song under it: post the version with the song.";
+    // A phone's voice against a mastered song: brought up to 3 dB under the song in full.
+    plan.levelVoice = -3;
+  }
+  if (looped && plan.music) plan.music.fadeOut = 0.04;
+  plan.checks = { ...plan.checks, style, ...(intro ? { talking: Math.round(intro.end * 100) / 100 } : {}), ...(looped ? { loop: true } : {}) };
+  return plan;
 }
 
 /** Cuts that fall on the first beat of a four-bar phrase (not the first cut, not the drop's), at most three. */

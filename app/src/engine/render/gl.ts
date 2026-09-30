@@ -23,6 +23,10 @@ export interface LayerDraw {
   alpha: number;
   /** the picture inside any black bars, [x0, y0, x1, y1] of the display frame; the centre is inside it */
   rect?: [number, number, number, number];
+  /** drawn as a card on black, turned this many degrees clockwise (a photo flying in) */
+  tilt?: number;
+  /** the card's size in the frame (1 = the whole frame) */
+  inset?: number;
 }
 
 export interface FrameDraw {
@@ -41,6 +45,8 @@ export interface FrameDraw {
   zoomBlur?: number;
   /** the red and blue pulled apart from the middle out (a hit's colour split), 0 to 1 */
   split?: number;
+  /** black and white, 0 to 1 */
+  mono?: number;
 }
 
 const VERT = `#version 300 es
@@ -66,6 +72,8 @@ uniform float uAlpha;
 uniform float uGain;
 uniform vec4 uRect; // the picture inside any black bars: x0, y0, width, height of the frame
 uniform vec2 uShake; // a shake, in frame widths and heights
+uniform float uTilt; // the picture as a card turned this far clockwise (radians)
+uniform float uInset; // the card's size in the frame (1: the whole frame)
 out vec4 outColor;
 vec2 toTex(vec2 d) {
   if (uFlip) d.x = 1.0 - d.x;
@@ -76,6 +84,18 @@ vec2 toTex(vec2 d) {
 }
 void main() {
   vec2 o = vec2(vPos.x, 1.0 - vPos.y);
+  float edge = 1.0;
+  if (uInset < 0.999 || abs(uTilt) > 1e-4) {
+    // This pixel in the card's own frame (the frame's shape, turned and shrunk about the
+    // middle), with a soft edge a pixel wide; black around it.
+    vec2 q = (o - 0.5) * uOut;
+    float cs = cos(uTilt), sn = sin(uTilt);
+    q = vec2(cs * q.x + sn * q.y, -sn * q.x + cs * q.y) / uInset;
+    o = q / uOut + 0.5;
+    vec2 px = min(o, 1.0 - o) * uOut * uInset;
+    edge = clamp(min(px.x, px.y), 0.0, 1.0);
+    if (edge <= 0.0) { outColor = vec4(0.0); return; }
+  }
   float ao = uOut.x / uOut.y;
   float as_ = (uSrc.x * uRect.z) / (uSrc.y * uRect.w);
   vec2 f = uMode == 0
@@ -86,7 +106,7 @@ void main() {
   vec2 d = c + (o - 0.5) * f;
   if (d.x < 0.0 || d.x > 1.0 || d.y < 0.0 || d.y > 1.0) { outColor = vec4(0.0); return; }
   vec3 col = texture(uTex, toTex(uRect.xy + d * uRect.zw)).rgb * uGain;
-  outColor = vec4(col * uAlpha, uAlpha);
+  outColor = vec4(col * uAlpha * edge, uAlpha * edge);
 }`;
 
 const BLUR = `#version 300 es
@@ -122,7 +142,7 @@ uniform sampler2D uOverlay;
 uniform bool uHasOverlay;
 uniform vec2 uOut;
 uniform float uWarm, uContrast, uSat, uVig, uGrain;
-uniform float uFlash, uBurn, uBurnPhase, uDim, uTime, uSeed, uZoomBlur, uSplit;
+uniform float uFlash, uBurn, uBurnPhase, uDim, uTime, uSeed, uZoomBlur, uSplit, uMono;
 out vec4 outColor;
 float hash(vec2 p) { p = fract(p * vec2(443.897, 441.423)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }
 float noise(vec2 p) {
@@ -152,15 +172,15 @@ void main() {
   }
   // White balance towards warm.
   c *= vec3(1.0 + 0.07 * uWarm, 1.0 + 0.012 * uWarm, 1.0 - 0.1 * uWarm);
-  // A soft filmic S-curve.
+  // A soft filmic S-curve (a little harder in black and white).
   vec3 s = c * c * (3.0 - 2.0 * c);
-  c = mix(c, s, uContrast * 0.55);
+  c = mix(c, s, clamp(uContrast * 0.55 + 0.3 * uMono, 0.0, 1.0));
   // Split tone: golden highlights, faintly teal shadows.
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c += uWarm * 0.05 * vec3(1.0, 0.5, -0.45) * smoothstep(0.45, 1.0, l);
   c += uWarm * 0.03 * vec3(-0.35, 0.08, 0.3) * (1.0 - smoothstep(0.0, 0.35, l));
   l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-  c = mix(vec3(l), c, uSat);
+  c = mix(vec3(l), c, uSat * (1.0 - uMono));
   // Vignette, by the frame's longer side.
   vec2 q = (o - 0.5) * 2.0 * uOut / max(uOut.x, uOut.y);
   c *= 1.0 - uVig * 0.5 * smoothstep(0.5, 1.5, length(q));
@@ -330,6 +350,8 @@ export class Compositor {
     const r = l.rect ?? [0, 0, 1, 1];
     gl.uniform4f(p.loc("uRect"), r[0], r[1], r[2] - r[0], r[3] - r[1]);
     gl.uniform2f(p.loc("uShake"), this.shake[0], this.shake[1]);
+    gl.uniform1f(p.loc("uTilt"), ((l.tilt ?? 0) * Math.PI) / 180);
+    gl.uniform1f(p.loc("uInset"), Math.max(0.05, l.inset ?? 1));
     this.quad(target);
   }
 
@@ -396,6 +418,7 @@ export class Compositor {
     gl.uniform1f(p.loc("uSeed"), f.seed);
     gl.uniform1f(p.loc("uZoomBlur"), f.zoomBlur ?? 0);
     gl.uniform1f(p.loc("uSplit"), f.split ?? 0);
+    gl.uniform1f(p.loc("uMono"), f.mono ?? 0);
     this.quad(null);
   }
 

@@ -2,88 +2,14 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { analyzeSong, type SongAnalysis } from "../src/engine/audio/song";
-import { KINDS, PROFILE_BINS, scoreInterest, type Kind, type Scan } from "../src/engine/media/scan";
+import { PROFILE_BINS, scoreInterest, type Kind, type Scan } from "../src/engine/media/scan";
+import { fakeScan, lookedAt } from "./scans";
 import { apart, CUT_LEAD, mulberry32, planMontage, usedRanges, type Ranges } from "../src/engine/plan/montage";
 import { planMeme, planTwist } from "../src/engine/plan/formats";
 import { FPS, outputAt, sourceAt, sourceSpan, type CardSpec } from "../src/engine/plan/types";
 
 /** The shots that start a clip: a re-cut of one clip on the beat (`again`) is part of the shot before it. */
 const clips = <S extends { again?: boolean }>(shots: S[]) => shots.filter((s) => !s.again);
-
-/** A stand-in for a scanned clip: interest and motion that wander, one colour cast. */
-function fakeScan(id: string, duration: number, seed: number, kind: "video" | "image" = "video"): Scan {
-  const rand = mulberry32(seed);
-  const rate = kind === "video" ? 6 : 0;
-  const n = kind === "video" ? Math.floor(duration * rate) : 1;
-  const base = [rand(), rand(), rand()];
-  const f = (k: number) => new Float32Array(k);
-  const stats = {
-    t: f(n), luma: f(n), contrast: f(n), sharp: f(n), color: f(n), skin: f(n), motion: f(n),
-    hist: f(n * 64), cols: f(n * PROFILE_BINS), rows: f(n * PROFILE_BINS), rgb: f(n * 3),
-  };
-  const interest = f(n);
-  let phase = rand() * 6;
-  for (let i = 0; i < n; i++) {
-    stats.t[i] = kind === "video" ? (i + 0.5) / rate : 0;
-    phase += 0.2;
-    interest[i] = 0.4 + 0.3 * Math.sin(phase) * rand() + 0.2 * rand();
-    stats.motion[i] = 0.05 + 0.2 * rand();
-    for (let c = 0; c < 3; c++) stats.rgb[i * 3 + c] = base[c];
-    for (let k = 0; k < PROFILE_BINS; k++) {
-      stats.cols[i * PROFILE_BINS + k] = 1 / PROFILE_BINS;
-      stats.rows[i * PROFILE_BINS + k] = 1 / PROFILE_BINS;
-    }
-  }
-  return { id, kind, start: 0, duration, width: 1920, height: 1080, rate, stats, cuts: [], interest };
-}
-
-/**
- * A clip the picture model has looked at: each of its shots (between cuts) shows one
- * thing, judged as `kind` with its flex and wow; shots with the same `look` show the
- * same thing (the same car), others are unrelated. `frame` is how it's framed (its
- * colours and where the subject sits): the same look and frame is the same shot.
- */
-function lookedAt(id: string, shots: { len: number; kind: Kind; flex: number; wow: number; look: number; frame?: number }[], seed: number): Scan {
-  const rand = mulberry32(seed);
-  const rate = 6;
-  const duration = shots.reduce((a, s) => a + s.len, 0);
-  const n = Math.floor(duration * rate);
-  const f = (k: number) => new Float32Array(k);
-  const stats = { t: f(n), luma: f(n), contrast: f(n), sharp: f(n), color: f(n), skin: f(n), motion: f(n), hist: f(n * 64), cols: f(n * PROFILE_BINS).fill(1 / PROFILE_BINS), rows: f(n * PROFILE_BINS).fill(1 / PROFILE_BINS), rgb: f(n * 3) };
-  const look = { flex: f(n), wow: f(n), kind: new Uint8Array(n), embs: [] as Float32Array[], cell: new Int32Array(n) };
-  const cuts: number[] = [];
-  let at = 0;
-  for (const [k, shot] of shots.entries()) {
-    const e = f(16).map((_, d) => (d === shot.look ? 1 : 0) + 0.12 * (rand() - 0.5));
-    const norm = Math.hypot(...e);
-    look.embs.push(e.map((x) => x / norm));
-    if (k) cuts.push(at);
-    at += shot.len;
-  }
-  for (let i = 0; i < n; i++) {
-    const t = (i + 0.5) / rate;
-    stats.t[i] = t;
-    let k = 0;
-    while (k + 1 < shots.length && t >= cuts[k]) k++;
-    stats.luma[i] = 0.45 + 0.1 * rand();
-    stats.contrast[i] = 0.2;
-    stats.sharp[i] = 4 + rand();
-    stats.color[i] = 0.3;
-    stats.motion[i] = 0.08 + 0.1 * rand();
-    stats.rgb.set([0.3 + 0.4 * rand(), 0.4, 0.5], i * 3);
-    const frame = shots[k].frame ?? shots[k].look;
-    for (let b = 0; b < 64; b++) stats.hist[i * 64 + b] = Math.exp(-(((b - ((frame * 11) % 64)) / 4) ** 2));
-    for (let b = 0; b < PROFILE_BINS; b++) {
-      stats.cols[i * PROFILE_BINS + b] = Math.exp(-(((b - ((frame * 7) % PROFILE_BINS)) / 3) ** 2));
-      stats.rows[i * PROFILE_BINS + b] = Math.exp(-(((b - ((frame * 13) % PROFILE_BINS)) / 3) ** 2));
-    }
-    look.flex[i] = shots[k].flex;
-    look.wow[i] = shots[k].wow;
-    look.kind[i] = KINDS.indexOf(shots[k].kind);
-    look.cell[i] = k;
-  }
-  return { id, kind: "video", start: 0, duration, width: 1080, height: 1920, rate, stats, cuts, look };
-}
 
 const FIX = resolve(import.meta.dirname, "fixtures");
 const songs = ["mico", "nio4", "nio1"].filter((s) => existsSync(resolve(FIX, `${s}.f32`)));
@@ -401,6 +327,47 @@ describe("planners on a synthetic song (runs everywhere)", () => {
       // have opened earlier edits, the clubs and the bar).
       if (v < 2) expect(["yacht", "terrace", "sofa", "pool"]).toContain(plan.shots[0].source);
       expect(["dinner", "selfie", "guys", "couple", "food", "talk"]).not.toContain(plan.shots[0].source);
+    }
+  });
+
+  it("never hops back and forth: a clip carries on, a jump further into it, or comes back well after", () => {
+    // The user's trip again, its first six clips, and seven phone clips of anything:
+    // more shots than clips, so each comes back.
+    type C = [string, number, Kind, number, number, number?];
+    const trip: C[] = [
+      ["bar", 5, "party", 0.55, 0.5], ["dinner", 7.5, "work", 0.35, 0.4], ["beach", 20, "people", 0.45, 0.55], ["lights", 3.8, "party", 0.6, 0.6, 0.2],
+      ["selfie", 14, "people", 0.35, 0.4, 0.2], ["curtains", 5.7, "party", 0.5, 0.5, 0.2],
+    ];
+    const six = trip.map(([id, len, kind, flex, wow, luma], k) => {
+      const sc = lookedAt(id, [{ len, kind, flex, wow, look: k }], 60 + k);
+      if (luma) sc.stats.luma.fill(luma);
+      return sc;
+    });
+    const seven = Array.from({ length: 7 }, (_, i) => fakeScan(`clip${i}`, 5 + i, 700 + i));
+    for (const footage of [six, seven]) {
+      scoreInterest(footage);
+      const avoid: Ranges = new Map();
+      for (let v = 0; v < 3; v++) {
+        const plan = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans: footage, aspect: "9x16", length: 12.6, card: null, caption: null, variant: v, avoid });
+        usedRanges(plan, avoid);
+        const shots = clips(plan.shots);
+        // A clip it left under 2.5 s before, with one shot in between (A, B, A): never; with two, rarely.
+        let twoBetween = 0;
+        for (let j = 2; j < shots.length; j++) {
+          for (let i = j - 2; i >= 0 && shots[j].start - shots[i].end < 2.5; i--) {
+            if (shots[i].source !== shots[j].source) continue;
+            expect(j - i - 1, `${shots[j].source} at ${shots[j].start.toFixed(2)}`).toBeGreaterThan(1);
+            if (j - i - 1 === 2) twoBetween++;
+            break;
+          }
+        }
+        expect(twoBetween).toBeLessThanOrEqual(1);
+        // Where a clip runs on into the next shot, it jumps further into it, never back.
+        for (let k = 1; k < plan.shots.length; k++) {
+          const [p, q] = [plan.shots[k - 1], plan.shots[k]];
+          if (q.again) expect(q.srcStart).toBeGreaterThanOrEqual(p.srcStart + sourceSpan(p) - 1e-6);
+        }
+      }
     }
   });
 

@@ -97,6 +97,8 @@ export async function mixPlan(plan: EditPlan, sources: Map<string, Source>, with
   const master = ctx.createGain();
   master.connect(ctx.destination);
   const m = plan.music;
+  // The song's level where it plays in full, for bringing a voice to it (levelVoice).
+  let songDb: number | null = null;
   if (withMusic && m) {
     const src = sources.get(m.source);
     const buf = src ? await decodeAudioBuffer(src, m.songStart, m.songStart + (m.end - m.start), MIX_RATE) : null;
@@ -117,6 +119,17 @@ export async function mixPlan(plan: EditPlan, sources: Map<string, Source>, with
         }
         return pts[pts.length - 1][1] * m.gain;
       };
+      if (plan.levelVoice !== undefined) {
+        let e = 0;
+        let k = 0;
+        const data = Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c));
+        for (let i = 0; i < buf.length; i += 4) {
+          if (level(m.start + i / MIX_RATE) < 0.9 * m.gain) continue;
+          for (const ch of data) e += ch[i] * ch[i];
+          k += data.length;
+        }
+        if (k) songDb = 10 * Math.log10(e / k + 1e-12) + 20 * Math.log10(m.gain);
+      }
       const fadeEnd = Math.max(m.start + m.fadeIn, m.end - m.fadeOut);
       g.gain.setValueAtTime(0, m.start);
       g.gain.linearRampToValueAtTime(level(m.start + Math.max(0.005, m.fadeIn)), m.start + Math.max(0.005, m.fadeIn));
@@ -129,19 +142,31 @@ export async function mixPlan(plan: EditPlan, sources: Map<string, Source>, with
     }
   }
   if (plan.sourceAudio || plan.shots.some((s) => s.audio)) {
+    const voices: { s: (typeof plan.shots)[number]; buf: AudioBuffer }[] = [];
     for (const s of plan.shots) {
       const src = sources.get(s.source);
       if (!(s.audio ?? plan.sourceAudio) || !src || s.kind !== "video" || !src.info.hasAudio) continue;
       const dur = s.end - s.start;
       const buf = await decodeAudioBuffer(src, s.srcStart, s.srcStart + (s.ramp ? sourceSpan(s) : dur * s.speed), MIX_RATE);
-      if (!buf) continue;
+      if (buf) voices.push({ s, buf });
+    }
+    // The voice brought to the song: its level over all its shots, against the song's in full.
+    let gain = 1;
+    if (songDb !== null && plan.levelVoice !== undefined && voices.length) {
+      let e = 0;
+      let k = 0;
+      for (const { buf } of voices) for (let c = 0; c < buf.numberOfChannels; c++) for (const v of buf.getChannelData(c)) (e += v * v), k++;
+      const voiceDb = 10 * Math.log10(e / Math.max(1, k) + 1e-12);
+      if (voiceDb > -70) gain = Math.min(16, Math.max(0.25, Math.pow(10, (songDb + plan.levelVoice - voiceDb) / 20)));
+    }
+    for (const { s, buf } of voices) {
       const node = ctx.createBufferSource();
       node.buffer = buf;
       const g = ctx.createGain();
       // 6 ms fades so a jump cut doesn't click.
       g.gain.setValueAtTime(0, s.start);
-      g.gain.linearRampToValueAtTime(1, s.start + 0.006);
-      g.gain.setValueAtTime(1, s.end - 0.006);
+      g.gain.linearRampToValueAtTime(gain, s.start + 0.006);
+      g.gain.setValueAtTime(gain, s.end - 0.006);
       g.gain.linearRampToValueAtTime(0, s.end);
       node.connect(g).connect(master);
       node.start(s.start);

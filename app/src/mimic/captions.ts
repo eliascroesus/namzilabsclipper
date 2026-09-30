@@ -17,7 +17,10 @@ const pauses = (w: string) => /[,;:–-]["”')\]]*$/.test(w);
  * Words into captions: a sentence's end, or a pause of 0.35 s or more, ends a
  * caption; lines fill up to the reference's letters per line, breaking after a
  * comma when the line is at least half full; a caption holds the reference's
- * number of lines.
+ * number of lines. Breaks typed into the words come first: a line break starts a
+ * new line of the same caption (however many lines that makes, whatever the pause
+ * or full stop), an empty line a new caption, and a line typed between two breaks
+ * stays one line.
  */
 export function paginate(words: PlanWord[], look: CaptionLook): CaptionPage[] {
   const pages: CaptionPage[] = [];
@@ -35,13 +38,30 @@ export function paginate(words: PlanWord[], look: CaptionLook): CaptionPage[] {
     line = [];
     if (lines.length >= look.lines) flushPage();
   };
+  // The lines the user typed: the words between a typed line break and the break
+  // before or after it, when that's short enough to be one line (two and a half times
+  // the reference's letters, set smaller to fit). Inside one, nothing breaks by itself.
+  const held = new Uint8Array(words.length);
+  for (let a = 0, i = 0; i < words.length; i++) {
+    if (!words[i].br && i < words.length - 1) continue;
+    const typed = words[i].br === "line" || (a > 0 && words[a - 1].br === "line");
+    if (typed && len(words.slice(a, i + 1)) <= 2.5 * look.chars) held.fill(1, a, i + 1);
+    a = i + 1;
+  }
   words.forEach((w, i) => {
     const prev = words[i - 1];
-    if (prev && w.start - prev.end >= 0.35) flushPage();
-    if (line.length && len([...line, w]) > look.chars) flushLine();
+    const within = !!held[i] && !!prev && !!held[i - 1] && !prev.br;
+    if (prev && prev.br !== "line" && !within && w.start - prev.end >= 0.35) flushPage();
+    if (line.length && !within && len([...line, w]) > look.chars) flushLine();
     line.push(w);
     const next = words[i + 1];
-    if (ends(w.text)) flushPage();
+    if (w.br === "page") flushPage();
+    else if (w.br === "line") {
+      lines.push(line);
+      line = [];
+    } else if (held[i] && next && held[i + 1]) {
+      // (inside a typed line)
+    } else if (ends(w.text)) flushPage();
     else if (pauses(w.text) && len(line) >= look.chars / 2 && next) flushLine();
   });
   flushPage();

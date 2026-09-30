@@ -131,6 +131,7 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
   let punch = 1;
   let zoomBlur = 0;
   let split = 0;
+  let mono = 0;
   const shake: [number, number] = [0, 0];
   for (const e of fx) {
     if (t < e.start - 1e-6 || t >= e.end - 1e-6) continue;
@@ -160,6 +161,8 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
       // Full on the hit, closing up over the frames after it.
       const at = e.at ?? e.start;
       if (t >= at - 1e-6) split = Math.max(split, e.strength * (1 - (t - at) / Math.max(1e-6, e.end - at)) ** 1.5);
+    } else if (e.kind === "mono") {
+      mono = Math.max(mono, e.strength);
     } else if (e.kind === "shake") {
       // A few frames of hard, decaying jolts (the same every render), with a touch of zoom so no edge shows.
       const k = Math.round((t - e.start) * fps);
@@ -170,7 +173,7 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
       punch = Math.max(punch, 1 + 0.06 * e.strength * decay);
     }
   }
-  return { flash, burn, burnPhase, dim, punch, shake, zoomBlur, split };
+  return { flash, burn, burnPhase, dim, punch, shake, zoomBlur, split, mono };
 }
 
 async function blobToBase64Parts(blob: Blob, chunk = 6 * 1024 * 1024): Promise<string[]> {
@@ -260,6 +263,8 @@ export class FramePainter {
       const c = shot.crop;
       const zoom = (c.zoom0 + (c.zoom1 - c.zoom0) * p) * e.punch;
       const [cx, cy] = centreAt(c, t - shot.start, shot.end - shot.start);
+      // A photo flying in: the card settles from its first size to its last, quickly.
+      const card = c.inset ? { tilt: c.tilt ?? 0, inset: c.inset[0] + (c.inset[1] - c.inset[0]) * (1 - (1 - Math.min(1, p)) ** 3) } : c.tilt ? { tilt: c.tilt } : {};
       if (shot.kind === "image") {
         const img = sources.get(shot.source)?.image;
         if (img) {
@@ -268,7 +273,7 @@ export class FramePainter {
             comp.upload(0, img, img.width, img.height);
             this.lastUpload = key;
           }
-          layers.push({ slot: 0, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1 });
+          layers.push({ slot: 0, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1, ...card });
         }
       } else {
         const sample = await this.reader(idx)?.at(shot.srcStart + sourceAt(shot, t - shot.start));
@@ -280,7 +285,7 @@ export class FramePainter {
             vf.close();
             this.lastUpload = key;
           }
-          layers.push({ slot: 0, srcW: sample.displayWidth, srcH: sample.displayHeight, rotation: sample.rotation as Rotation, flip: sample.flip, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1 });
+          layers.push({ slot: 0, srcW: sample.displayWidth, srcH: sample.displayHeight, rotation: sample.rotation as Rotation, flip: sample.flip, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1, ...card });
         }
       }
     }
@@ -299,7 +304,7 @@ export class FramePainter {
       comp.uploadOverlay(this.overlay);
       this.overlayKey = key;
     }
-    comp.draw({ layers, grade: inOwnCard ? NO_GRADE : plan.grade, flash: e.flash, burn: e.burn, burnPhase: e.burnPhase, dim: inCard ? 0 : e.dim, overlay: !!key, time: t, seed: 1.37, shake: e.shake, zoomBlur: inCard ? 0 : e.zoomBlur, split: inCard ? 0 : e.split });
+    comp.draw({ layers, grade: inOwnCard ? NO_GRADE : plan.grade, flash: e.flash, burn: e.burn, burnPhase: e.burnPhase, dim: inCard ? 0 : e.dim, overlay: !!key, time: t, seed: 1.37, shake: e.shake, zoomBlur: inCard ? 0 : e.zoomBlur, split: inCard ? 0 : e.split, mono: inCard || inOwnCard ? 0 : e.mono });
   }
 
   async close() {

@@ -40,8 +40,8 @@ export interface RhythmOptions {
   pace?: number;
   /** the longest shot after the drop, seconds */
   maxShot?: number;
-  /** re-cut a clip on the half beat at the end of every four bars ("often": every two) */
-  stutter?: boolean | "often";
+  /** re-cut a clip on the half beat at the end of every four bars ("often": every two, "bar": every bar) */
+  stutter?: boolean | "often" | "bar";
   /**
    * after the drop, carry one clip over a beat in every bar (the second beat into the
    * third, or with 1 the third into the fourth): a jump cut on the beat, not a new clip
@@ -49,6 +49,11 @@ export interface RhythmOptions {
   carry?: 0 | 1;
   /** a stretch with no drop that doesn't hit hard (a verse): every two beats throughout */
   calm?: boolean;
+  /**
+   * long holds, a mood piece (brezscales' twist, TJR's build): every bar before the drop
+   * (and throughout, with none), every two beats after it; no template, no re-cuts
+   */
+  slow?: boolean;
 }
 
 /** Sixteenths in two bars of 4/4: the length of the template. */
@@ -182,9 +187,9 @@ export function rhythmCuts(song: SongAnalysis, songStart: number, end: number, o
   // Every two beats (a bar at a very fast tempo, one beat at a very slow one), on the
   // beats `anchor` falls on, between `lo` and `hi`.
   const u = 2 * T < 0.55 ? 4 : 2 * T > 1.8 ? 1 : 2;
-  const steady = (anchor: number, lo: number, hi: number) => {
-    const k0 = anchor + u * Math.ceil((beatIndex(song, songStart + lo) - anchor) / u);
-    for (let k = k0; at(k) < hi; k += u) if (at(k) > lo) add(at(k));
+  const steady = (anchor: number, lo: number, hi: number, every = u) => {
+    const k0 = anchor + every * Math.ceil((beatIndex(song, songStart + lo) - anchor) / every);
+    for (let k = k0; at(k) < hi; k += every) if (at(k) > lo) add(at(k));
   };
   // The song coming back after a break is a cut.
   const returns = (after: number) => {
@@ -194,6 +199,17 @@ export function rhythmCuts(song: SongAnalysis, songStart: number, end: number, o
   const drop = opts.dropAt !== undefined && opts.dropAt > from + T && opts.dropAt < end - T ? opts.dropAt : undefined;
   const k0 = beatIndex(song, songStart + from);
   const bar = song.downbeats.map((d) => beatIndex(song, d)).find((k) => k >= k0 - 0.05);
+  if (opts.slow) {
+    const anchor = Math.round(drop !== undefined ? beatIndex(song, songStart + drop) : bar ?? Math.ceil(k0 - 0.05));
+    const long = Math.min(8, 2 * u);
+    if (drop !== undefined) {
+      steady(anchor, first, drop - 0.5 * T, long);
+      add(drop);
+      steady(anchor, drop + 0.5 * T, end);
+    } else steady(anchor, first, end, long);
+    returns(drop ?? from);
+    return finish(cuts, from, end, T);
+  }
   if (drop === undefined && opts.calm) {
     // A stretch that doesn't hit hard: every two beats from the bar line, on the pair
     // of beats the song hits harder (1 and 3, or a snap's 2 and 4).
@@ -252,7 +268,7 @@ export function rhythmCuts(song: SongAnalysis, songStart: number, end: number, o
   // The last beat of every four bars (two, in a busier edit): one clip, re-cut on the
   // half beat (on the sixteenth when the half beat is long), not into the card.
   if (opts.stutter) {
-    const every = opts.stutter === "often" ? 8 : 16;
+    const every = opts.stutter === "bar" ? 4 : opts.stutter === "often" ? 8 : 16;
     const piece = T / 2 >= 0.32 ? 0.25 : 0.5;
     for (let B = anchor + every; at(B) < end - Math.max(T, 0.4) - 0.02; B += every) {
       const s0 = at(B - 1);

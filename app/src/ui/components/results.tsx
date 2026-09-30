@@ -58,7 +58,7 @@ function CopyButton({ text }: { text: string }) {
 function JobCard({ job, thumbs }: { job: Job; thumbs: Map<string, string | undefined> }) {
   const plan = job.plan;
   const aspect = plan ? plan.width / plan.height : 9 / 16;
-  const name = `clipper-${job.label.toLowerCase().replace(/\s+/g, "-")}-${plan?.aspect ?? ""}`;
+  const name = `clipper-${job.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}-${plan?.aspect ?? ""}`;
   return (
     <article className="job">
       <div className="screen" style={{ aspectRatio: String(aspect) }}>
@@ -173,7 +173,7 @@ function Moments({ s }: { s: State }) {
           <div key={m.id} className={`moment${m.selected ? " on" : ""}`}>
             <input type="checkbox" checked={m.selected} onChange={() => studio.toggleMoment(m.id)} aria-label={`Clip this moment: ${m.hook}`} />
             <div style={{ minWidth: 0 }}>
-              <input className="hook" value={m.hook} onChange={(e) => studio.setMomentHook(m.id, e.target.value)} aria-label="The hook on screen" />
+              <textarea className="hook" rows={1} value={m.hook} onChange={(e) => studio.setMomentHook(m.id, e.target.value)} aria-label="The hook on screen (Enter for a new line)" />
               <div className="why">{m.why}</div>
               <div className="words">{m.text}</div>
             </div>

@@ -32,9 +32,22 @@ function alike(a: string, b: string): number {
   return 1 - d[x.length] / Math.max(x.length, y.length);
 }
 
-/** New words (text) timed from the old ones. */
+/**
+ * New words (text) timed from the old ones. Where the text breaks the line after a word,
+ * the word says so (`br`): once, a new line of the caption; with an empty line, a new caption.
+ */
 export function retime(timed: Word[], text: string): Word[] {
-  const next = text.split(/\s+/).filter(Boolean);
+  const tokens = [...text.matchAll(/(\S+)(\s*)/g)].map((m) => {
+    const lines = (m[2].match(/\n/g) ?? []).length;
+    return { text: m[1], br: lines >= 2 ? ("page" as const) : lines === 1 ? ("line" as const) : undefined };
+  });
+  return align(timed, tokens.map((t) => t.text)).map((w, j) => {
+    const { br: _old, ...word } = w;
+    return tokens[j].br ? { ...word, br: tokens[j].br } : word;
+  });
+}
+
+function align(timed: Word[], next: string[]): Word[] {
   const n = timed.length;
   const m = next.length;
   if (!m) return [];

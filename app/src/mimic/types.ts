@@ -166,6 +166,8 @@ export interface PlanWord {
   /** output time */
   start: number;
   end: number;
+  /** a break the user typed after it: a new line of the caption, or a new caption */
+  br?: "line" | "page";
 }
 
 export interface CaptionPage {

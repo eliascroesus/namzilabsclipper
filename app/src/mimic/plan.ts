@@ -177,7 +177,7 @@ export function planMimic(inp: PlanInput): MimicPlan {
     const s = clock.toOut(w.start);
     const e = clock.toOut(Math.max(w.start, w.end - 0.01));
     if (s === null) continue;
-    words.push({ text: w.text, start: s, end: e ?? s + Math.max(0.05, w.end - w.start) });
+    words.push({ text: w.text, start: s, end: e ?? s + Math.max(0.05, w.end - w.start), ...(w.br ? { br: w.br } : {}) });
   }
   const pages = paginate(words, look);
   const pageStarts = new Set(pages.map((p) => p.start));

@@ -105,6 +105,8 @@ button { cursor: pointer; }
   transition: border-color 120ms var(--ease);
 }
 .textarea { height: auto; min-height: 84px; padding: 8px 10px; resize: vertical; line-height: 1.4; }
+/* A caption: one line to start with, growing a line with every Enter. */
+.textarea.line { min-height: 0; resize: none; field-sizing: content; }
 .input:focus, .select:focus, .textarea:focus { border-color: var(--brand); }
 .btn {
   height: var(--control-h); border-radius: var(--radius); border: 1px solid var(--line);
@@ -282,7 +284,7 @@ input[type="range"] { width: 100%; accent-color: var(--brand); }
 .moment { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: start; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
 .moment.on { border-color: rgba(86, 140, 255, 0.55); }
 .moment input[type="checkbox"] { width: 16px; height: 16px; margin-top: 8px; accent-color: var(--brand); }
-.moment .hook { font-weight: 600; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; margin: 0 0 0 -7px; width: 100%; }
+.moment .hook { font: inherit; font-weight: 600; line-height: 1.35; color: inherit; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; margin: 0 0 0 -7px; width: 100%; resize: none; field-sizing: content; }
 .moment .hook:hover { border-color: var(--line); }
 .moment .hook:focus { border-color: var(--brand); outline: none; background: var(--control); }
 .moment .why { font-size: 13px; color: var(--muted); margin-top: 2px; }

@@ -1,8 +1,9 @@
-import { AudioWaveform, Clapperboard, Eye, EyeOff, Film, ImagePlus, MessageSquareQuote, Music, Plus, RotateCcw, Shuffle, Sparkles, Type, X } from "lucide-react";
+import { AudioWaveform, Clapperboard, Dices, Eye, EyeOff, Film, ImagePlus, MessageSquareQuote, Music, Plus, RotateCcw, Shuffle, Sparkles, Type, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { drawCard } from "../../engine/render/card";
 import { loadFonts } from "../../engine/render/fonts";
 import { FRAME_SIZE, type Aspect } from "../../engine/plan/types";
+import { EDIT_STYLES } from "../../engine/plan/styles";
 import { CARD_VIDEO_LENGTH, cardHoldOf, MAX_LENGTH, studio, type Format, type State } from "../studio";
 import { Drop, fmtTime, Section, Segmented, Switch } from "./bits";
 import { SongTimeline } from "./song";
@@ -414,7 +415,27 @@ export function StylePanel({ s }: { s: State }) {
   ];
   return (
     <Section title="Style">
-      <div className="field" style={{ marginTop: 0 }}>
+      {st.format === "montage" && (
+        <div className="field" style={{ marginTop: 0 }}>
+          <span className="label">Edit style</span>
+          <div className="formats styles">
+            <button type="button" className="format" aria-pressed={st.edit === "mix"} onClick={() => studio.setStyle({ edit: "mix" })}>
+              <span className="name">
+                <Dices size={15} strokeWidth={2.25} />
+                Mix
+              </span>
+              <span className="desc">Each edit in the batch in another style.</span>
+            </button>
+            {EDIT_STYLES.map((e) => (
+              <button key={e.value} type="button" className="format" aria-pressed={st.edit === e.value} onClick={() => studio.setStyle({ edit: e.value })}>
+                <span className="name">{e.name}</span>
+                <span className="desc">{e.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="field" style={st.format === "montage" ? undefined : { marginTop: 0 }}>
         <span className="label">Frame</span>
         <Segmented label="Frame" value={st.aspect} options={aspects} onChange={(v) => studio.setStyle({ aspect: v })} />
         <span className="hint">{st.aspect === "4x3" ? "How nio.trade posts: a YouTube frame kept whole." : st.aspect === "9x16" ? "Full screen. Wide footage is cropped to follow the subject." : st.aspect === "1x1" ? "Square, like the brezscales meme." : "The feed's tallest post."}</span>
@@ -469,15 +490,16 @@ export function StylePanel({ s }: { s: State }) {
           {st.caption !== "none" && (
             <div className="field">
               <label htmlFor="cap">{st.format === "twist" ? "Before the flip" : "Text"}</label>
-              <input id="cap" className="input" value={st.text} maxLength={80} placeholder={st.caption === "pov" ? "kimchi after retiring:" : "Peak life."} onChange={(e) => studio.setStyle({ text: e.target.value })} />
+              <textarea id="cap" className="textarea line" rows={1} value={st.text} maxLength={160} placeholder={st.caption === "pov" ? "kimchi after retiring:" : "Peak life."} onChange={(e) => studio.setStyle({ text: e.target.value })} />
               {st.format === "twist" && (
                 <>
                   <label htmlFor="cap2" style={{ marginTop: 6 }}>
                     After the flip
                   </label>
-                  <input id="cap2" className="input" value={st.textB} maxLength={80} placeholder="what they don't..." onChange={(e) => studio.setStyle({ textB: e.target.value })} />
+                  <textarea id="cap2" className="textarea line" rows={1} value={st.textB} maxLength={160} placeholder="what they don't..." onChange={(e) => studio.setStyle({ textB: e.target.value })} />
                 </>
               )}
+              <span className="hint">Press Enter for a new line.</span>
             </div>
           )}
         </>
@@ -494,10 +516,21 @@ export function StylePanel({ s }: { s: State }) {
           </Switch>
         </div>
       )}
+      {st.format === "montage" && (
+        <div className="field">
+          <Switch
+            checked={st.loop}
+            onChange={(v) => studio.setStyle({ loop: v })}
+            hint={s.kit.enabled ? "With the end card on, the edit ends on the card." : st.loop ? "The last shot runs into the first, so the replay has no seam (TJR). Not after talking." : "Off: the edit ends on its last shot."}
+          >
+            Loop the ending
+          </Switch>
+        </div>
+      )}
       <div className="field">
         <span className="label">How many edits</span>
         <Segmented label="Number of edits" value={st.variants} options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: String(n) }))} onChange={(v) => studio.setStyle({ variants: v })} />
-        <span className="hint">Each one uses different moments and a different flourish.</span>
+        <span className="hint">{st.format === "montage" && st.edit === "mix" ? "Each one in another style, with its own moments and flourish." : "Each one uses different moments and a different flourish."}</span>
       </div>
     </Section>
   );

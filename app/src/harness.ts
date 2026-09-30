@@ -9,9 +9,12 @@ import { findVocals } from "./engine/audio/vocals";
 import { decodeMono, openSource, type Source } from "./engine/media/sources";
 import { KINDS, scanImage, scanVideo, scoreInterest, type Scan } from "./engine/media/scan";
 import { planMontage, usedRanges, type Ranges } from "./engine/plan/montage";
+import { mixOrder, styleFor, talks, type EditStyle, type Talker } from "./engine/plan/styles";
+import { detectSpeech } from "./engine/audio/speech";
 import { planMeme, planTwist } from "./engine/plan/formats";
 import type { Aspect, CardSpec } from "./engine/plan/types";
 import { blobToBase64Parts, renderPlan, renderStills } from "./engine/render/export";
+import { mixPlan } from "./engine/render/mix";
 import { FaceFinder } from "./engine/vision/faces";
 import { followFaces } from "./engine/vision/track";
 
@@ -199,6 +202,35 @@ export interface MontageRun {
   settle?: boolean;
   /** end on this video (a motion design) instead of the drawn card, as the app does with a card of the user's own */
   cardVideo?: string;
+  /** the montage's edit style, or "mix": each edit the next in the mix, as the app does */
+  style?: EditStyle | "mix";
+  /** with no card: end on the moment the edit opens on */
+  loop?: boolean;
+  /** save only each edit's soundtrack, as 48 kHz 16-bit WAV (no pictures) */
+  audioOnly?: boolean;
+}
+
+/** An AudioBuffer as a 16-bit WAV file. */
+function wavOf(buf: AudioBuffer): Blob {
+  const n = buf.length;
+  const ch = buf.numberOfChannels;
+  const out = new DataView(new ArrayBuffer(44 + n * ch * 2));
+  const str = (o: number, t: string) => [...t].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
+  str(0, "RIFF");
+  out.setUint32(4, 36 + n * ch * 2, true);
+  str(8, "WAVEfmt ");
+  out.setUint32(16, 16, true);
+  out.setUint16(20, 1, true);
+  out.setUint16(22, ch, true);
+  out.setUint32(24, buf.sampleRate, true);
+  out.setUint32(28, buf.sampleRate * ch * 2, true);
+  out.setUint16(32, ch * 2, true);
+  out.setUint16(34, 16, true);
+  str(36, "data");
+  out.setUint32(40, n * ch * 2, true);
+  const data = Array.from({ length: ch }, (_, c) => buf.getChannelData(c));
+  for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) out.setInt16(44 + (i * ch + c) * 2, Math.max(-1, Math.min(1, data[c][i])) * 32767, true);
+  return new Blob([out.buffer], { type: "audio/wav" });
 }
 
 /** JSON for the analysis: typed arrays as { $ta, d }, blobs left out. */
@@ -251,6 +283,23 @@ async function montage(run: MontageRun) {
     sources.set("cardvideo", own);
     card = { ...card, kind: "video", video: "cardvideo", videoAspect: own.info.width / Math.max(1, own.info.height), hold: Math.min(15, Math.max(1, own.info.duration)) };
   }
+  // Who talks in the footage, as the app finds them: clips the picture model saw someone
+  // talking in for two seconds, with the voice found in their sound.
+  const talkers: Talker[] = [];
+  if (run.style === "talk" || run.style === "mix") {
+    const TALKING = KINDS.indexOf("talking");
+    for (const sc of scans) {
+      const src = sources.get(sc.id);
+      if (sc.kind !== "video" || !sc.look || !src?.info.hasAudio) continue;
+      let secs = 0;
+      for (let i = 0; i < sc.stats.t.length; i++) if (sc.look.kind[i] === TALKING) secs += Math.min(2, (sc.stats.t[i + 1] ?? sc.duration) - sc.stats.t[i]);
+      if (secs < 2) continue;
+      const runs = detectSpeech(await decodeMono(src, 16000, 0, 600), 16000);
+      if (talks(runs)) talkers.push({ id: sc.id, runs });
+    }
+    lap("talking");
+  }
+  const order = mixOrder(scans, talkers.length > 0);
   const results = [];
   const avoid: Ranges = new Map();
   for (let v = 0; v < (run.variants ?? 1); v++) {
@@ -260,7 +309,7 @@ async function montage(run: MontageRun) {
         ? planTwist({ ...common, actB: new Set((run.actB ?? []).map((i) => `clip${i}`)), captionA: run.caption?.text ?? "what they see vs...", captionB: run.captionB ?? "what they don't..." })
         : run.format === "meme"
           ? planMeme({ ...common, text: run.memeText ?? "", position: run.memePosition ?? "upper" })
-          : planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption });
+          : planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style: run.style ? styleFor(v, run.style, order) : undefined, talkers, loop: run.loop });
     // As the app does: planned again until no shot runs over one of the footage's own cuts.
     const plan = run.settle === false ? make() : await settlePlan(make, new Map(scans.map((sc) => [sc.id, sc])), cutFinder(sources));
     usedRanges(plan, avoid);
@@ -268,6 +317,12 @@ async function montage(run: MontageRun) {
     if (run.faces) {
       await followFaces(plan, sources, new Map(scans.map((s) => [s.id, s])));
       lap(`faces${v}`);
+    }
+    if (run.audioOnly) {
+      await save(`${run.out ?? "mix"}-v${v + 1}.wav`, wavOf(await mixPlan(plan, sources, !!plan.music)));
+      await save(`${run.out ?? "mix"}-v${v + 1}.plan.json`, new Blob([JSON.stringify(plan, null, 1)]));
+      results.push({ file: "", bytes: 0, silentBytes: 0, codecs: "", ms: 0, checks: plan.checks, shots: plan.shots.map((s) => [s.start.toFixed(2), s.source, s.srcStart.toFixed(2), s.role, s.score]) });
+      continue;
     }
     if (run.stills) {
       const inShot = (s: { start: number; end: number }) => (run.thirds ? [s.start + 0.5 / 30, (s.start + s.end) / 2, s.end - 1.5 / 30] : [(s.start + s.end) / 2]);
@@ -294,7 +349,7 @@ async function montage(run: MontageRun) {
   }
   // (Again with what the edits found of the footage's own cuts, to plan exactly as the page did.)
   if (run.dump) await save(`${run.out ?? "state"}-state.json`, new Blob([toJSON({ song, scans })]));
-  return { timing, bpm: song?.bpm, results, found: scans.filter((sc) => sc.checked).map((sc) => ({ id: sc.id, exactCuts: sc.exactCuts, checked: sc.checked })) };
+  return { timing, bpm: song?.bpm, talkers: talkers.map((t) => ({ id: t.id, voiced: round(t.runs.reduce((a, r) => a + r.end - r.start, 0)) })), results, found: scans.filter((sc) => sc.checked).map((sc) => ({ id: sc.id, exactCuts: sc.exactCuts, checked: sc.checked })) };
 }
 
 declare global {

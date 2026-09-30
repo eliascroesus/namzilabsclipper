@@ -1,6 +1,6 @@
 # The reference edits, taken apart
 
-Thirteen Reels in [`reference-edits/`](../reference-edits/), measured with [`tools/analyze_edit.py`](../tools/analyze_edit.py) (every cut, the beat grid, motion, brightness, loudness, where there's speech) and then reviewed frame by frame. This is what the clipping machine has to reproduce.
+Fourteen Reels in [`reference-edits/`](../reference-edits/), measured with [`tools/analyze_edit.py`](../tools/analyze_edit.py) (every cut, the beat grid, motion, brightness, loudness, where there's speech) and then reviewed frame by frame. This is what the clipping machine has to reproduce. How each one is shaped beyond where it cuts (its colour, its build and drop, its ending) is in [the styles](#the-styles).
 
 ## At a glance
 
@@ -19,8 +19,10 @@ Thirteen Reels in [`reference-edits/`](../reference-edits/), measured with [`too
 | xxzezedongoxx | 28.7s | 9:16 | 5 | 4.83s | n/a | n/a | 87% | Raw first-person walkaround with talking |
 | brezscales …1216 | 21.5s | 9:16 | 9 | 1.60s | 92 | 12% (38%) | music | Twist: a night supercar montage under "what they see vs...", then one long shot of a dark room and a desk under "what they don't..." |
 | brezscales …9528 | 8.4s | 1:1 (720×720) | 1 | n/a | 144 | n/a | music | Text meme, square: one handheld night shot, a centred block of small bold text |
+| tjr …7392 | 16.6s | 1:1 (720×720) | 17 | 0.70s | 129 | 31% ² | sung intro | A calm build (a jet arriving, 1.7 s a shot), a hard cut on the 808 into a money room at 0.57 s a shot, one meme caption over it all, and the first shot again at the end: a loop |
 
 ¹ Share of cuts within 1.5 frames (50 ms) of a beat on the song's own grid (the app's, the beats where the hits start; see [the rhythm](#the-rhythm-cut-by-cut-against-each-songs-grid)). Speech is the share of the running time a voice-activity model marks as speech, so a sung track can read as speech.
+² On librosa's beats (its song keeps no exact grid); after the drop it cuts on the 808's hits.
 
 **The split that matters:** montages are cut to the music (mico: 94% of cuts within 1.5 frames of the beat), while the Nio story clips are cut to the *dialogue* and only their flex bursts hit the music. A machine that snaps every cut to the beat would make the story clips worse.
 
@@ -92,6 +94,53 @@ What that makes the rules:
 - **Before the drop, two beats a shot or more.** On the beat, holding back.
 - **Faster means one clip re-cut, not more clips.** A run of two to eight cuts inside one clip, each a jump further into it (the car further down the street, the crowd a moment later), on the half beat or faster: a fifth to a third of all the nio.trade cuts. It's how they get the pace without the footage.
 - **On the beat, touches:** photos flying in tilted, three frames each; a shot flipping from black and white to colour on a hit; the drop with a flash or a burn.
+
+## The styles
+
+Every edit was measured again for what shapes it besides where it cuts: the colour of every shot (black and white is under 3.5 on the Lab colour scale), the drop (the biggest jump in the low end) and the shot lengths either side of it, the first shot against the last, and every time the edit goes back to a clip within 2.5 seconds of leaving it. The latest upload had one new edit, TJR's; the other file was a third copy of nio.trade's …8678.
+
+### TJR, cut by cut
+
+| Time | What happens |
+|---|---|
+| 0 to 10.4s | **The build.** Six calm daylight shots of two men getting off a private jet (0.53, 0.93, 1.73, 1.73, 1.80 and 3.70 s; median 1.73 s), under the song's quiet sung intro. The colour is muted (a third as strong as after the drop) |
+| 10.4s | **The drop.** The 808 comes in and the edit cuts on it, a hard cut, no flash |
+| 10.4 to 16.1s | **The payoff.** Eleven shots in a room full of cash, 0.17 to 1.03 s (median 0.57 s), cut on the bass hits |
+| 16.1 to 16.6s | **The loop.** The first shot again, the same frames (93% alike in colour, the same picture), so the replay starts without a seam |
+
+One meme caption holds over the whole edit, small white text centred high: "Me and Bro if we bought Bitcoin in 2011 instead of learning ABC".
+
+### What each one does
+
+| Edit | Before the drop | After the drop | Colour | Re-cuts | Ending |
+|---|---|---|---|---|---|
+| tjr …7392 | 6 shots, median 1.73 s | 11 shots, median 0.57 s | colour, muted in the build | 2 | the first shot again (a loop) |
+| nio …1290 | the dialogue, median 1.22 s | 0.40 s | colour | 33% | the card |
+| nio …3659 | median 0.88 s | 0.37 s | colour | 15% | the card |
+| nio …0002 | a 1.5 s shot, then four photos of 3 frames | 0.43 s | colour | 4 | the card |
+| nio …5448 | 0.47 s a shot all through (the median) | | two shots start in black and white and turn to colour on the beat | 35% | the card |
+| nio …2531 | 0.27 s a shot all through | | one shot flips from black and white to colour | 28% | the card |
+| mico | 0.47 s a shot all through, cut on the song's accents | | colour | none | the last shot |
+| brezscales …1216 | 8 shots, median 1.6 s | one 7.6 s shot (the twist) | colour, at night | none | the reveal |
+
+Two things the frames show that the numbers alone don't:
+
+- **Real black and white is rare, and short.** Only nio.trade's …5448 and …2531 have it: a shot that starts in black and white for about a beat (0.6 s) and turns to colour on the next one, twice in …5448. The shots that measure grey elsewhere are colour in low light (brezscales' night causeway, the defocused car interior …8678 opens on). The TJR edit here is in colour; the black-and-white talking intros TJR and others post (someone talking for up to ten seconds, then a hard cut into the edit) aren't among the uploads, so the app takes that style's timing from TJR's build and its look from nio.trade's flips.
+- **None of them hop back and forth.** Across the fourteen edits (about 300 cuts), the frame matcher found four returns to a clip within 2.5 s: one is a conversation, cut between the two people talking (nio …1290: "but you kind of made it?", "nah"), and the other three are one scene cut forward, a run of re-cuts. A clip either carries on, a jump further into it, or comes back well after. The app, with four to seven clips to work with, was going back to a clip with one or two shots in between up to seven times an edit.
+
+### The styles in the app
+
+| Style | From | What it does |
+|---|---|---|
+| **On the beat** | mico, nio …3659 | The build two beats a shot or more, then one rhythm from the drop to the end (see [the rhythm](#the-rhythm-cut-by-cut-against-each-songs-grid)) |
+| **Talk, then the drop** | TJR, and the talking intros described above | Someone talking, in black and white, with their own voice over the song's intro (the song kept low), their pauses cut out; a hard cut into colour on the drop, then the edit. The song is picked so the drop lands a third to two thirds of the way in. With no one talking in the footage, a few calm shots a bar each, as TJR's build |
+| **Black and white to colour** | nio …5448, …2531 | The build in black and white, colour from the drop, and after it a shot or two that start in black and white and turn to colour on the beat (or on the clip's first re-cut) |
+| **Photo burst** | nio …0002 | After the first shot, four or five pictures fly in tilted on black, a sixteenth each (three or four frames): your photos first, then a moment of each clip |
+| **Fast re-cuts** | nio …2531, …5448 | A clip re-cut on the half beat in every bar and carried over a beat, and the build re-cut on the beat too: over a third of the cuts |
+| **Slow and cinematic** | brezscales, TJR's build | A bar a shot before the drop, two beats after it, every clip pushing in or pulling out slowly, no flash, burn or punch-ins |
+| **Mix** (the default) | | Each edit in a batch in the next of these (the talking one only when someone talks in the footage, the burst only with four clips or photos), so no two in a row look alike |
+
+**Loop the ending** (a switch, on by default, without an end card): the last shot is the moment just before the first, or the first shot again, as TJR ends, and the music stops on the bar line instead of fading, so the replay runs straight on. Not after talking.
 
 ## Craft rules, measured
 

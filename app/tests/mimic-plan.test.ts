@@ -33,6 +33,29 @@ describe("captions from words", () => {
   });
 });
 
+describe("line breaks typed into the words", () => {
+  it("Enter starts a new line of the same caption, however many lines that makes; an empty line a new caption", () => {
+    const look = { ...DEFAULT_LOOK, chars: 16, lines: 1 as const };
+    const heard = say("I made five million. In two years with no degree and no plan");
+    // (Typed as it would be in the box: a break after "million.", an empty line after "degree".)
+    const words = retime(heard, "I made five million.\nIn two years with no degree\n\nand no plan");
+    expect(words.find((w) => w.text === "million.")!.br).toBe("line");
+    expect(words.find((w) => w.text === "degree")!.br).toBe("page");
+    expect(words.filter((w) => w.br).length).toBe(2);
+    const pages = paginate(words, look);
+    const text = pages.map((p) => p.lines.map((l) => l.map((w) => w.text).join(" ")));
+    // Each typed line stays one line (longer than the reference's 16 letters: it's set
+    // smaller), and the full stop and the pause after it would end the caption: the typed
+    // break keeps it going on a second line, past the reference's one line a caption.
+    expect(text[0]).toEqual(["I made five million.", "In two years with no degree"]);
+    // The empty line: "and no plan" starts a caption of its own.
+    expect(text[1]).toEqual(["and no plan"]);
+    // Without breaks, the same words page as before.
+    const plain = paginate(retime(heard, "I made five million. In two years with no degree and no plan"), look);
+    expect(plain.every((p) => p.lines.length === 1)).toBe(true);
+  });
+});
+
 describe("fixing the words", () => {
   it("keeps each word's time, and times new words from their neighbours", () => {
     const heard = say("Du har sikret set mig på Tigser og tænker");

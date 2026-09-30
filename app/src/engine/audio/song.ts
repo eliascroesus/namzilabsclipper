@@ -397,10 +397,13 @@ export interface Section {
  * up with the cuts; a full song gets its strongest stretch, ideally one that
  * drops early.
  */
-export function pickSection(song: SongAnalysis, length: number, fromStart: boolean): Section {
+export function pickSection(song: SongAnalysis, length: number, fromStart: boolean, dropIn?: [number, number]): Section {
   const len = Math.min(length, song.duration);
+  // Where in the stretch a drop counts (fractions of it): early by default, so the edit
+  // takes off soon; later for an edit that opens on someone talking.
+  const [lo, hi] = dropIn ?? [0, 0.45];
   if (fromStart || song.duration <= length + 1) {
-    const drop = song.drops.find((d) => d.t > 0.8 && d.t < len * 0.6);
+    const drop = song.drops.find((d) => d.t > Math.max(0.8, lo * len) && d.t < len * (dropIn ? hi : 0.6));
     return { start: 0, end: len, drop: drop?.t, score: 0 };
   }
   const fps = song.sr / song.hop;
@@ -419,7 +422,7 @@ export function pickSection(song: SongAnalysis, length: number, fromStart: boole
     const fo = Math.min(f1, f0 + Math.round(fps * 0.6));
     for (let f = f0; f < fo; f++) openLoud += song.loudness[f];
     openLoud /= Math.max(1, fo - f0);
-    const drop = song.drops.find((d) => d.t >= start + 0.8 && d.t <= start + len * 0.45);
+    const drop = song.drops.find((d) => d.t >= start + Math.max(0.8, lo * len) && d.t <= start + len * hi);
     const score = loud + (drop ? 0.35 * drop.strength : 0) - (openLoud < 0.25 ? 0.3 : 0) - 0.02 * (start / Math.max(1, song.duration));
     if (score > best.score) best = { start, end, drop: drop?.t, score };
   }

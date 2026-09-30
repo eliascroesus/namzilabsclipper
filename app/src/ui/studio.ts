@@ -20,6 +20,7 @@ import { lookFor, LOOK_VERSION, photoSheets, rateSheets, restoreLook, storeLook,
 import { senseSheets, SENSE_VERSION } from "../engine/vision/sense";
 import { findMoments, transcribe, type Moment, type Transcript } from "../engine/story/story";
 import { musicWindow, planMontage, usedRanges, type Ranges } from "../engine/plan/montage";
+import { CALM_LABEL, mixOrder, styleFor, styleLabel, talks, type EditStyle, type Talker } from "../engine/plan/styles";
 import { NO_GRADE, WARM_GRADE, type Aspect, type CardSpec, type EditPlan } from "../engine/plan/types";
 import { pickCodecs, renderPlan } from "../engine/render/export";
 import { followFaces } from "../engine/vision/track";
@@ -119,6 +120,10 @@ export interface Style {
   smart: boolean;
   /** velocity edits: speed ramps, slow motion on each hit then a rush into the next cut */
   velocity: boolean;
+  /** how a montage is shaped (engine/plan/styles.ts), or "mix": each edit in a batch another way */
+  edit: "mix" | EditStyle;
+  /** with the card off: end on the moment the edit opens on, so the replay loops */
+  loop: boolean;
 }
 
 export interface Job {
@@ -191,6 +196,8 @@ const DEFAULT_STYLE: Style = {
   faces: true,
   smart: true,
   velocity: false,
+  edit: "mix",
+  loop: true,
 };
 const STYLE_STORE = "clipper.style.v1";
 
@@ -274,6 +281,8 @@ class Studio {
   private scanQueue: Promise<void> = Promise.resolve();
   private abort: AbortController | null = null;
   private readonly speech = new Map<string, Run[]>();
+  /** where someone talks in each clip the picture model saw talking (its first ten minutes) */
+  private readonly talking = new Map<string, Run[]>();
   /** batches in flight (making edits, finding moments) that may still read the files */
   private inFlight = 0;
   /** files taken out while a batch was using them, closed once it's done */
@@ -887,6 +896,41 @@ class Studio {
 
   // ── making edits ──
 
+  /**
+   * The clips someone may be talking in: videos with sound that the picture model saw
+   * someone talking in for two seconds or more.
+   */
+  private talkingClips(ready: Footage[]): string[] {
+    const TALKING = KINDS.indexOf("talking");
+    return ready
+      .filter((f) => {
+        const scan = this.scans.get(f.id);
+        const src = this.sources.get(f.id);
+        if (f.kind !== "video" || !scan?.look || !src?.info.hasAudio) return false;
+        let secs = 0;
+        const t = scan.stats.t;
+        for (let i = 0; i < t.length; i++) if (scan.look.kind[i] === TALKING) secs += Math.min(2, (t[i + 1] ?? scan.duration) - t[i]);
+        return secs >= 2;
+      })
+      .map((f) => f.id);
+  }
+
+  /** Where the voice is in each of those clips (heard once, then remembered). */
+  private async talkersFor(ids: string[], signal: AbortSignal): Promise<Talker[]> {
+    const out: Talker[] = [];
+    for (const id of ids) {
+      let runs = this.talking.get(id);
+      const src = this.sources.get(id);
+      if (!runs && src) {
+        const y = await decodeMono(src, 16000, 0, 600, undefined, signal);
+        runs = detectSpeech(y, 16000);
+        this.talking.set(id, runs);
+      }
+      if (runs && talks(runs)) out.push({ id, runs });
+    }
+    return out;
+  }
+
   canGenerate(): string | null {
     const s = this.state;
     if (s.busy) return "Working on it";
@@ -976,6 +1020,10 @@ class Studio {
     const label = style.format === "montage" ? "Montage" : style.format === "twist" ? "Twist" : style.format === "meme" ? "Meme" : "Clip";
     const chosenMoments = style.format === "story" ? s.story.moments.filter((m) => m.selected) : [];
     const count = style.format === "story" ? chosenMoments.length : style.variants;
+    // A montage's style, edit by edit: the one picked, or each edit the next in the mix
+    // (the talking style only when someone talks in the footage).
+    const canTalk = style.format === "montage" ? this.talkingClips(ready) : [];
+    const order = mixOrder(scans, canTalk.length > 0);
 
     // Another batch with the same footage and sound picks up where the last left off.
     const key = [style.format, style.aspect, ready.map((f) => f.id).join(","), s.sound?.id ?? ""].join("|");
@@ -987,9 +1035,10 @@ class Studio {
     const avoid = this.madeAvoid;
     const base = this.made;
     this.made += count;
+    const editOf = (v: number): EditStyle | undefined => (style.format === "montage" ? styleFor(base + v, style.edit, order) : undefined);
     const jobs: Job[] = Array.from({ length: count }, (_, v) => ({
       id: newId("j"),
-      label: style.format === "story" ? chosenMoments[v].hook || `${label} ${base + v + 1}` : `${label} ${base + v + 1}`,
+      label: style.format === "story" ? chosenMoments[v].hook || `${label} ${base + v + 1}` : `${editOf(v) ? styleLabel(editOf(v)!) : label} ${base + v + 1}`,
       status: "waiting",
       progress: 0,
       stage: "Waiting",
@@ -1014,6 +1063,17 @@ class Studio {
           this.patchJob(job.id, { status: "planning", stage: "Picking the moments" });
           await new Promise((r) => setTimeout(r, 0));
           const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, songStart: songStart ?? undefined, scans, aspect: style.aspect, length: style.length, card, variant: base + v, avoid, toCome: count - v - 1, velocity: style.velocity };
+          const edit = editOf(v);
+          let talkers: Talker[] = [];
+          if (edit === "talk") {
+            if (canTalk.length) {
+              this.patchJob(job.id, { stage: "Listening for the talking" });
+              talkers = await this.talkersFor(canTalk, jobSignal);
+            }
+            // No one talking after all: it opens on calm shots in black and white, and says so.
+            if (!talkers.length) this.patchJob(job.id, { label: `${CALM_LABEL} ${base + v + 1}` });
+            this.patchJob(job.id, { stage: "Picking the moments" });
+          }
           const make = (): EditPlan => {
             if (style.format === "story") {
               if (!story?.transcript || !story.scan) throw new Error("The video for this clip was taken out. Find the moments again.");
@@ -1039,7 +1099,7 @@ class Studio {
               return planMeme({ ...common, text: style.memeText, position: style.memePosition });
             }
             if (!song) throw new Error("Add a sound first");
-            return planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text } });
+            return planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text }, style: edit, talkers, loop: style.loop });
           };
           // Planned, then planned again until no shot runs over one of a long video's own
           // cuts (media/cuts.ts: every frame of what the edit uses gets looked at).

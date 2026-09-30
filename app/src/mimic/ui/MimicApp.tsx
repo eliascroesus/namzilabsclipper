@@ -110,6 +110,7 @@ function FootagePanel({ s }: { s: State }) {
         <div className="field">
           <label htmlFor="words">The words (fix any; each keeps its time)</label>
           <textarea id="words" className="textarea words" value={s.text} onChange={(e) => mimic.setText(e.target.value)} spellCheck={false} />
+          <span className="hint">Press Enter where a caption should go on to a new line; leave an empty line to start a new caption.</span>
         </div>
       )}
     </Section>
