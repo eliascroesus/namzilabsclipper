@@ -23,11 +23,11 @@ import {
 } from "mediabunny";
 import type { Source } from "../media/sources";
 import { centreAt } from "../plan/framing";
-import { NO_GRADE, sourceAt, sourceSpan, type EditPlan, type FxEvent, type ShotEvent } from "../plan/types";
+import { NO_GRADE, overlayAt, sourceAt, sourceSpan, type EditPlan, type FxEvent, type OverlayEvent, type ShotEvent } from "../plan/types";
 import { drawCaption } from "./captions";
 import { drawCard } from "./card";
 import { loadFonts } from "./fonts";
-import { Compositor, type LayerDraw, type Rotation } from "./gl";
+import { Compositor, OVERLAY_SLOTS, type LayerDraw, type Rotation } from "./gl";
 import { mixPlan } from "./mix";
 import { audioDelay, shiftAudio } from "./avsync";
 
@@ -199,6 +199,9 @@ export class FramePainter {
   private readonly octx: OffscreenCanvasRenderingContext2D;
   private readonly sinks = new Map<string, VideoSampleSink>();
   private readonly readers = new Map<number, ShotReader>();
+  private readonly overReaders = new Map<OverlayEvent, ShotReader>();
+  /** what's in each overlay slot now */
+  private readonly overKeys: string[] = [];
   private lastUpload = "";
   private overlayKey = "";
   private lastT = -Infinity;
@@ -229,6 +232,28 @@ export class FramePainter {
       this.readers.set(i, r);
     }
     return r;
+  }
+
+  private sinkFor(source: string): VideoSampleSink | null {
+    let sink = this.sinks.get(source);
+    if (!sink) {
+      const v = this.sources.get(source)?.video;
+      if (!v) return null;
+      this.sinks.set(source, (sink = new VideoSampleSink(v)));
+    }
+    return sink;
+  }
+
+  /** An overlay's frame at `tau` seconds into it (a clip in a window plays; a still holds). */
+  private async overlayFrame(o: OverlayEvent, tau: number): Promise<VideoSample | null> {
+    let r = this.overReaders.get(o);
+    if (!r) {
+      const sink = this.sinkFor(o.source);
+      if (!sink) return null;
+      r = new ShotReader(sink, o.srcStart, o.srcStart + Math.max(0.05, (o.end - o.start) * o.speed));
+      this.overReaders.set(o, r);
+    }
+    return r.at(o.srcStart + tau * o.speed);
   }
 
   private async dropReaders(keep: (i: number) => boolean) {
@@ -290,6 +315,44 @@ export class FramePainter {
       }
     }
 
+    // Pictures and clips over the shot: each a card in its own slot, the later over the earlier.
+    if (!inCard && plan.overlays?.length) {
+      for (const [o, r] of [...this.overReaders]) {
+        if (t < o.start - 1e-6 || t >= o.end - 1e-6) {
+          this.overReaders.delete(o);
+          await r.close();
+        }
+      }
+      const over = plan.overlays.filter((o) => t >= o.start - 1e-6 && t < o.end - 1e-6).slice(-OVERLAY_SLOTS);
+      for (const [j, o] of over.entries()) {
+        const slot = 2 + j;
+        const tau = t - o.start;
+        const [x, y, size] = overlayAt(o, tau);
+        const card = { x, y, w: (size * o.aspect * H) / W, h: size };
+        if (o.kind === "image") {
+          const img = sources.get(o.source)?.image;
+          if (!img) continue;
+          const key = `img:${o.source}`;
+          if (this.overKeys[j] !== key) {
+            comp.upload(slot, img, img.width, img.height);
+            this.overKeys[j] = key;
+          }
+          layers.push({ slot, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx: o.cx, cy: o.cy, zoom: o.zoom, fit: "cover", alpha: 1, tilt: o.tilt, card });
+        } else {
+          const sample = await this.overlayFrame(o, tau);
+          if (!sample) continue;
+          const key = `${o.source}@${sample.timestamp}`;
+          if (this.overKeys[j] !== key) {
+            const vf = sample.toVideoFrame();
+            comp.upload(slot, vf, sample.displayWidth, sample.displayHeight);
+            vf.close();
+            this.overKeys[j] = key;
+          }
+          layers.push({ slot, srcW: sample.displayWidth, srcH: sample.displayHeight, rotation: sample.rotation as Rotation, flip: sample.flip, cx: o.cx, cy: o.cy, zoom: o.zoom, fit: "cover", alpha: 1, tilt: o.tilt, card });
+        }
+      }
+    }
+
     // Captions and the card, redrawn only when they change.
     const caps = plan.captions.filter((cap) => t >= cap.start - 1e-6 && t < cap.end - 1e-6);
     const cardT = plan.card && inCard ? t - plan.card.start : -1;
@@ -309,6 +372,8 @@ export class FramePainter {
 
   async close() {
     await this.dropReaders(() => false);
+    for (const r of this.overReaders.values()) await r.close();
+    this.overReaders.clear();
     this.comp.dispose();
   }
 }

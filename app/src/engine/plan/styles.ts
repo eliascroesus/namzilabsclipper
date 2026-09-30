@@ -26,9 +26,10 @@
 import type { SongAnalysis } from "../audio/song";
 import { keepSpeech, type Run } from "../audio/speech";
 import { KINDS, type Scan } from "../media/scan";
-import { frameShot } from "./framing";
+import { boundsOf } from "./bounds";
+import { activeRect, frameShot } from "./framing";
 import type { Pace } from "./rhythm";
-import { FPS, sourceSpan, type Aspect, type Crop, type FxEvent, type ShotEvent } from "./types";
+import { FPS, sourceSpan, type Aspect, type Crop, type FxEvent, type OverlayEvent, type ShotEvent } from "./types";
 
 export type EditStyle = "beat" | "talk" | "mono" | "burst" | "recut" | "slow";
 
@@ -36,7 +37,7 @@ export const EDIT_STYLES: { value: EditStyle; name: string; label: string; desc:
   { value: "beat", name: "On the beat", label: "Montage", desc: "Straight cuts on the music, one rhythm from the drop." },
   { value: "talk", name: "Talk, then the drop", label: "Talk + drop", desc: "Someone talking in black and white, then the drop in colour." },
   { value: "mono", name: "Black and white to colour", label: "B&W flip", desc: "Black and white until the drop, then colour." },
-  { value: "burst", name: "Photo burst", label: "Photo burst", desc: "Pictures fly in, three frames each, then the edit." },
+  { value: "burst", name: "Photo burst", label: "Photo burst", desc: "Your photos land on someone's head, then fly in, three frames each." },
   { value: "recut", name: "Fast re-cuts", label: "Re-cuts", desc: "One clip cut again and again, a jump further each time." },
   { value: "slow", name: "Slow and cinematic", label: "Slow", desc: "Long holds and slow pushes. A mood piece." },
 ];
@@ -222,8 +223,209 @@ export function monoFlips(shots: ShotEvent[], beats: number[], after: number, mo
 
 // ── photo burst ──────────────────────────────────────────────────────────────
 
+/**
+ * A card showing a picture in its own shape (inside any black bars over [a, b] of it),
+ * a fifth of the frame in the middle of it, no wider than four fifths of it nor taller
+ * than half (TJR's: a wide clip six tenths of a square frame across).
+ */
+function ownCard(scan: Scan, a: number, b: number, frame: number): Pick<OverlayEvent, "cx" | "cy" | "zoom" | "x" | "y" | "size" | "aspect" | "tilt"> {
+  const r = activeRect(scan, a, b);
+  const own = Math.min(2.4, Math.max(0.5, ((r[2] - r[0]) * scan.width) / Math.max(1, (r[3] - r[1]) * scan.height)));
+  const size = Math.min(Math.sqrt((0.2 * frame) / own), 0.5, (0.8 * frame) / own);
+  return { cx: (r[0] + r[2]) / 2, cy: (r[1] + r[3]) / 2, zoom: 1.01, x: 0.5, y: 0.5, size, aspect: own, tilt: 0 };
+}
+
+/**
+ * TJR's windows: over a clip after the drop, cards land in the middle of the frame on
+ * the beats, each clip in its own shape and the later over the earlier, and the last,
+ * the shot that comes next, takes the whole frame on the cut and carries straight on
+ * (the card plays what comes just before the shot, or when that's across one of the
+ * footage's own cuts, as a shot often starts right after one, the shot starts that
+ * much later and the card plays its start). The last card lands on the last beat or
+ * half beat a fifth of a second or more before the cut; on the one before it, when
+ * there's room, a card of another clip the edit doesn't show there (a picture when
+ * there's no clip). Once, on the middle one of the runs of a clip three quarters of a
+ * second long or more whose next shot is a clip; nothing when there's none. The shots
+ * come back with the one it leads into moved along, when it was.
+ */
+export function windows(shots: ShotEvent[], beats: number[], scans: Scan[], after: number, frame: number): { shots: ShotEvent[]; overlays: OverlayEvent[] } {
+  const byId = new Map(scans.map((sc) => [sc.id, sc]));
+  const grid = beats.flatMap((b, i) => (i + 1 < beats.length ? [b, (b + beats[i + 1]) / 2] : [b]));
+  // (Over a clip's whole run: carried over a beat, it's two shots of one clip.)
+  const runStart = (i: number) => {
+    let k = i;
+    while (k > 0 && shots[k].again) k--;
+    return shots[k].start;
+  };
+  const cands = shots
+    .map((sh, i) => ({ i, sh, next: shots[i + 1], from: runStart(i) }))
+    .filter(({ sh, next, from }) => next && from >= after + 0.5 && !next.again && sh.role !== "closer" && next.role !== "closer" && next.start - from >= 0.75 && next.kind === "video" && next.end - next.start >= 0.4 && !next.ramp && next.source !== sh.source);
+  // The middle one first, then the ones either side of it.
+  const mid = (cands.length - 1) / 2;
+  for (const { i, sh, next, from: run } of [...cands].sort((a, b) => Math.abs(cands.indexOf(a) - mid) - Math.abs(cands.indexOf(b) - mid))) {
+    const scan = byId.get(next.source);
+    if (!scan || scan.kind !== "video") continue;
+    // The stretch of the footage between its own cuts that the shot is in (and short of
+    // where the clip carries on after it, when it does).
+    const bounds = boundsOf(scan);
+    const k = bounds.findIndex((b) => b.t > next.srcStart);
+    if (k < 1) continue;
+    const lo = bounds[k - 1].t + (bounds[k - 1].after ?? bounds[k - 1].margin);
+    const later = shots[i + 2]?.again && shots[i + 2].source === next.source ? shots[i + 2].srcStart : Infinity;
+    const hi = Math.min(bounds[k].t - bounds[k].margin, later);
+    // As long as the footage has room for.
+    const earliest = Math.max(run + 0.3, next.start - (hi - lo - sourceSpan(next)) / next.speed);
+    const last = [...grid].reverse().find((t) => t <= next.start - 0.2 + 1e-6 && t >= earliest - 1e-6);
+    const first = last === undefined ? undefined : [...grid].reverse().find((t) => t <= last - 0.2 + 1e-6 && t >= run + 0.25 - 1e-6);
+    const other = first === undefined ? null : otherMoment(shots, scans, [sh.source, next.source], run - 1.5, next.start + 1.5, next.start - first);
+    // Alone, it's a longer look: from the last beat a third of a second or more before the cut.
+    const at = other ? last! : ([...beats].reverse().find((t) => t <= next.start - 0.3 + 1e-6 && t >= earliest - 1e-6) ?? Math.max(earliest, next.start - 0.45));
+    if (next.start - at < 0.2 - 1e-6) continue;
+    const d = next.start - at;
+    const srcStart = Math.max(next.srcStart, lo + d * next.speed);
+    const out = [...shots];
+    out[i + 1] = { ...next, srcStart };
+    const from = srcStart - d * next.speed;
+    const overlays: OverlayEvent[] = [];
+    if (other) overlays.push({ start: first!, end: next.start, source: other.scan.id, kind: other.scan.kind, srcStart: other.t, speed: other.scan.kind === "video" ? 1 : 0, ...ownCard(other.scan, other.t, other.t + next.start - first!, frame) });
+    overlays.push({ start: at, end: next.start, source: next.source, kind: "video", srcStart: from, speed: next.speed, ...ownCard(scan, from, srcStart + sourceSpan(next), frame) });
+    return { shots: out, overlays };
+  }
+  return { shots, overlays: [] };
+}
+
+/**
+ * The best moment of a clip for a card `len` seconds long (inside a stretch between its
+ * own cuts, not someone talking), of a source the edit doesn't show between `a` and `b`
+ * nor in `not`: one the edit doesn't use if there is, else a picture. Null when there's none.
+ */
+function otherMoment(shots: ShotEvent[], scans: Scan[], not: string[], a: number, b: number, len: number): { scan: Scan; t: number } | null {
+  const near = new Set([...not, ...shots.filter((s) => s.end > a && s.start < b).map((s) => s.source)]);
+  const usedAt = (id: string, t: number) => shots.some((s) => s.source === id && t + len > s.srcStart - 0.3 && t < s.srcStart + sourceSpan(s) + 0.3);
+  let best: { scan: Scan; t: number; v: number } | null = null;
+  for (const scan of scans) {
+    if (scan.kind !== "video" || near.has(scan.id) || talky(scan)) continue;
+    const interest = scan.interest ?? new Float32Array(scan.stats.t.length).fill(0.5);
+    const bounds = boundsOf(scan);
+    let j = 0;
+    for (let q = 0; q < scan.stats.t.length; q++) {
+      const t = scan.stats.t[q];
+      while (j + 2 < bounds.length && bounds[j + 1].t <= t) j++;
+      if (t < bounds[j].t + (bounds[j].after ?? bounds[j].margin) || t + len > bounds[j + 1].t - bounds[j + 1].margin) continue;
+      const v = interest[q] - (usedAt(scan.id, t) ? 0.3 : 0);
+      if (!best || v > best.v) best = { scan, t, v };
+    }
+  }
+  if (best) return best;
+  const photo = scans.filter((sc) => sc.kind === "image" && !near.has(sc.id)).sort((x, y) => (y.interest?.[0] ?? 0) - (x.interest?.[0] ?? 0))[0];
+  return photo ? { scan: photo, t: 0 } : null;
+}
+
 /** The burst's tilts, in degrees: this way, then that, never the same twice running. */
 const TILTS = [8, -11, 6, -9, 12, -7];
+
+/** The tilts of pictures on someone's head (nio.trade's: a fifth of a turn or so, each the other way). */
+const HEAD_TILTS = [-18, 22, -14, 19];
+
+/** The picture model's kinds that have someone in them. */
+const PEOPLE = new Set(["talking", "people", "party", "fashion"].map((k) => KINDS.indexOf(k as (typeof KINDS)[number])));
+
+/** How much of a clip's stretch [a, b] has someone in it (the picture model's kinds, else skin), 0 to 1. */
+function someone(scan: Scan, a: number, b: number): number {
+  let n = 0;
+  let yes = 0;
+  for (let i = 0; i < scan.stats.t.length; i++) {
+    const t = scan.stats.t[i];
+    if (t < a - 0.2 || t > b + 0.2) continue;
+    n++;
+    if (scan.look ? PEOPLE.has(scan.look.kind[i]) : scan.stats.skin[i] > 0.08) yes++;
+  }
+  return n ? yes / n : 0;
+}
+
+/**
+ * The shot at `i` with someone in it: as it is when it has, or else the best moment of
+ * a clip with someone in it that the edit doesn't show near there, as long as the shot
+ * (a clip, and nobody talking over it). Null when there's none.
+ */
+function withSomeone(shots: ShotEvent[], i: number, scans: Scan[], aspect: Aspect): ShotEvent | null {
+  const shot = shots[i];
+  if (!shot || shot.again || shot.audio || shot.end - shot.start < 0.9) return null;
+  const byId = new Map(scans.map((sc) => [sc.id, sc]));
+  const own = byId.get(shot.source);
+  if (shot.kind === "video" && own && someone(own, shot.srcStart, shot.srcStart + sourceSpan(shot)) >= 0.5) return shot;
+  const len = shot.end - shot.start;
+  const near = new Set(shots.filter((s) => s.end > shot.start - 2.5 && s.start < shot.end + 2.5).map((s) => s.source));
+  let best: { scan: Scan; t: number; v: number } | null = null;
+  for (const scan of scans) {
+    if (scan.kind !== "video" || near.has(scan.id)) continue;
+    const interest = scan.interest ?? new Float32Array(scan.stats.t.length).fill(0.5);
+    for (let k = 0; k < scan.stats.t.length; k++) {
+      const t = scan.stats.t[k];
+      if (t < scan.start + 0.03 || t + len > scan.duration - 0.03) continue;
+      const p = someone(scan, t, t + len);
+      if (p < 0.6) continue;
+      const v = interest[k] + 0.3 * p;
+      if (!best || v > best.v) best = { scan, t, v };
+    }
+  }
+  if (!best) return null;
+  const crop = frameShot({ scan: best.scan, a: best.t, b: best.t + len, aspect });
+  return { ...shot, source: best.scan.id, kind: "video", srcStart: best.t, speed: 1, ramp: undefined, crop: { ...crop, zoom0: Math.max(1, crop.zoom0), zoom1: Math.max(1, crop.zoom1) } };
+}
+
+/**
+ * nio.trade's pictures on someone's head, before its burst: the shot before it plays
+ * on, and on its last beats and half beats (the last up to three, a fifth of a second
+ * apart at least, from a third of the way in) a picture lands on the head of whoever is
+ * in it, each replacing the last, cropped to its own face and turned the other way from
+ * the one before (the page finds the faces: vision/track.ts). The user's photos first,
+ * then a still of a clip the edit doesn't show there. Their sources are returned too,
+ * so the burst can show others.
+ */
+export function headPops(host: ShotEvent, next: number, beats: number[], scans: Scan[], shots: ShotEvent[], variant: number): OverlayEvent[] {
+  if (host.kind !== "video" || host.end - host.start < 0.9) return [];
+  const from = host.start + Math.max(0.4, (host.end - host.start) / 3);
+  const at: number[] = [];
+  for (const t of [...beats].reverse()) {
+    if (t >= next - 0.18 || t < from) continue;
+    if (at.length && at[at.length - 1] - t < 0.2) continue;
+    at.push(t);
+    if (at.length === 3) break;
+  }
+  at.reverse();
+  if (!at.length) return [];
+  const near = new Set(shots.filter((s) => s.end > host.start - 2 && s.start < next + 2).map((s) => s.source));
+  const photos = scans.filter((sc) => sc.kind === "image").sort((a, b) => (b.interest?.[0] ?? 0) - (a.interest?.[0] ?? 0));
+  const stills = scans
+    .filter((sc) => sc.kind === "video" && !near.has(sc.id))
+    .map((sc) => {
+      const interest = sc.interest ?? new Float32Array(sc.stats.t.length).fill(0.5);
+      let bi = -1;
+      for (let i = 0; i < sc.stats.t.length; i++) if (sc.stats.t[i] > sc.start + 0.3 && sc.stats.t[i] < sc.duration - 0.3 && (bi < 0 || interest[i] > interest[bi])) bi = i;
+      return bi < 0 ? null : { scan: sc, t: sc.stats.t[bi], score: interest[bi] };
+    })
+    .filter((c): c is { scan: Scan; t: number; score: number } => !!c)
+    .sort((a, b) => b.score - a.score);
+  const picks = [...photos.map((scan) => ({ scan, t: 0 })), ...stills].slice(0, at.length);
+  return picks.map(({ scan, t }, j) => ({
+    start: at[j],
+    end: j + 1 < picks.length ? at[j + 1] : next,
+    source: scan.id,
+    kind: scan.kind,
+    srcStart: scan.kind === "video" ? t : 0,
+    speed: 0,
+    cx: 0.5,
+    cy: 0.4,
+    zoom: 1,
+    x: 0.5,
+    y: 0.34,
+    size: 0.3,
+    aspect: 1,
+    tilt: HEAD_TILTS[(variant + j) % HEAD_TILTS.length],
+    place: { on: "head", crop: "face" },
+  }));
+}
 
 /**
  * A burst of pictures flying in, tilted on black, right after the edit's first shot:
@@ -233,19 +435,30 @@ const TILTS = [8, -11, 6, -9, 12, -7];
  * shots with the burst in, or the shots as they were when there's no room or too few
  * pictures.
  */
-export function photoBurst(shots: ShotEvent[], scans: Scan[], period: number, aspect: Aspect, variant: number, most = 5): ShotEvent[] {
+export function photoBurst(shots: ShotEvent[], scans: Scan[], period: number, aspect: Aspect, variant: number, most = 5, beats: number[] = []): { shots: ShotEvent[]; overlays: OverlayEvent[] } {
+  shots = [...shots];
   // On the sixteenths (three frames at the least), as many as fit.
   const piece = Math.max(period / 4, 3 / FPS);
-  const fits = (s: ShotEvent, i: number, n: number) => i > 0 && !s.again && s.role !== "drop" && s.role !== "closer" && s.start >= 0.9 && s.end - s.start >= n * piece + 0.3 && !shots[i + 1]?.again;
+  // (In a shot long enough for them, or taking a whole one, to within a frame and a half: nio.trade's …0002 fills a slot with them.)
+  const fits = (s: ShotEvent, i: number, n: number) => i > 0 && !s.again && s.role !== "drop" && s.role !== "closer" && s.start >= 0.9 && s.end - s.start >= n * piece - 1.5 / FPS && !shots[i + 1]?.again;
   let k = most;
   let at = -1;
   for (; k >= 4 && at < 0; k--) at = shots.findIndex((s, i) => fits(s, i, k));
   k++;
-  if (at < 0) return shots;
+  if (at < 0) return { shots, overlays: [] };
   const target = shots[at];
+  // Before it, the pictures on someone's head (not the ones the burst shows, while there
+  // are others): the shot there has someone in it, or becomes the best moment of a clip
+  // that has (the gag is the hook, as in nio.trade's …0002).
+  const host = withSomeone(shots, at - 1, scans, aspect);
+  if (host) shots = [...shots.slice(0, at - 1), host, ...shots.slice(at)];
+  const pops = host ? headPops(host, target.start, beats, scans, shots, variant) : [];
+  const popped = new Set(pops.map((p) => p.source));
   // (Not the pictures either side of it or its own: the burst isn't a preview of the next shot.)
   const near = [shots[0], shots[at - 1], target, shots[at + 1]].filter(Boolean).map((s) => s.source);
-  const photos = scans.filter((s) => s.kind === "image" && !near.includes(s.id)).sort((a, b) => (b.interest?.[0] ?? 0) - (a.interest?.[0] ?? 0));
+  const photos = scans
+    .filter((s) => s.kind === "image" && !near.includes(s.id))
+    .sort((a, b) => Number(popped.has(a.id)) - Number(popped.has(b.id)) || (b.interest?.[0] ?? 0) - (a.interest?.[0] ?? 0));
   const picks: { scan: Scan; t: number }[] = photos.map((scan) => ({ scan, t: 0 }));
   // Then a moment of each clip (not someone talking): its most interesting sample the
   // edit doesn't use, or failing that one it does (three frames of it, seconds away).
@@ -268,15 +481,17 @@ export function photoBurst(shots: ShotEvent[], scans: Scan[], period: number, as
     .sort((a, b) => b.score - a.score);
   picks.push(...clips);
   const chosen = picks.slice(0, k);
-  if (chosen.length < 4) return shots;
+  if (chosen.length < 4) return { shots, overlays: pops };
   const n = chosen.length;
+  // The shot goes on after them with a third of a second left of it; otherwise they fill it.
+  const whole = target.end - (target.start + n * piece) < 0.3;
   const out: ShotEvent[] = [];
   for (const [j, { scan, t }] of chosen.entries()) {
     const start = frameOf(target.start + j * piece);
     const crop = frameShot({ scan, a: t, b: t + piece, aspect });
     out.push({
       start,
-      end: frameOf(target.start + (j + 1) * piece),
+      end: whole && j === n - 1 ? target.end : frameOf(target.start + (j + 1) * piece),
       source: scan.id,
       kind: scan.kind,
       srcStart: scan.kind === "video" ? t : 0,
@@ -285,6 +500,6 @@ export function photoBurst(shots: ShotEvent[], scans: Scan[], period: number, as
       role: target.role,
     });
   }
-  const rest: ShotEvent = { ...target, start: frameOf(target.start + n * piece) };
-  return [...shots.slice(0, at), ...out, rest, ...shots.slice(at + 1)];
+  const rest: ShotEvent[] = whole ? [] : [{ ...target, start: frameOf(target.start + n * piece) }];
+  return { shots: [...shots.slice(0, at), ...out, ...rest, ...shots.slice(at + 1)], overlays: pops };
 }

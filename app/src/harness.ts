@@ -17,7 +17,7 @@ import type { Aspect, CardSpec } from "./engine/plan/types";
 import { blobToBase64Parts, renderPlan, renderStills } from "./engine/render/export";
 import { mixPlan } from "./engine/render/mix";
 import { FaceFinder } from "./engine/vision/faces";
-import { followFaces } from "./engine/vision/track";
+import { followFaces, placeOverlays } from "./engine/vision/track";
 
 async function save(name: string, blob: Blob) {
   const parts = await blobToBase64Parts(blob);
@@ -320,6 +320,10 @@ async function montage(run: MontageRun) {
     if (run.faces) {
       await followFaces(plan, sources, new Map(scans.map((s) => [s.id, s])));
       lap(`faces${v}`);
+    }
+    if (plan.overlays?.some((o) => o.place)) {
+      await placeOverlays(plan, sources);
+      lap(`overlays${v}`);
     }
     if (run.audioOnly) {
       await save(`${run.out ?? "mix"}-v${v + 1}.wav`, wavOf(await mixPlan(plan, sources, !!plan.music)));

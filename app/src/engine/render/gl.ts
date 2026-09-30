@@ -8,6 +8,9 @@ import type { Grade } from "../plan/types";
 
 export type Rotation = 0 | 90 | 180 | 270;
 
+/** Pictures or clips drawn over the shot at once, at the most (their texture slots follow the shots'). */
+export const OVERLAY_SLOTS = 3;
+
 export interface LayerDraw {
   slot: number;
   /** the source's display size (after rotation), in pixels */
@@ -27,6 +30,11 @@ export interface LayerDraw {
   tilt?: number;
   /** the card's size in the frame (1 = the whole frame) */
   inset?: number;
+  /**
+   * drawn as a card over what's below it (a photo on someone's head, a window with a
+   * clip in it): its centre and its width and height, 0 to 1 of the frame; turned by tilt
+   */
+  card?: { x: number; y: number; w: number; h: number };
 }
 
 export interface FrameDraw {
@@ -73,7 +81,9 @@ uniform float uGain;
 uniform vec4 uRect; // the picture inside any black bars: x0, y0, width, height of the frame
 uniform vec2 uShake; // a shake, in frame widths and heights
 uniform float uTilt; // the picture as a card turned this far clockwise (radians)
-uniform float uInset; // the card's size in the frame (1: the whole frame)
+uniform bool uCard; // drawn as a card: centred at uCardC, uCardS of the frame's width and height
+uniform vec2 uCardC;
+uniform vec2 uCardS;
 out vec4 outColor;
 vec2 toTex(vec2 d) {
   if (uFlip) d.x = 1.0 - d.x;
@@ -85,18 +95,21 @@ vec2 toTex(vec2 d) {
 void main() {
   vec2 o = vec2(vPos.x, 1.0 - vPos.y);
   float edge = 1.0;
-  if (uInset < 0.999 || abs(uTilt) > 1e-4) {
-    // This pixel in the card's own frame (the frame's shape, turned and shrunk about the
-    // middle), with a soft edge a pixel wide; black around it.
-    vec2 q = (o - 0.5) * uOut;
+  // The picture's own frame, in pixels: the whole frame, or its card.
+  vec2 box = uOut;
+  if (uCard) {
+    // This pixel in the card's own frame (turned about the card's centre), with a soft
+    // edge a pixel wide; nothing around it.
+    box = uCardS * uOut;
+    vec2 q = (o - uCardC) * uOut;
     float cs = cos(uTilt), sn = sin(uTilt);
-    q = vec2(cs * q.x + sn * q.y, -sn * q.x + cs * q.y) / uInset;
-    o = q / uOut + 0.5;
-    vec2 px = min(o, 1.0 - o) * uOut * uInset;
+    q = vec2(cs * q.x + sn * q.y, -sn * q.x + cs * q.y);
+    o = q / box + 0.5;
+    vec2 px = min(o, 1.0 - o) * box;
     edge = clamp(min(px.x, px.y), 0.0, 1.0);
     if (edge <= 0.0) { outColor = vec4(0.0); return; }
   }
-  float ao = uOut.x / uOut.y;
+  float ao = box.x / box.y;
   float as_ = (uSrc.x * uRect.z) / (uSrc.y * uRect.w);
   vec2 f = uMode == 0
     ? (as_ > ao ? vec2(ao / as_, 1.0) : vec2(1.0, as_ / ao))
@@ -262,7 +275,8 @@ export class Compositor {
     this.blur = compile(gl, BLUR);
     this.copy = compile(gl, COPY);
     this.final = compile(gl, FINAL);
-    for (let i = 0; i < 2; i++) {
+    // The shot, the next one, and pictures or clips drawn over them.
+    for (let i = 0; i < 2 + OVERLAY_SLOTS; i++) {
       this.textures.push(this.makeTexture(true));
       this.texSize.push([0, 0]);
     }
@@ -351,7 +365,12 @@ export class Compositor {
     gl.uniform4f(p.loc("uRect"), r[0], r[1], r[2] - r[0], r[3] - r[1]);
     gl.uniform2f(p.loc("uShake"), this.shake[0], this.shake[1]);
     gl.uniform1f(p.loc("uTilt"), ((l.tilt ?? 0) * Math.PI) / 180);
-    gl.uniform1f(p.loc("uInset"), Math.max(0.05, l.inset ?? 1));
+    // A photo flying in is a card the frame's shape, in its middle.
+    const inset = Math.max(0.05, l.inset ?? 1);
+    const card = l.card ?? (inset < 0.999 || Math.abs(l.tilt ?? 0) > 1e-3 ? { x: 0.5, y: 0.5, w: inset, h: inset } : null);
+    gl.uniform1i(p.loc("uCard"), card ? 1 : 0);
+    gl.uniform2f(p.loc("uCardC"), card?.x ?? 0.5, card?.y ?? 0.5);
+    gl.uniform2f(p.loc("uCardS"), Math.max(1e-3, card?.w ?? 1), Math.max(1e-3, card?.h ?? 1));
     this.quad(target);
   }
 

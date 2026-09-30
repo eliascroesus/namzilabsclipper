@@ -3,7 +3,8 @@ import { analyzeSong } from "../src/engine/audio/song";
 import { cutFrames, noteChecked } from "../src/engine/media/cuts";
 import { checkShots, settlePlan } from "../src/engine/plan/settle";
 import { keysFollowCuts, PROFILE_BINS, type Scan } from "../src/engine/media/scan";
-import { boundsOf, longestStretch, mulberry32, planMontage } from "../src/engine/plan/montage";
+import { boundsOf } from "../src/engine/plan/bounds";
+import { longestStretch, mulberry32, planMontage } from "../src/engine/plan/montage";
 import { sourceSpan } from "../src/engine/plan/types";
 
 /**
@@ -59,6 +60,19 @@ describe("a long video's own cuts", () => {
     for (const s of plan.shots) expect(scan.checked!.some(([a, b]) => s.srcStart >= a && s.srcStart + sourceSpan(s) <= b)).toBe(true);
     // A second look at the same plan finds nothing new.
     expect(await checkShots(plan, new Map([[scan.id, scan]]), async () => [])).toBe(0);
+  });
+
+  it("a clip laid over the shots (a window) is looked at too, and left out if it can't be kept off a cut", async () => {
+    const { scan, truth } = vlog(4);
+    const scans = new Map([[scan.id, scan]]);
+    const find = async (_s: Scan, a: number, b: number) => truth.filter((c) => c >= a && c < b);
+    const c = truth[40];
+    const over = { start: 1, end: 1.5, source: scan.id, kind: "video" as const, srcStart: c - 0.25, speed: 1, cx: 0.5, cy: 0.5, zoom: 1, x: 0.5, y: 0.55, size: 0.5, aspect: 9 / 16, tilt: 0 };
+    const still = { ...over, speed: 0 };
+    const base = planMontage({ song, songSource: "song", songName: "x", fromStart: true, scans: [scan], aspect: "9x16", length: 12, card: null, caption: null, variant: 0 });
+    expect(await checkShots({ ...base, shots: [], overlays: [over, still] }, scans, find)).toBe(1);
+    const plan = await settlePlan(() => ({ ...base, overlays: [over, still] }), scans, find);
+    expect(plan.overlays).toEqual([still]);
   });
 
   it("a stretch looked at replaces the skim's guesses in it", () => {

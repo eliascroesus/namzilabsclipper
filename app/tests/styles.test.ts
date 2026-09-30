@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { analyzeSong } from "../src/engine/audio/song";
 import { scoreInterest, type Kind, type Scan } from "../src/engine/media/scan";
 import { CUT_LEAD, planMontage, usedRanges, type Ranges } from "../src/engine/plan/montage";
-import { mixOrder, styleFor, type Talker } from "../src/engine/plan/styles";
+import { mixOrder, styleFor, windows, type Talker } from "../src/engine/plan/styles";
 import { FPS, sourceSpan, type CardSpec, type EditPlan } from "../src/engine/plan/types";
 import { fakeScan, lookedAt } from "./scans";
 
@@ -153,6 +153,86 @@ describe("edit styles", () => {
     const k = plan.shots.indexOf(burst[burst.length - 1]);
     expect(plan.shots[k + 1].end - plan.shots[k + 1].start).toBeGreaterThanOrEqual(0.3 - 1e-6);
     for (let i = 1; i < plan.shots.length; i++) expect(plan.shots[i].start).toBeCloseTo(plan.shots[i - 1].end, 6);
+  });
+
+  it("photo burst: before it, the shot plays on and the user's photos land on the head of whoever is in it, on its last beats (nio.trade)", () => {
+    const plan = planMontage({ ...base, scans, card, style: "burst" });
+    const burst = plan.shots.filter((s) => s.crop.tilt);
+    const host = plan.shots[plan.shots.indexOf(burst[0]) - 1];
+    const pops = (plan.overlays ?? []).filter((o) => o.place);
+    expect(host.kind).toBe("video");
+    expect(pops.length).toBeGreaterThanOrEqual(1);
+    expect(pops.length).toBeLessThanOrEqual(3);
+    expect(pops[0].source).toMatch(/^photo/);
+    const halves = song.beats.flatMap((b, i) => (i + 1 < song.beats.length ? [b, (b + song.beats[i + 1]) / 2] : [b]));
+    for (const [j, p] of pops.entries()) {
+      // On the head (found in the page), cropped to its own face, square, still.
+      expect(p.place).toEqual({ on: "head", crop: "face" });
+      expect([p.aspect, p.speed]).toEqual([1, 0]);
+      // Each on a beat or a half beat in the shot's last two thirds, until the next, the last until the burst.
+      expect(p.start).toBeGreaterThanOrEqual(host.start + 0.4 - 1e-6);
+      expect(halves.some((b) => Math.abs(b - plan.music!.songStart - CUT_LEAD - p.start) <= 1.5 / FPS)).toBe(true);
+      expect(p.end).toBeCloseTo(j + 1 < pops.length ? pops[j + 1].start : burst[0].start, 6);
+      if (j) expect(Math.sign(p.tilt)).not.toBe(Math.sign(pops[j - 1].tilt));
+    }
+    // Up from black.
+    expect(plan.fx.some((f) => f.kind === "fadein" && f.start === 0)).toBe(true);
+  });
+
+  it("windows: cards land in the middle on the beats, each clip in its own shape, and the last one, the next shot, goes full frame carrying straight on (TJR)", () => {
+    const plan = planMontage({ ...base, scans, card, style: "beat", variant: 1 });
+    const ws = (plan.overlays ?? []).filter((o) => !o.place);
+    expect(ws.length).toBeGreaterThanOrEqual(1);
+    expect(ws.length).toBeLessThanOrEqual(2);
+    const w = ws[ws.length - 1];
+    const next = plan.shots.find((s) => Math.abs(s.start - w.end) < 1e-6)!;
+    const under = plan.shots.find((s) => w.start >= s.start - 1e-6 && w.start < s.end - 1e-6)!;
+    expect(w.source).toBe(next.source);
+    expect(under.source).not.toBe(next.source);
+    expect(w.srcStart + (w.end - w.start) * w.speed).toBeCloseTo(next.srcStart, 6);
+    const frame = plan.width / plan.height;
+    const halves = song.beats.flatMap((b, i) => (i + 1 < song.beats.length ? [b, (b + song.beats[i + 1]) / 2] : [b]));
+    for (const c of ws) {
+      // In the middle, the clip's own shape, a fifth of the frame at most.
+      const src = scans.find((sc) => sc.id === c.source)!;
+      expect([c.x, c.y, c.tilt]).toEqual([0.5, 0.5, 0]);
+      expect(c.aspect).toBeCloseTo(src.width / src.height, 6);
+      expect(c.size * c.size * c.aspect).toBeLessThanOrEqual(0.2 * frame + 1e-9);
+      expect(c.end).toBeCloseTo(w.end, 6);
+      expect(halves.some((b) => Math.abs(b - plan.music!.songStart - CUT_LEAD - c.start) <= 1.5 / FPS)).toBe(true);
+      expect(c.start).toBeGreaterThan(plan.shots.find((s) => s.role === "drop")!.start);
+    }
+    expect(w.end - w.start).toBeGreaterThanOrEqual(0.2 - 1e-6);
+    if (ws.length === 2) {
+      // Under it, landing first, another clip: not the one under the cards nor the next.
+      expect(ws[0].start).toBeLessThan(w.start - 0.15);
+      expect([under.source, next.source]).not.toContain(ws[0].source);
+    }
+  });
+
+  it("windows stack: another clip's card on the beat before, then the next shot's on top, until the cut", () => {
+    const crop = { cx: 0.5, cy: 0.5, zoom0: 1, zoom1: 1, fit: "cover" as const };
+    const a = fakeScan("a", 20, 41);
+    const b = { ...fakeScan("b", 20, 42), exactCuts: [6], checked: [[0, 20]] as [number, number][] };
+    const c = { ...fakeScan("c", 12, 43), width: 1080, height: 1350 };
+    const shots = [
+      { start: 0, end: 2, source: "a", kind: "video" as const, srcStart: 1, speed: 1, crop, role: "drop" as const },
+      { start: 2, end: 3.2, source: "a", kind: "video" as const, srcStart: 4, speed: 1, crop },
+      { start: 3.2, end: 3.8, source: "b", kind: "video" as const, srcStart: 6.07, speed: 1, crop },
+      { start: 3.8, end: 5, source: "a", kind: "video" as const, srcStart: 9, speed: 1, crop, role: "closer" as const },
+    ];
+    const beats = Array.from({ length: 13 }, (_, k) => 0.4 * k);
+    const { shots: out, overlays } = windows(shots, beats, [a, b, c], 0, 9 / 16);
+    expect(overlays.map((o) => [o.source, +o.start.toFixed(6), +o.end.toFixed(6)])).toEqual([
+      ["c", 2.8, 3.2],
+      ["b", 3, 3.2],
+    ]);
+    // c in its own 4:5, b in its 16:9; b playing on into the shot, which starts later for it.
+    expect(overlays[0].aspect).toBeCloseTo(0.8, 6);
+    expect(overlays[1].aspect).toBeCloseTo(16 / 9, 6);
+    expect(overlays[0].speed).toBe(1);
+    expect(overlays[1].srcStart).toBeGreaterThanOrEqual(6.07 - 1e-9);
+    expect(out[2].srcStart).toBeCloseTo(overlays[1].srcStart + 0.2, 9);
   });
 
   it("fast re-cuts: a third of the cuts or more re-cut the clip before, a jump further into it", () => {

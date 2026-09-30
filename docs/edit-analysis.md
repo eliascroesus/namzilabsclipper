@@ -167,14 +167,35 @@ Two things the frames show that the numbers alone don't:
 - **Real black and white is rare, and short.** Only nio.trade's …5448 and …2531 have it: a shot that starts in black and white for about a beat (0.6 s) and turns to colour on the next one, twice in …5448. The shots that measure grey elsewhere are colour in low light (brezscales' night causeway, the defocused car interior …8678 opens on). The TJR edit here is in colour; the black-and-white talking intros TJR and others post (someone talking for up to ten seconds, then a hard cut into the edit) aren't among the uploads, so the app takes that style's timing from TJR's build and its look from nio.trade's flips.
 - **None of them hop back and forth.** Across the fourteen edits (about 300 cuts), the frame matcher found four returns to a clip within 2.5 s: one is a conversation, cut between the two people talking (nio …1290: "but you kind of made it?", "nah"), and the other three are one scene cut forward, a run of re-cuts. A clip either carries on, a jump further into it, or comes back well after. The app, with four to seven clips to work with, was going back to a clip with one or two shots in between up to seven times an edit.
 
+### What they lay over the shots
+
+Frame by frame, the few things the editors put on top of their footage, beyond the cut, the colour and the captions:
+
+| Edit | When | What happens |
+|---|---|---|
+| nio …0002 | 0 to 0.27 s | **Up from black**, over 8 frames. Every nio.trade edit opens so |
+| nio …0002 | 0.73 s, then 1.0 s | **Pictures on his head.** Over a shot of him standing in his room, which plays on under them, a photo of a face lands on his head on the beat: cut square to the face, a little bigger than his head, turned about a fifth of a turn. On the next beat another replaces it, turned the other way. Then the burst of tilted photos on black |
+| nio …5448 | 11.62 s, then 11.88 s | The same gag late in a story: two face photos on his head a quarter of a second apart, then a tilted photo full frame |
+| tjr …7392 | 12.73 s | **Windows.** Over a close shot (the back of a head), a card of another clip lands in the middle of the frame: the clip whole, in its own wide shape, 0.6 of the square frame across, no border, no move |
+| tjr …7392 | 13.17 s | A second card lands on top of it, nearly square: the clip that comes next |
+| tjr …7392 | 13.40 s | That clip takes the whole frame on the cut and plays straight on from where the card was |
+| nio …3659 | 5.37 s, 6.13 s | A screenshot dissolves in over four frames and the shot after it dissolves out: a trading screenshot, not built here |
+| xxzezedongoxx | all of it | Long takes walking round one car in fog, nothing laid over them: the slow style |
+
+What the app does with them:
+
+- **Up from black:** 8 frames (12 in the slow style), in the burst, the black and white one and every other straight edit.
+- **Pictures on someone's head** (the photo burst): the shot before the burst, if someone is in it, or the best moment of a clip with someone in it, plays on, and on its last beats and half beats (up to three, a fifth of a second apart at least, from a third of the way in) a picture lands on the head of whoever is in it, each replacing the last: your photos first, then stills of clips the edit doesn't show there. The page finds the faces (the same face model as the framing): each photo is cut to its own face, the card sits on the head of the main person in the shot (the biggest face near the middle, followed through the shot) at about twice its size, turned −18°, +22°, −14° and +19° by turns. A photo with no face in it lands whole, bigger. The burst then shows other pictures than these, when there are.
+- **Windows** (every other straight edit, and after the talking): once after the drop, over the middle one of the runs of a clip three quarters of a second long or more. The last card, the shot that comes next, lands on the last beat or half beat a fifth of a second or more before the cut; on the one before it, a card of another clip the edit doesn't show there (a photo when there's no clip). Each card is its clip whole in its own shape (inside any black bars), a fifth of the frame. The last one plays what comes just before the shot, so the cut carries straight on; when that's across one of the footage's own cuts, as a shot often starts right after one, the shot starts that much later and the card plays its start. Like the shots, what the cards play is looked at frame by frame for the footage's own cuts (see [settle](../app/src/engine/plan/settle.ts)).
+
 ### The styles in the app
 
 | Style | From | What it does |
 |---|---|---|
-| **On the beat** | mico, nio …3659 | Straight cuts: the build, then one rhythm from the drop to the end (see [the rhythm](#the-rhythm-cut-by-cut-against-each-songs-grid)), as hard as the Cutting picked |
-| **Talk, then the drop** | TJR, and the talking intros described above | Someone talking, in black and white, with their own voice over the song's intro (the song kept low), their pauses cut out; a hard cut into colour on the drop, then the edit. The song is picked so the drop lands a third to two thirds of the way in. With no one talking in the footage, a few calm shots a bar each, as TJR's build |
+| **On the beat** | mico, nio …3659, TJR | Straight cuts: the build, then one rhythm from the drop to the end (see [the rhythm](#the-rhythm-cut-by-cut-against-each-songs-grid)), as hard as the Cutting picked; every other one with TJR's windows once after the drop, the others up from black |
+| **Talk, then the drop** | TJR, and the talking intros described above | Someone talking, in black and white, with their own voice over the song's intro (the song kept low), their pauses cut out; a hard cut into colour on the drop, then the edit, with TJR's windows once. The song is picked so the drop lands a third to two thirds of the way in. With no one talking in the footage, a few calm shots a bar each, as TJR's build |
 | **Black and white to colour** | nio …5448, …2531 | The build in black and white, colour from the drop, and after it a shot or two that start in black and white and turn to colour on the beat (or on the clip's first re-cut) |
-| **Photo burst** | nio …0002 | After the first shot, four or five pictures fly in tilted on black, a sixteenth each (three or four frames): your photos first, then a moment of each clip |
+| **Photo burst** | nio …0002, …5448 | Up from black; early on, your photos land on the head of someone in a shot, then four or five pictures fly in tilted on black, a sixteenth each (three or four frames): your photos first, then a moment of each clip |
 | **Fast re-cuts** | nio …2531, …5448 | A clip re-cut on the half beat in every bar and carried over a beat, and the build re-cut on the beat too: over a third of the cuts |
 | **Slow and cinematic** | brezscales, TJR's build | A bar a shot before the drop, two beats after it, every clip pushing in or pulling out slowly, no flash, burn or punch-ins |
 | **Mix** (the default) | | Each edit in a batch in the next of these (the talking one only when someone talks in the footage, the burst only with four clips or photos, the slow one not when cutting hard, the fast re-cuts not when relaxed), so no two in a row look alike |

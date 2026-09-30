@@ -8,10 +8,11 @@
 import { pickSection, type Accent, type SongAnalysis } from "../audio/song";
 import type { Bar } from "../audio/structure";
 import { KINDS, PROFILE_BINS, type Scan } from "../media/scan";
+import { boundsOf, type Bound } from "./bounds";
 import { frameShot, kenBurns } from "./framing";
 import { rhythmCuts, type Pace, type RhythmCut, type RhythmOptions } from "./rhythm";
-import { mono, monoFlips, paceOf, photoBurst, styleLabel, TALK_DROP, talkEnd, talkingIntro, talky, type EditStyle, type Talker } from "./styles";
-import { FPS, FRAME_SIZE, sourceSpan, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type Crop, type EditPlan, type FxEvent, type Ramp, type ShotEvent } from "./types";
+import { mono, monoFlips, paceOf, photoBurst, styleLabel, TALK_DROP, talkEnd, talkingIntro, talky, windows, type EditStyle, type Talker } from "./styles";
+import { FPS, FRAME_SIZE, sourceSpan, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type Crop, type EditPlan, type FxEvent, type OverlayEvent, type Ramp, type ShotEvent } from "./types";
 
 /**
  * Cuts sit this far ahead of the hit. The song's beats and accents are where each hit
@@ -550,48 +551,6 @@ function lookAlike(a: Scan, i: number, b: Scan, j: number): number {
   const across = correlation(a.stats.cols, i, b.stats.cols, j, PROFILE_BINS);
   const down = correlation(a.stats.rows, i, b.stats.rows, j, PROFILE_BINS);
   return common * Math.max(0, across) * Math.max(0, down);
-}
-
-/**
- * How far a shot keeps from the source's own cuts: a couple of frames, or in a long
- * video skimmed a frame every second or two, half that gap (a cut is only known to
- * lie somewhere between two samples, and a shot running over it flashes the next
- * scene for a moment).
- */
-const cutMargin = (scan: Scan) => Math.max(0.08, 0.5 / scan.rate);
-
-/** A shot boundary in a source, and how far a shot keeps from it: before it, and after it when that differs. */
-interface Bound {
-  t: number;
-  margin: number;
-  after?: number;
-}
-
-const boundCache = new WeakMap<Scan, { key: string; bounds: Bound[] }>();
-
-/**
- * A source's shot boundaries, from its start to its end, each with the berth a shot
- * keeps from it: the cuts the skim found (known only to within a sample or two, so
- * a wide berth), except inside stretches since looked at frame by frame, and the
- * cuts found that way (exact, so two frames').
- */
-export function boundsOf(scan: Scan): Bound[] {
-  let sum = 0;
-  for (const [a, b] of scan.checked ?? []) sum += a + 2 * b;
-  for (const t of scan.exactCuts ?? []) sum += 3 * t;
-  const key = `${scan.cuts.length}|${scan.exactCuts?.length ?? 0}|${scan.checked?.length ?? 0}|${sum}`;
-  const hit = boundCache.get(scan);
-  if (hit && hit.key === key) return hit.bounds;
-  const checked = scan.checked ?? [];
-  const inner: Bound[] = [];
-  // (A cut on a key frame that marks a scene change is there to the frame, if it's
-  // there at all: a narrow berth, a little wider before it.)
-  for (const t of scan.cuts) if (!checked.some(([a, b]) => t >= a && t <= b)) inner.push(scan.keyCuts ? { t, margin: 0.25, after: 0.05 } : { t, margin: cutMargin(scan) });
-  for (const t of scan.exactCuts ?? []) inner.push({ t, margin: 0.07 });
-  inner.sort((x, y) => x.t - y.t);
-  const bounds = [{ t: scan.start, margin: 0.08 }, ...inner.filter((b) => b.t > scan.start && b.t < scan.duration), { t: scan.duration, margin: 0.08 }];
-  boundCache.set(scan, { key, bounds });
-  return bounds;
 }
 
 const wholeSource = (scan: Scan): Bound[] => [
@@ -1610,7 +1569,10 @@ export function planMontage(o: MontageOptions): EditPlan {
   const rest = intro ? o.scans.filter((sc) => sc.id !== intro.shots[0].source) : o.scans;
   let shots = assignShots(slots, rest.length >= 2 ? rest : o.scans, { song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, toCome: o.toCome, velocity: o.velocity, used, loop: looped });
   if (intro) shots = [...intro.shots, ...shots];
-  if (style === "burst") shots = photoBurst(shots, o.scans, song.period, o.aspect, o.variant);
+  // The beats and half beats, as cut (for pictures landing on the music).
+  const grid = song.beats.flatMap((b, i) => [b, ...(i + 1 < song.beats.length ? [(b + song.beats[i + 1]) / 2] : [])]).map((b) => lead(b - win.songStart));
+  let overlays: OverlayEvent[] = [];
+  if (style === "burst") ({ shots, overlays } = photoBurst(shots, o.scans, song.period, o.aspect, o.variant, 5, grid));
   const drop = shots.find((s) => s.role === "drop");
   // The shot into the drop pushes in as it holds (through the silence, when the song
   // drops out first), and the drop lands on the push.
@@ -1627,6 +1589,12 @@ export function planMontage(o: MontageOptions): EditPlan {
       const z = Math.max(1, s.crop.zoom0, s.crop.zoom1);
       [s.crop.zoom0, s.crop.zoom1] = k++ % 2 ? [z * 1.07, z] : [z, z * 1.07];
     }
+  }
+  // TJR's window with the next clip in it, once after the drop (talking edits, and every other straight one).
+  if (style === "talk" || (style === "beat" && o.variant % 2 === 1)) {
+    const w = windows(shots, song.beats.map((b) => lead(b - win.songStart)), o.scans, drop?.start ?? 1, FRAME_SIZE[o.aspect][0] / FRAME_SIZE[o.aspect][1]);
+    shots = w.shots;
+    overlays.push(...w.overlays);
   }
   const captions: CaptionEvent[] = o.caption?.text.trim() ? [{ style: o.caption.style, text: o.caption.text.trim(), start: 0, end: o.card ? win.cardAt - 4 / FPS : win.duration }] : [];
   // Punch-ins come after the drop: the build holds back, so the drop is its first hit.
@@ -1652,7 +1620,10 @@ export function planMontage(o: MontageOptions): EditPlan {
     hits,
     phrases,
     bpm: song.bpm,
+    // Up from black (nio.trade's edits all start so): a quarter of a second, longer in a slow one.
+    fadeIn: style === "slow" ? 12 / FPS : style === "burst" || style === "mono" || (style === "beat" && o.variant % 2 === 0) ? 8 / FPS : undefined,
   });
+  if (overlays.length) plan.overlays = overlays;
   // Black and white: a talking edit's build and a flipping edit's, up to the drop (a
   // flipping edit with no drop turns at the bar line two fifths in); and in a flipping
   // edit, a shot or two after the drop turning to colour on a beat.

@@ -62,6 +62,54 @@ export interface ShotEvent {
 }
 
 /**
+ * A picture or a clip drawn over the shot under it (nio.trade's photos landing on
+ * someone's head, TJR's window with the next clip in it): a card at a place in the
+ * frame, turned, the picture filling it.
+ */
+export interface OverlayEvent {
+  /** output time, seconds */
+  start: number;
+  end: number;
+  source: string;
+  kind: "video" | "image";
+  /** source time at the start (video) */
+  srcStart: number;
+  /** playback speed; 0 holds the frame at srcStart */
+  speed: number;
+  /** the source's point at the card's centre (0 to 1), and a zoom on the picture filling the card (1 = cover) */
+  cx: number;
+  cy: number;
+  zoom: number;
+  /** the card: its centre in the frame (0 to 1), its height as a share of the frame's, its width over its height, turned this many degrees clockwise */
+  x: number;
+  y: number;
+  size: number;
+  aspect: number;
+  tilt: number;
+  /** following something through it: flat [t, x, y, size] keyframes (t in seconds from its start), in place of x, y and size */
+  path?: number[];
+  /**
+   * placed in the page, where faces are found: on the head of whoever is in the shot
+   * under it ("head"), and the picture cropped to its own face ("face")
+   */
+  place?: { on?: "head"; crop?: "face" };
+}
+
+/** Where an overlay's card is `tau` seconds into it: centre and height as a share of the frame's. */
+export function overlayAt(o: Pick<OverlayEvent, "x" | "y" | "size" | "path">, tau: number): [number, number, number] {
+  const p = o.path;
+  if (!p || p.length < 4) return [o.x, o.y, o.size];
+  if (tau <= p[0]) return [p[1], p[2], p[3]];
+  for (let i = 4; i < p.length; i += 4) {
+    if (tau <= p[i]) {
+      const f = (tau - p[i - 4]) / Math.max(1e-6, p[i] - p[i - 4]);
+      return [p[i - 3] + (p[i + 1] - p[i - 3]) * f, p[i - 2] + (p[i + 2] - p[i - 2]) * f, p[i - 1] + (p[i + 3] - p[i - 1]) * f];
+    }
+  }
+  return [p[p.length - 3], p[p.length - 2], p[p.length - 1]];
+}
+
+/**
  * A velocity edit's speed ramp: the shot plays at `slow` for its first `hold`
  * seconds (slow motion on the hit), then speeds up smoothly to `fast` by its
  * end, rushing into the next cut.
@@ -206,6 +254,8 @@ export interface EditPlan {
   fps: number;
   duration: number;
   shots: ShotEvent[];
+  /** pictures and clips drawn over the shots, in order (the later over the earlier) */
+  overlays?: OverlayEvent[];
   fx: FxEvent[];
   captions: CaptionEvent[];
   card?: CardEvent;

@@ -24,7 +24,7 @@ import type { Pace } from "../engine/plan/rhythm";
 import { CALM_LABEL, mixOrder, styleFor, styleLabel, talks, type EditStyle, type Talker } from "../engine/plan/styles";
 import { NO_GRADE, WARM_GRADE, type Aspect, type CardSpec, type EditPlan } from "../engine/plan/types";
 import { pickCodecs, renderPlan } from "../engine/render/export";
-import { followFaces } from "../engine/vision/track";
+import { followFaces, placeOverlays } from "../engine/vision/track";
 import { loadKit, recall, remember, saveKit, saveKitShot, loadKitShot, saveKitVideo, loadKitVideo, type KitFields } from "./kit";
 
 export type Status = "reading" | "scanning" | "analyzing" | "ready" | "error";
@@ -1117,6 +1117,17 @@ class Studio {
             } catch (e) {
               if (e instanceof DOMException && e.name === "AbortError") throw e;
               this.set({ notice: `Face tracking couldn't start in this browser (${e instanceof Error ? e.message : String(e)}), so these edits are framed without it.` });
+            }
+          }
+          // Pictures on someone's head find the head (and their own faces), whatever the framing.
+          if (plan.overlays?.some((o) => o.place)) {
+            this.patchJob(job.id, { stage: "Placing the pictures" });
+            try {
+              await placeOverlays(plan, sources, { signal: jobSignal });
+            } catch (e) {
+              if (e instanceof DOMException && e.name === "AbortError") throw e;
+              // (Without the face model, no pictures at a guess of where a head is.)
+              plan.overlays = plan.overlays?.filter((o) => !o.place);
             }
           }
           this.patchJob(job.id, { plan, status: "rendering", stage: "Rendering" });

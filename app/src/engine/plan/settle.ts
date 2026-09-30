@@ -9,7 +9,7 @@
 import { noteChecked, type CutFinder } from "../media/cuts";
 import type { Scan } from "../media/scan";
 import { cropFor } from "./montage";
-import { sourceSpan, type EditPlan, type ShotEvent } from "./types";
+import { sourceSpan, type EditPlan, type OverlayEvent, type ShotEvent } from "./types";
 
 const covered = (scan: Scan, a: number, b: number) => !!scan.checked?.some(([x, y]) => a >= x - 1e-6 && b <= y + 1e-6);
 
@@ -19,20 +19,27 @@ function cutsInside(scan: Scan, a: number, b: number): number[] {
   return (scan.exactCuts ?? []).filter((c) => c > a + half && c < b - half);
 }
 
+/** The stretch of its source a clip laid over the shots plays (a still: none). */
+const overSpan = (o: OverlayEvent): [number, number] | null => (o.kind === "video" && o.speed > 0 ? [o.srcStart, o.srcStart + (o.end - o.start) * o.speed] : null);
+
 /**
  * Looks frame by frame at the stretches a plan's shots use that haven't been
  * looked at yet (with a second either side, where the next plan is likely to look
- * too), and says how many of its shots run over a cut. Shots carrying their own
- * sound (a story's dialogue) are the source's own edit, and are left as they are.
+ * too), and says how many of its shots run over a cut, and of the clips laid over
+ * them. Shots carrying their own sound (a story's dialogue) are the source's own
+ * edit, and are left as they are.
  */
 export async function checkShots(plan: EditPlan, scans: Map<string, Scan>, find: CutFinder): Promise<number> {
+  const stretches: [string, number, number][] = [];
+  for (const shot of plan.shots) if (shot.kind === "video" && !shot.audio) stretches.push([shot.source, shot.srcStart, shot.srcStart + sourceSpan(shot)]);
+  for (const o of plan.overlays ?? []) {
+    const span = overSpan(o);
+    if (span) stretches.push([o.source, ...span]);
+  }
   let crossing = 0;
-  for (const shot of plan.shots) {
-    if (shot.kind !== "video" || shot.audio) continue;
-    const scan = scans.get(shot.source);
+  for (const [source, a, b] of stretches) {
+    const scan = scans.get(source);
     if (!scan || scan.kind !== "video") continue;
-    const a = shot.srcStart;
-    const b = a + sourceSpan(shot);
     if (!covered(scan, a, b)) {
       const lo = Math.max(scan.start, a - 1);
       const hi = Math.min(scan.duration, b + 1);
@@ -85,7 +92,8 @@ function repair(shot: ShotEvent, scan: Scan, aspect: EditPlan["aspect"]): ShotEv
  * A plan none of whose shots runs over one of the source's own cuts: plan, look
  * frame by frame at what the plan uses, and plan again with what was found, until
  * nothing new turns up. If the footage cuts so fast that a few rounds don't do it,
- * the last plan's shots are moved (or slowed a little) to fit inside their scenes.
+ * the last plan's shots are moved (or slowed a little) to fit inside their scenes,
+ * and a clip laid over them that runs over a cut is left out.
  */
 export async function settlePlan(make: () => EditPlan, scans: Map<string, Scan>, find: CutFinder, rounds = 4): Promise<EditPlan> {
   let plan = make();
@@ -94,5 +102,14 @@ export async function settlePlan(make: () => EditPlan, scans: Map<string, Scan>,
     if (r + 1 >= rounds) break;
     plan = make();
   }
-  return { ...plan, shots: plan.shots.map((s) => (s.kind === "video" && !s.audio && scans.get(s.source) ? repair(s, scans.get(s.source)!, plan.aspect) : s)) };
+  const clean = (o: OverlayEvent) => {
+    const span = overSpan(o);
+    const scan = scans.get(o.source);
+    return !span || !scan || scan.kind !== "video" || !cutsInside(scan, ...span).length;
+  };
+  return {
+    ...plan,
+    shots: plan.shots.map((s) => (s.kind === "video" && !s.audio && scans.get(s.source) ? repair(s, scans.get(s.source)!, plan.aspect) : s)),
+    ...(plan.overlays ? { overlays: plan.overlays.filter(clean) } : {}),
+  };
 }
