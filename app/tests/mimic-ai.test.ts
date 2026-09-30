@@ -27,12 +27,12 @@ describe("Gemini reading the pictures", () => {
   it("is asked with the script word by word and each picture (its name, its text, a small copy), and says what each shows and the word it goes on", async () => {
     const asked = gemini({
       extras: [
-        { id: "x1", label: "Iman Gadzhi on stage", keywords: ["agency", "Iman"], word: 7, quote: "altid trading", why: "the agency guru, where get-rich schemes come up" },
-        { id: "x2", label: "Stripe dashboard", word: -1, quote: "" },
-        { id: "nope", label: "?", word: 2, quote: "sikkert set" },
-        { id: "x3", label: "a car", word: 999, quote: "" },
+        { id: "x1", label: "Iman Gadzhi on stage", keywords: ["agency", "Iman"], basis: "topic", word: 7, quote: "altid trading", why: "the agency guru, where get-rich schemes come up" },
+        { id: "x2", label: "Stripe dashboard", basis: "none", word: -1, quote: "" },
+        { id: "nope", label: "?", basis: "name", word: 2, quote: "sikkert set" },
+        { id: "x3", label: "a car", basis: "topic", word: 999, quote: "" },
         // Its number is off; the words it quotes are right.
-        { id: "x4", label: "a pile of cash", word: 3, quote: "fem millioner kroner" },
+        { id: "x4", label: "a pile of cash", basis: "amount", word: 3, quote: "fem millioner kroner" },
       ],
     });
     const r = await geminiExtras({
@@ -48,14 +48,16 @@ describe("Gemini reading the pictures", () => {
       ],
     });
     expect(r).toEqual({
-      x1: { label: "Iman Gadzhi on stage", keywords: ["agency", "Iman"], word: 7, why: "the agency guru, where get-rich schemes come up" },
-      x2: { label: "Stripe dashboard", keywords: [], word: -1, why: "" },
+      x1: { label: "Iman Gadzhi on stage", keywords: ["agency", "Iman"], word: 7, basis: "topic", why: "the agency guru, where get-rich schemes come up" },
+      x2: { label: "Stripe dashboard", keywords: [], word: -1, basis: "none", why: "" },
       // A word past the script's end is no word.
-      x3: { label: "a car", keywords: [], word: -1, why: "" },
-      x4: { label: "a pile of cash", keywords: [], word: 14, why: "" },
+      x3: { label: "a car", keywords: [], word: -1, basis: "none", why: "" },
+      x4: { label: "a pile of cash", keywords: [], word: 14, basis: "amount", why: "" },
     });
     const parts = asked[0].parts;
+    // The script first, then the pictures, then what to do.
     expect(parts[0].text).toContain("7:altid 8:trading");
+    expect(parts[parts.length - 1].text).toContain("don't guess who a face is");
     expect(parts.filter((p) => p.inlineData).length).toBe(2);
     expect(parts.some((p) => p.text?.includes('Picture "x2" (screenshot), named "stripe", with this text on it: "Gross volume | kr. 203.412,00"'))).toBe(true);
   });

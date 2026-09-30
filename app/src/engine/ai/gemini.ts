@@ -70,6 +70,12 @@ export async function pickModel(key: string, signal?: AbortSignal): Promise<stri
   throw new GeminiError("This key has no Gemini models that can read audio.", 404, false);
 }
 
+/** A Gemini 3 model or later (they take a thinking level, and want their own temperature). */
+export const isGemini3 = (model: string) => Number(/gemini-(\d+)/.exec(model)?.[1] ?? 0) >= 3;
+
+/** Settings for quick, exact work: a low temperature on older models; Gemini 3's own, thinking a little. */
+export const exact = (model: string, temperature: number): Pick<GenerateOptions, "temperature" | "thinking"> => (isGemini3(model) ? { temperature: null, thinking: "low" } : { temperature });
+
 export interface GenerateOptions {
   key: string;
   model: string;
@@ -77,7 +83,10 @@ export interface GenerateOptions {
   system?: string;
   /** a response schema (OpenAPI subset); the answer comes back as parsed JSON */
   schema: object;
-  temperature?: number;
+  /** null: the model's own (Gemini 3 is meant to run at its default, 1) */
+  temperature?: number | null;
+  /** think a little before answering, where the model lets that be set (Gemini 3's thinking level); unset: the model's default */
+  thinking?: "low";
   signal?: AbortSignal;
   maxOutputTokens?: number;
 }
@@ -90,7 +99,8 @@ export async function generateJSON<T>(o: GenerateOptions): Promise<T> {
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: o.schema,
-      temperature: o.temperature ?? 0.3,
+      ...(o.temperature === null ? {} : { temperature: o.temperature ?? 0.3 }),
+      ...(o.thinking && isGemini3(o.model) ? { thinkingConfig: { thinkingLevel: o.thinking } } : {}),
       ...(o.maxOutputTokens ? { maxOutputTokens: o.maxOutputTokens } : {}),
     },
   };

@@ -454,8 +454,10 @@ function PictureRow({ s, e, plan, sents }: { s: State; e: Item; plan: MimicPlan 
     const b = t?.broll.findIndex((x) => x.id === slot) ?? -1;
     return b >= 0 ? `cutaway ${b + 1}` : "cards";
   };
+  const share = s.cover >= 1 ? "all" : s.cover >= 0.75 ? "three quarters" : s.cover >= 0.5 ? "half" : "a quarter";
   let where: string;
   if (moved === "out") where = "left out";
+  else if (plan?.left?.[e.id] === "cover") where = `left out: ${share} of the talk already has pictures over it (the least sure places go first)`;
   else if (at === undefined) where = !s.words.length ? "waiting for your footage's words" : moved === "slot" ? "not in the edit: the reference has no card free for it" : !p ? "not in the edit: nothing in your script is about it, and the reference has no card free for it" : "not in the edit: there's no room at that moment";
   else if (p && slot.startsWith("x:")) where = `at ${fmtTime(at)} · ${p.by === "you" ? "you put it here" : p.why}${p.said ? ` · "${short(p.said, 70)}"` : ""}`;
   else where = `at ${fmtTime(at)}, in the reference's ${refSlot()}${moved === "slot" || s.assign[slot] === e.id ? "" : " (nothing in your script is about it)"}`;
@@ -519,8 +521,20 @@ function Pictures({ s, plan }: { s: State; plan: MimicPlan | null }) {
             ? "In the reference's cards and cutaways, in your order, at the same point of your talk as the reference has them (its hook to the second)."
             : ask
               ? "Each goes on the word where you talk about it: Gemini reads your script and looks at your pictures (small copies are sent), and the page's own reading stands in until it answers. Pictures nothing is said of fill the reference's cards."
-              : "Each goes on the word where you talk about it: its name said (however the speech model spelt it), a word or an amount on it said, or what it stands for (Iman Gadzhi: agencies and courses). Pictures nothing is said of fill the reference's cards. Choose + Gemini to have it read the meaning too."}
+              : "Each goes on the word where you talk about it: its name said (however the speech model spelt it), a word or an amount on it said, or what it stands for (Iman Gadzhi: agencies and courses). Pictures nothing is said of fill the reference's cards. Choose + Gemini to have it read the meaning too."}{" "}
+          {s.placement === "auto" && "Each lands as its word is said; the first 1.5 s and the last 4 s (your hook and your call to action) take only pictures whose name or figure is said there."}
         </span>
+        {s.placement === "auto" && (
+          <label className="slider">
+            <span>Pictures over at most</span>
+            <select className="select" value={s.cover} onChange={(ev) => mimic.setCover(Number(ev.target.value))}>
+              <option value={0.25}>a quarter of the talk</option>
+              <option value={0.5}>half the talk</option>
+              <option value={0.75}>three quarters of the talk</option>
+              <option value={1}>all of the talk</option>
+            </select>
+          </label>
+        )}
         {s.placement === "auto" && ask && s.placing.stage !== "working" && ready.length > 0 && s.words.length > 0 && (
           <button type="button" className="btn" onClick={() => void mimic.askGeminiExtras()}>
             Ask Gemini again

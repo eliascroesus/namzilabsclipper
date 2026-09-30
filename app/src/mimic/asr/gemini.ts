@@ -4,7 +4,7 @@
  * to go on, Gemini only fixes the words (the times stay the local model's);
  * without them, its phrases' times are shared out over their words by syllables.
  */
-import { generateJSON, toBase64 } from "../../engine/ai/gemini";
+import { exact, generateJSON, toBase64 } from "../../engine/ai/gemini";
 import { encodeMp3, type Run } from "../../engine/audio/speech";
 import { syllables, transcribe } from "../../engine/story/story";
 import { retime } from "./align";
@@ -21,7 +21,7 @@ export async function geminiWords(y: Float32Array, rate: number, speech: Run[], 
       key,
       model,
       signal,
-      temperature: 0,
+      ...exact(model, 0),
       schema: FIX_SCHEMA,
       maxOutputTokens: 32768,
       parts: [

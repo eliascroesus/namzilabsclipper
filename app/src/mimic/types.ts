@@ -249,4 +249,6 @@ export interface MimicPlan {
   /** music: from `from` s into the song, starting at `start` in the edit, `gain` dB under the voice, then the user's volume line on top */
   music: { source: string; start: number; from: number; gain: number; fadeOut: number; line?: VolumeLine } | null;
   tail: number;
+  /** the user's pictures left out of the edit, and why ("cover": half the talk already has pictures over it) */
+  left?: Record<string, "cover">;
 }

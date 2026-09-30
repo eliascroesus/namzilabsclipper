@@ -4,7 +4,7 @@
  * belongs on (it sees the pictures), and which moments of the script a sound effect would
  * lift. Only the words and small copies of the pictures go out.
  */
-import { generateJSON, toBase64, type Part } from "../engine/ai/gemini";
+import { exact, generateJSON, toBase64, type Part } from "../engine/ai/gemini";
 import { fold } from "./know";
 import type { Sentence } from "./match";
 
@@ -14,9 +14,20 @@ export interface AiExtra {
   label: string;
   text: string;
   kind: "picture" | "screenshot" | "clip";
-  /** a small JPEG of it (a blob or data URL) */
+  /** a copy of it (a blob or data URL), big enough for a face or a logo */
   picture?: string;
 }
+
+/** What Gemini says of a picture: what it shows, words for it, the word of the script it goes on (-1: none), what's said there, why. */
+export interface AiPlace {
+  label: string;
+  keywords: string[];
+  word: number;
+  basis: "name" | "amount" | "text" | "topic" | "list" | "none";
+  why: string;
+}
+
+const BASES = ["name", "amount", "text", "topic", "list", "none"] as const;
 
 async function jpeg(url: string): Promise<Part | null> {
   try {
@@ -32,20 +43,30 @@ const numbered = (sents: Sentence[]) => sents.map((s) => `[${s.i}] (${s.start.to
 /** The script word by word, numbered, a sentence a line. */
 const wordByWord = (words: { text: string; start: number }[], sents: Sentence[]) => sents.map((s) => `(${s.start.toFixed(1)} s) ${words.slice(s.w0, s.w1).map((w, k) => `${s.w0 + k}:${w.text}`).join(" ")}`).join("\n");
 
-const EXTRAS = {
+/** Its answer's shape: the evidence (what's said there, quoted) before the word it points at. */
+const extrasSchema = (ids: string[]) => ({
   type: "OBJECT",
   properties: {
     extras: {
       type: "ARRAY",
       items: {
         type: "OBJECT",
-        properties: { id: { type: "STRING" }, label: { type: "STRING" }, keywords: { type: "ARRAY", items: { type: "STRING" } }, word: { type: "INTEGER" }, quote: { type: "STRING" }, why: { type: "STRING" } },
-        required: ["id", "label", "word", "quote"],
+        properties: {
+          id: { type: "STRING", enum: ids },
+          label: { type: "STRING" },
+          keywords: { type: "ARRAY", items: { type: "STRING" } },
+          basis: { type: "STRING", enum: [...BASES] },
+          quote: { type: "STRING" },
+          why: { type: "STRING" },
+          word: { type: "INTEGER" },
+        },
+        required: ["id", "label", "basis", "quote", "word"],
+        propertyOrdering: ["id", "label", "keywords", "basis", "quote", "why", "word"],
       },
     },
   },
   required: ["extras"],
-};
+});
 
 /**
  * Where a quote of the script is: the word it starts on, nearest `near` (a model counts words
@@ -69,19 +90,26 @@ export function findQuote(words: { text: string }[], quote: string, near = -1): 
  * name, or what it stands for (-1 where nothing is said of it). The word is checked against
  * the words Gemini quotes from there.
  */
-export async function geminiExtras(o: { key: string; model: string; words: { text: string; start: number }[]; sentences: Sentence[]; extras: AiExtra[]; signal?: AbortSignal }): Promise<Record<string, { label: string; keywords: string[]; word: number; why: string }>> {
-  const parts: Part[] = [
-    {
-      text: `A short talking-head ad is being edited: pictures and clips (below) are laid over the talk, each on the word where the speaker talks about what it shows. For each picture: say in a few words what it shows (who, what brand or product, what screen, what figure; its name and the text on it tell you who or what it is), give up to 8 keywords (in the script's language and in English) someone would say when talking about it, and choose the one word of the script (by its number) where it belongs: where its name is said, what it shows is talked about, or what it stands for comes up (a picture of an agency guru where agencies come up, a sales dashboard where the money made is said). Also quote that word and the next one or two exactly as written in the script. Several pictures can go on one sentence when it lists them. Use -1 and an empty quote when nothing in the script is about it.\n\nThe script, word by word (number:word), a sentence a line:\n${wordByWord(o.words, o.sentences)}\n\nThe pictures:`,
-    },
-  ];
+export async function geminiExtras(o: { key: string; model: string; words: { text: string; start: number }[]; sentences: Sentence[]; extras: AiExtra[]; signal?: AbortSignal }): Promise<Record<string, AiPlace>> {
+  // The material first (the script, then the pictures), then what to do with it.
+  const parts: Part[] = [{ text: `The script of a short talking-head ad, word by word (number:word), a sentence a line:\n${wordByWord(o.words, o.sentences)}\n\nThe pictures and clips to lay over the talk:` }];
   for (const e of o.extras) {
     parts.push({ text: `\nPicture "${e.id}" (${e.kind})${e.label ? `, named "${e.label}"` : ""}${e.text ? `, with this text on it: "${e.text.slice(0, 300)}"` : ""}.` });
     const pic = e.picture ? await jpeg(e.picture) : null;
     if (pic) parts.push(pic);
   }
-  const r = await generateJSON<{ extras: { id: string; label: string; keywords?: string[]; word: number; quote?: string; why?: string }[] }>({ key: o.key, model: o.model, parts, schema: EXTRAS, temperature: 0.1, signal: o.signal });
-  const out: Record<string, { label: string; keywords: string[]; word: number; why: string }> = {};
+  parts.push({
+    text: `\n\nEach picture goes over the talk on the word where the speaker talks about what it shows. For each picture:
+- label: what it shows, in a few words (who, what brand or product, what screen, what figure). Who a person is comes from the picture's name or the text on it; don't guess who a face is.
+- keywords: up to 8 words (in the script's language and in English) someone would say when talking about it.
+- basis: what is said where it goes: its name (name), a figure on it (amount), words printed on it (text), only what it stands for (topic: an agency guru where agencies come up, a sales dashboard where the money made is said), one of several things listed in one sentence (list), or nothing in the script is about it (none).
+- quote: the word it goes on and the next one or two, exactly as written in the script (empty for none).
+- why: a short reason.
+- word: the number of the word it goes on (-1 for none).
+Several pictures can go on one sentence when it lists them.`,
+  });
+  const r = await generateJSON<{ extras: { id: string; label: string; keywords?: string[]; basis?: string; word: number; quote?: string; why?: string }[] }>({ key: o.key, model: o.model, parts, schema: extrasSchema(o.extras.map((e) => e.id)), ...exact(o.model, 0.1), signal: o.signal });
+  const out: Record<string, AiPlace> = {};
   for (const x of r.extras ?? []) {
     if (!o.extras.some((e) => e.id === x.id)) continue;
     const given = Math.round(x.word);
@@ -92,7 +120,9 @@ export async function geminiExtras(o: { key: string; model: string; words: { tex
       const quoted = findQuote(o.words, x.quote, word);
       if (quoted >= 0 && (word < 0 || Math.abs(quoted - word) > 2)) word = quoted;
     }
-    out[x.id] = { label: String(x.label ?? "").slice(0, 80), keywords: (x.keywords ?? []).map(String).slice(0, 8), word, why: x.why ?? "" };
+    const said = (BASES as readonly string[]).includes(x.basis ?? "") ? (x.basis as AiPlace["basis"]) : "topic";
+    if (said === "none") word = -1;
+    out[x.id] = { label: String(x.label ?? "").slice(0, 80), keywords: (x.keywords ?? []).map(String).slice(0, 8), word, basis: word < 0 ? "none" : said, why: x.why ?? "" };
   }
   return out;
 }
@@ -109,7 +139,7 @@ export async function geminiSounds(o: { key: string; model: string; sentences: S
     key: o.key,
     model: o.model,
     signal: o.signal,
-    temperature: 0.2,
+    ...exact(o.model, 0.2),
     schema: SOUNDS_SCHEMA,
     parts: [
       {

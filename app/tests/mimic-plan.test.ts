@@ -296,32 +296,35 @@ describe("pictures where the footage talks about them", () => {
     for (let i = 1; i < blocks.length; i++) expect(blocks[i].start).toBeGreaterThanOrEqual(blocks[i - 1].end - 1e-6);
   };
 
-  it("each on its word, in the reference's card for its kind, for as long as its sentence goes on", () => {
+  it("each lands on its word, in the reference's card for its kind, for as long as its kind needs", () => {
     const w = words[8];
     const plan = planMimic({ ...base, extras: [pic("shot", "screenshot")], placed: { shot: w.start } });
     const card = plan.cards.find((c) => c.extra === "shot")!;
     expect(card.slot).toBe("x:shot");
-    expect(card.start).toBeCloseTo(w.start, 6);
+    // Its slide ends just as the word starts.
+    expect(card.start + card.enter.dur).toBeCloseTo(w.start - 0.03, 6);
     // The reference's screenshot card (card 3): its shape, its way in and out.
     expect(card.rect).toEqual(template.cards[2].rect);
     expect(card.enter).toEqual(template.cards[2].enter);
     expect(card.exit).toEqual(template.cards[2].exit);
-    expect(card.end - card.start).toBeGreaterThanOrEqual(1.3 - 1e-9);
-    expect(card.end - card.start).toBeLessThanOrEqual(3 + 1e-9);
-    // A photo gets the photo card's shape (card 1's run: in as card 1, out as card 2).
+    // Text to read: 2 to 3.5 s from its word.
+    expect(card.end - w.start).toBeGreaterThanOrEqual(2 - 1e-9);
+    expect(card.end - w.start).toBeLessThanOrEqual(3.5 + 1e-9);
+    // A photo gets the photo card's shape (card 1's run: in as card 1, out as card 2), 1.2 to 2.5 s.
     const photo = planMimic({ ...base, extras: [pic("face")], placed: { face: w.start } }).cards[0];
     expect(photo.rect).toEqual(template.cards[0].rect);
     expect(photo.exit).toEqual(template.cards[1].exit);
+    expect(photo.end - w.start).toBeLessThanOrEqual(2.5 + 1e-9);
   });
 
-  it("said close together, they follow each other as a run: the first slides in, the next cut in, the last slides out", () => {
+  it("said close together, they follow each other as a run: the first slides in, the next cut in two frames early, the last slides out", () => {
     const plan = planMimic({ ...base, placed: { a: words[3].start, b: words[5].start } });
     const [x, y] = ["a", "b"].map((id) => plan.cards.find((c) => c.extra === id)!);
-    expect(x.start).toBeCloseTo(words[3].start, 6);
+    expect(x.start + x.enter.dur).toBeCloseTo(words[3].start - 0.03, 6);
     expect(x.enter.kind).toBe("slide");
     expect(x.exit.kind).toBe("cut");
-    expect(y.start).toBeCloseTo(x.end, 6);
-    expect(y.start).toBeCloseTo(words[5].start, 6);
+    expect(y.start).toBeCloseTo(words[5].start - 2 / 30, 6);
+    expect(x.end).toBeCloseTo(y.start, 6);
     expect(y.enter.kind).toBe("cut");
     expect(y.exit.kind).toBe("slide");
     // A whoosh in, a swipe as the picture changes, a whoosh out.
@@ -331,23 +334,44 @@ describe("pictures where the footage talks about them", () => {
     // The one left over goes in the reference's own card, clear of the run.
     expect(plan.cards.find((c) => c.extra === "c")?.slot).toMatch(/^card/);
     noOverlap(plan);
+    // One said just after the other would go joins it, rather than the face flashing between them.
+    const soon = planMimic({ ...base, extras: [pic("a"), pic("b")], placed: { a: words[3].start, b: words[13].start } });
+    expect(soon.cards.find((c) => c.extra === "b")?.enter.kind).toBe("cut");
   });
 
-  it("a clip goes full frame as the reference's cutaway; the reference's cards make way, or stay out if they'd wait over 2 s", () => {
-    const short = planMimic({ ...base, extras: [...base.extras, clip("v", 1)], placed: { v: words[1].start } });
+  it("a clip goes full frame as the reference's cutaway (as a card in the first 1.5 s); the reference's cards make way, or stay out if they'd wait over 2 s", () => {
+    const w = words[6];
+    const short = planMimic({ ...base, extras: [...base.extras, clip("v", 1)], placed: { v: w.start } });
     const cut = short.broll.find((b) => b.extra === "v")!;
     expect(cut.slot).toBe("x:v");
-    expect(cut.start).toBeCloseTo(words[1].start, 6);
-    expect(cut.end).toBeCloseTo(words[1].start + 1, 6);
+    expect(cut.start).toBeCloseTo(w.start - 2 / 30, 6);
+    expect(cut.end).toBeCloseTo(cut.start + 1, 6);
     expect(cut.zoom).toEqual(template.broll[0].zoom);
     // The hook's cards wait for it to go.
     const c1 = short.cards.find((c) => c.slot === "card1")!;
     expect(c1.extra).toBe("a");
     expect(c1.start).toBeCloseTo(cut.end + 0.15, 6);
     noOverlap(short);
-    const long = planMimic({ ...base, extras: [...base.extras, clip("v", 4)], placed: { v: words[1].start } });
+    const long = planMimic({ ...base, extras: [...base.extras, clip("v", 4)], placed: { v: w.start } });
     expect(long.cards.some((c) => c.slot === "card1" || c.slot === "card2")).toBe(false);
     noOverlap(long);
+    // In the opening the face stays: the clip comes as a card.
+    const early = planMimic({ ...base, extras: [clip("v", 1)], placed: { v: words[1].start } });
+    expect(early.broll.some((b) => b.extra === "v")).toBe(false);
+    expect(early.cards.find((c) => c.extra === "v")?.slot).toBe("x:v");
+  });
+
+  it("keeps the opening and the call to action for pictures whose name is said there, and covers at most half the talk", () => {
+    // Only a topic in the first 1.5 s: it goes in the reference's cards instead.
+    const topic = planMimic({ ...base, extras: [pic("a")], placed: { a: words[1].start }, strength: { a: 1 } });
+    expect(topic.cards.find((c) => c.extra === "a")?.slot).toMatch(/^card/);
+    // Its name said there: it stays on its word.
+    const named = planMimic({ ...base, extras: [pic("a")], placed: { a: words[1].start }, strength: { a: 2 } });
+    expect(named.cards.find((c) => c.extra === "a")?.slot).toBe("x:a");
+    // Room for one picture: the weakest match goes first, then the latest.
+    const many = planMimic({ ...base, cover: 0.2, placed: { a: words[3].start, b: words[25].start, c: words[35].start }, strength: { a: 2, b: 1, c: 2 } });
+    expect(many.left).toEqual({ b: "cover", c: "cover" });
+    expect(many.cards.map((c) => c.extra)).toEqual(["a"]);
   });
 });
 

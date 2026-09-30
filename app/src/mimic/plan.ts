@@ -40,6 +40,10 @@ export interface PlanInput {
   anchor?: Record<string, number>;
   /** the user's pictures placed where their footage talks about them: extra id → the moment (source time) */
   placed?: Record<string, number>;
+  /** how sure each of those is of its place: 3 the user's own, 2 its name, a figure or a word on it said, 1 only what it stands for */
+  strength?: Record<string, number>;
+  /** at most this share of the talk under pictures (0.5) */
+  cover?: number;
   sfx?: SfxOptions;
   /** cut the footage's pauses down to the reference's */
   clip: boolean;
@@ -215,44 +219,76 @@ export function planMimic(inp: PlanInput): MimicPlan {
   // keep their gaps), or pictures said one after another.
   const runOf = new Map<string, number>();
 
-  // The pictures placed by the footage's words: each on its word in the reference's look for
-  // its kind, for as long as its sentence goes on (1.3 to 3 s); pictures said close together
-  // follow each other as a run (the first sliding in, the rest cutting in, the last out).
+  // The pictures placed by the footage's words, each landing on its word (the eye forgives a
+  // picture a little early, not late): a card's slide ends as the word starts, a cut comes two
+  // frames before it. Each stays for what's said about it, as long as its kind needs: a photo
+  // 1.2 to 2.5 s, a screenshot (text to read) 2 to 3.5 s. Pictures said close together follow
+  // each other as a run (the first sliding in, the next cutting in, the last sliding out),
+  // rather than the face flashing for under a second between them; a clip goes full frame as
+  // the reference's cutaway (as a card in the first 1.5 s: the face opens the edit). The
+  // opening and the call to action at the end take only pictures whose name, figure or words
+  // are said there, and pictures cover at most half the talk (the weakest matches left out).
   const looks = cardLooks(tpl);
+  const LEAD = 2 / 30;
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
   const sayingEnd = (t: number) => {
     let k = words.findIndex((w) => w.end > t);
     if (k < 0) return t + 1.5;
     while (k + 1 < words.length && !/[.!?…]["”')\]]*$/.test(words[k].text) && words[k + 1].start - words[k].end < 0.6) k++;
     return words[k].end;
   };
-  const items = inp.extras
+  const hold = (e: Extra, t: number) => (e.look === "screenshot" ? clamp(sayingEnd(t) - t + 0.15, 2, 3.5) : clamp(sayingEnd(t) - t + 0.15, 1.2, 2.5));
+  const minHold = (e: Extra) => (e.look === "screenshot" ? 1 : 0.45);
+  const fullFrame = (e: Extra, t: number) => e.kind === "video" && !!looks.cut && t >= 1.5;
+  const cutFor = (e: Extra, t: number) => Math.min(e.duration > 0 ? e.duration : 4, clamp(sayingEnd(t) - t + 0.3, 1.5, 4));
+  const strength = inp.strength ?? {};
+  const left: Record<string, "cover"> = {};
+  let items = inp.extras
     .filter((e) => e.id in placedAt)
-    .map((e) => ({ e, t: snap(toOutNear(placedAt[e.id]), words, new Set(), 0.3) }))
-    .filter((x) => x.t < body - 0.6)
-    .sort((a, b) => a.t - b.t);
+    .map((e) => ({ e, t: snap(toOutNear(placedAt[e.id]), words, new Set(), 0.3), s: strength[e.id] ?? 2 }))
+    .filter((x) => x.t < body - 0.6 && !(x.s < 2 && (x.t < 1.5 || x.t > body - 4)));
+  // Half the talk at most: the weakest (then the latest) left out first; the user's own stay.
+  const cap = (inp.cover ?? 0.5) * body;
+  let covered = items.reduce((a, x) => a + (fullFrame(x.e, x.t) ? cutFor(x.e, x.t) : hold(x.e, x.t)), 0);
+  for (const x of [...items].sort((a, b) => a.s - b.s || b.t - a.t)) {
+    if (covered <= cap) break;
+    if (x.s >= 3) continue;
+    left[x.e.id] = "cover";
+    covered -= fullFrame(x.e, x.t) ? cutFor(x.e, x.t) : hold(x.e, x.t);
+  }
+  items = items.filter((x) => !left[x.e.id]).sort((a, b) => a.t - b.t);
   const xCards: PlanCard[] = [];
   const xBroll: PlanBroll[] = [];
   const fixed: { start: number; end: number }[] = [];
   let runNo = 10000;
   for (let j = 0; j < items.length; j++) {
     const { e, t } = items[j];
-    const cut = e.kind === "video" && looks.cut;
-    if (cut) {
-      const end = Math.min(body, t + Math.min(e.duration > 0 ? e.duration : 4, Math.min(4, Math.max(1.5, sayingEnd(t) - t + 0.3))));
-      xBroll.push({ slot: `x:${e.id}`, start: t, end, extra: e.id, from: 0, zoom: [looks.cut!.zoom[0], Math.max(0.8, Math.min(1.6, looks.cut!.zoom[1]))], crop: { cx: e.focus?.x ?? 0.5, cy: e.focus?.y ?? 0.5 } });
-      fixed.push({ start: t, end });
+    if (fullFrame(e, t)) {
+      const start = Math.max(0, t - LEAD);
+      const end = Math.min(body, start + cutFor(e, t));
+      xBroll.push({ slot: `x:${e.id}`, start, end, extra: e.id, from: 0, zoom: [looks.cut!.zoom[0], Math.max(0.8, Math.min(1.6, looks.cut!.zoom[1]))], crop: { cx: e.focus?.x ?? 0.5, cy: e.focus?.y ?? 0.5 } });
+      fixed.push({ start, end });
       continue;
     }
-    // A run: this picture and the next ones said before it would go.
+    // A run: this picture and the next ones said before it would go, or within a second after.
     const run = [items[j]];
-    while (j + 1 < items.length && !(items[j + 1].e.kind === "video" && looks.cut) && items[j + 1].t < run[run.length - 1].t + Math.min(3, Math.max(1.3, sayingEnd(run[run.length - 1].t) - run[run.length - 1].t + 0.15)) + 0.2) run.push(items[++j]);
+    while (j + 1 < items.length && !fullFrame(items[j + 1].e, items[j + 1].t)) {
+      const last = run[run.length - 1];
+      if (items[j + 1].t >= last.t + hold(last.e, last.t) + 1) break;
+      run.push(items[++j]);
+    }
     const look = e.look === "screenshot" ? looks.screenshot : e.kind === "video" ? looks.video : looks.photo;
     runNo++;
-    let at = run[0].t;
+    // The first lands on its word, the next cut in two frames early, each once the one before has been seen.
+    const starts: number[] = [];
     run.forEach((x, k) => {
-      const start = Math.max(at, x.t);
-      const next = run[k + 1];
-      const end = Math.min(body, next ? Math.max(start + 0.45, next.t) : start + Math.min(3, Math.max(1.3, sayingEnd(start) - start + 0.15)));
+      const want = x.t - (k > 0 || look.enter.kind === "cut" ? LEAD : look.enter.dur + 0.03);
+      starts.push(Math.max(k ? starts[k - 1] + minHold(run[k - 1].e) : 0, want));
+    });
+    let at = starts[0];
+    run.forEach((x, k) => {
+      const start = starts[k];
+      const end = Math.min(body, k + 1 < run.length ? starts[k + 1] : Math.max(start + minHold(x.e), x.t + hold(x.e, x.t)));
       at = end;
       const slot = `x:${x.e.id}`;
       runOf.set(slot, runNo);
@@ -269,7 +305,7 @@ export function planMimic(inp: PlanInput): MimicPlan {
         from: 0,
       });
     });
-    fixed.push({ start: run[0].t, end: at });
+    fixed.push({ start: starts[0], end: at });
   }
   // A card run that runs into a cutaway stops where the cutaway starts.
   for (const b of xBroll) for (const c of xCards.filter((x) => x.start < b.start && x.end > b.start)) c.end = Math.max(c.start + 0.45, b.start);
@@ -340,7 +376,8 @@ export function planMimic(inp: PlanInput): MimicPlan {
   const noRoom = fixed.length ? settle(trial.cards, trial.broll) : new Set<string>();
   // Clips go to cutaways and clip cards, pictures to cards, in order; only then does a slot
   // left empty take whatever is left (so an early card doesn't take a later cutaway's clip).
-  const rest = inp.extras.filter((e) => !(e.id in placedAt));
+  const shown = new Set(items.map((x) => x.e.id));
+  const rest = inp.extras.filter((e) => !shown.has(e.id) && !left[e.id]);
   const used = new Set<string>();
   for (const v of Object.values(assigned)) if (v) used.add(v);
   const take = (want: (e: Extra) => boolean) => {
@@ -359,6 +396,19 @@ export function planMimic(inp: PlanInput): MimicPlan {
   for (const s of open) if (!fill.has(s)) fill.set(s, take(() => true));
   const ref = layout(fill);
   const gone = settle(ref.cards, ref.broll);
+  // Still over half the talk under pictures: the reference's latest cards and cutaways go.
+  const span = (xs: { start: number; end: number }[]) => xs.reduce((a, x) => a + Math.max(0, Math.min(body, x.end) - x.start), 0);
+  let under = span(xCards) + span(xBroll) + span(ref.cards.filter((c) => !gone.has(c.slot))) + span(ref.broll.filter((b) => !gone.has(b.slot)));
+  const latest = [...ref.cards.map((c) => ({ id: c.slot, run: runOf.get(c.slot), start: c.start })), ...ref.broll.map((b) => ({ id: b.slot, run: undefined, start: b.start }))].filter((x) => !gone.has(x.id)).sort((a, b) => b.start - a.start);
+  for (const x of latest) {
+    if (under <= cap) break;
+    if (gone.has(x.id)) continue;
+    const ids = x.run === undefined ? [x.id] : ref.cards.filter((c) => runOf.get(c.slot) === x.run).map((c) => c.slot);
+    for (const id of ids) {
+      gone.add(id);
+      under -= span([...ref.cards, ...ref.broll].filter((c) => c.slot === id));
+    }
+  }
   const cards = [...xCards, ...ref.cards.filter((c) => !gone.has(c.slot))].map((c) => ({ ...c, end: Math.min(body, c.end) })).filter((c) => c.start < body - 0.3 && c.end > c.start);
   const broll = [...xBroll, ...ref.broll.filter((b) => !gone.has(b.slot))].map((b) => ({ ...b, end: Math.min(body, b.end) })).filter((b) => b.start < body - 0.3 && b.end > b.start);
 
@@ -469,7 +519,7 @@ export function planMimic(inp: PlanInput): MimicPlan {
   const m = inp.music;
   const music = m ? { source: m.id, start: m.at === "start" || !tpl.sound.bed ? 0 : place(tpl.sound.bed.start), from: Math.max(0, m.from ?? 0), gain: (tpl.sound.bed ? tpl.sound.bed.level : -18) + (m.db ?? 0), fadeOut: Math.max(0.5, tail), ...(m.line?.length ? { line: m.line } : {}) } : null;
 
-  return { width: W, height: H, fps, duration: body + tail, segments, zoom, frame, frames, broll, cards: cards.sort((a, b) => a.start - b.start), captions: { look, pages }, sfx, sfxGain: so.db, music, tail };
+  return { width: W, height: H, fps, duration: body + tail, segments, zoom, frame, frames, broll, cards: cards.sort((a, b) => a.start - b.start), captions: { look, pages }, sfx, sfxGain: so.db, music, tail, ...(Object.keys(left).length ? { left } : {}) };
 }
 
 /** The music's own level at t (dB) along the user's volume line: flat before the first key and after the last. */

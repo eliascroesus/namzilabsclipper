@@ -89,8 +89,10 @@ export interface State {
   pasteSlot: string | null;
   /** where the pictures go: where the footage talks about them (each on its word), or in the reference's cards as it has them */
   placement: "auto" | "reference";
-  /** Gemini's reading of each picture: the moment it belongs at (source time; null: nowhere), and why */
-  aiExtras: Record<string, { t: number | null; why: string }>;
+  /** Gemini's reading of each picture: the moment it belongs at (source time; null: nowhere), what's said there, and why */
+  aiExtras: Record<string, { t: number | null; basis: string; why: string }>;
+  /** at most this share of the talk under pictures */
+  cover: number;
   /** the user's own choice for a picture: a moment of the footage (source time), the reference's cards, or not at all */
   extraMoved: Record<string, number | "slot" | "out">;
   placing: Job;
@@ -175,7 +177,7 @@ class Mimic {
   /** where the script reading put each slot last time the edit was planned */
   lastPlaces: Record<string, { t: number; said: string; by: "words" | "gemini" | "you" }> = {};
   /** where each picture went last time the edit was planned (placed by the footage's words), and why */
-  extraPlaces: Record<string, { t: number; said: string; why: string; by: "words" | "gemini" | "you" }> = {};
+  extraPlaces: Record<string, { t: number; said: string; why: string; by: "words" | "gemini" | "you"; sure: number }> = {};
   private looking: Promise<void> = Promise.resolve();
   private content: { key: string; places: Record<string, Place> } | null = null;
   private aiSig = "";
@@ -209,6 +211,7 @@ class Mimic {
       pasteSlot: null,
       placement: "auto",
       aiExtras: {},
+      cover: 0.5,
       extraMoved: {},
       placing: idle,
       remembered: { reference: false, footage: false },
@@ -726,6 +729,8 @@ class Mimic {
     // (one the user put in a card of the reference's stays there).
     const local = this.contentPlaces(base.extras);
     const placed: Record<string, number> = {};
+    // How sure each place is (the opening, the ending and the cover keep only the surest): the user's own, a name, figure or words said there, or only a topic.
+    const strength: Record<string, number> = {};
     const out = new Set<string>();
     const inCards = new Set(Object.values(s.assign).filter(Boolean));
     for (const e of base.extras) {
@@ -734,7 +739,8 @@ class Mimic {
       if (mine === "out" || mine === "slot" || inCards.has(e.id)) continue;
       if (typeof mine === "number") {
         placed[e.id] = mine;
-        this.extraPlaces[e.id] = { t: mine, said: said(mine), why: "you put it here", by: "you" };
+        strength[e.id] = 3;
+        this.extraPlaces[e.id] = { t: mine, said: said(mine), why: "you put it here", by: "you", sure: 3 };
         continue;
       }
       const ai = s.aiExtras[e.id];
@@ -743,16 +749,18 @@ class Mimic {
       if (ai && (ai.t !== null || !l || l.score < 1.1)) {
         if (ai.t !== null) {
           placed[e.id] = ai.t;
-          this.extraPlaces[e.id] = { t: ai.t, said: said(ai.t), why: ai.why, by: "gemini" };
+          strength[e.id] = ai.basis === "topic" ? 1 : 2;
+          this.extraPlaces[e.id] = { t: ai.t, said: said(ai.t), why: ai.why, by: "gemini", sure: strength[e.id] };
         }
         continue;
       }
       if (l) {
         placed[e.id] = l.t;
-        this.extraPlaces[e.id] = { t: l.t, said: l.said, why: l.why, by: "words" };
+        strength[e.id] = l.basis === "topic" ? 1 : 2;
+        this.extraPlaces[e.id] = { t: l.t, said: l.said, why: l.why, by: "words", sure: strength[e.id] };
       }
     }
-    return planMimic({ ...base, extras: base.extras.filter((e) => !out.has(e.id)), placed, anchor });
+    return planMimic({ ...base, extras: base.extras.filter((e) => !out.has(e.id)), placed, strength, cover: s.cover, anchor });
   }
 
   // Where the pictures go.
@@ -760,6 +768,11 @@ class Mimic {
   setPlacement(placement: State["placement"]) {
     this.set({ placement });
     this.askSoon();
+  }
+
+  /** At most this share of the talk under pictures. */
+  setCover(cover: number) {
+    this.set({ cover });
   }
 
   /** Gemini is used only where the user chose it (for the words) and gave a key. */
@@ -789,21 +802,46 @@ class Mimic {
     this.set({ placing: { stage: "working", progress: 0.3, label: "Gemini reading your pictures and script" } });
     try {
       this.model ??= await pickModel(s.geminiKey);
-      const r = await geminiExtras({
-        key: s.geminiKey,
-        model: this.model,
-        words: s.words,
-        sentences: sentences(s.words),
-        extras: ready.map((e) => ({ id: e.id, label: e.label ?? "", text: e.text ?? "", kind: e.kind === "video" ? "clip" : e.look === "screenshot" ? "screenshot" : "picture", picture: e.thumb })),
-      });
+      const copies = await Promise.all(ready.map((e) => this.forGemini(e.id)));
+      let r: Awaited<ReturnType<typeof geminiExtras>>;
+      try {
+        r = await geminiExtras({
+          key: s.geminiKey,
+          model: this.model,
+          words: s.words,
+          sentences: sentences(s.words),
+          extras: ready.map((e, i) => ({ id: e.id, label: e.label ?? "", text: e.text ?? "", kind: e.kind === "video" ? "clip" : e.look === "screenshot" ? "screenshot" : "picture", picture: copies[i] ?? e.thumb })),
+        });
+      } finally {
+        for (const u of copies) if (u) URL.revokeObjectURL(u);
+      }
       const aiExtras: State["aiExtras"] = {};
-      for (const [id, x] of Object.entries(r)) aiExtras[id] = { t: x.word >= 0 ? s.words[x.word].start : null, why: x.why ? `Gemini: ${x.why}` : "Gemini" };
+      for (const [id, x] of Object.entries(r)) aiExtras[id] = { t: x.word >= 0 ? s.words[x.word].start : null, basis: x.basis, why: x.why ? `Gemini: ${x.why}` : "Gemini" };
       // Gemini's words for what each shows (the page's title for a picture whose name says nothing), and its keywords help the words' matching.
       this.set((st) => ({ aiExtras, placing: { stage: "ready", progress: 1, label: "" }, extras: st.extras.map((e) => (r[e.id] ? { ...e, about: r[e.id].label, keywords: r[e.id].keywords } : e)) }));
     } catch (e) {
       // (Asked again on the next change, or with the button.)
       this.aiSig = "";
       this.set({ placing: { stage: "error", progress: 0, label: "", error: e instanceof Error ? e.message : String(e) } });
+    }
+  }
+
+  /** A copy of a picture (or a clip's frame) for Gemini: 640 px on its long side, enough for a face or a logo. */
+  private async forGemini(id: string): Promise<string | undefined> {
+    const src = this.sources.get(id);
+    if (!src) return undefined;
+    try {
+      if (src.image) {
+        const k = Math.min(1, 640 / Math.max(src.info.width, src.info.height));
+        const c = new OffscreenCanvas(Math.max(1, Math.round(src.info.width * k)), Math.max(1, Math.round(src.info.height * k)));
+        c.getContext("2d")!.drawImage(src.image, 0, 0, c.width, c.height);
+        return URL.createObjectURL(await c.convertToBlob({ type: "image/jpeg", quality: 0.85 }));
+      }
+      const w = src.info.width >= src.info.height ? 640 : Math.round((640 * src.info.width) / Math.max(1, src.info.height));
+      const b = await grabThumb(src, Math.min(1, src.info.duration / 3), w);
+      return b ? URL.createObjectURL(b) : undefined;
+    } catch {
+      return undefined;
     }
   }
 

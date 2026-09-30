@@ -82,9 +82,9 @@ try {
         .map((p) => /^\nPicture "(\w+)" \((\w+)\)(?:, named "([^"]*)")?(?:, with this text on it: "([^"]*)")?/.exec(p.text ?? ""))
         .filter(Boolean)
         .map(([, id, , name = "", text = ""]) =>
-          /gadzhi/i.test(name) ? { id, label: "Iman Gadzhi on stage", keywords: ["agency", "bureau", "kursus"], word: word(/(\d+):Agency/), quote: "Agency", why: "the agency guru, where your agency students come up" }
-          : /stripe/i.test(text) ? { id, label: "Stripe payments dashboard", keywords: ["omsætning", "kroner", "sales"], word: word(/(\d+):millioner/), quote: "millioner danske kroner", why: "the sales figure on it is said here" }
-          : { id, label: name || "a screen", keywords: [], word: -1, quote: "", why: "" },
+          /gadzhi/i.test(name) ? { id, label: "Iman Gadzhi on stage", keywords: ["agency", "bureau", "kursus"], basis: "topic", word: word(/(\d+):Agency/), quote: "Agency", why: "the agency guru, where your agency students come up" }
+          : /stripe/i.test(text) ? { id, label: "Stripe payments dashboard", keywords: ["omsætning", "kroner", "sales"], basis: "amount", word: word(/(\d+):millioner/), quote: "millioner danske kroner", why: "the sales figure on it is said here" }
+          : { id, label: name || "a screen", keywords: [], basis: "none", word: -1, quote: "", why: "" },
         );
       return route.fulfill({ json: { candidates: [{ content: { parts: [{ text: JSON.stringify({ extras }) }] } }] } });
     });

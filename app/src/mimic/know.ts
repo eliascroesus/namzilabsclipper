@@ -251,7 +251,16 @@ export function entitiesIn(text: string): typeof ENTITIES {
     .map(({ e }) => e);
 }
 
-const ONES: Record<string, number> = { en: 1, et: 1, one: 1, to: 2, two: 2, tre: 3, three: 3, fire: 4, four: 4, fem: 5, five: 5, seks: 6, six: 6, syv: 7, seven: 7, otte: 8, eight: 8, ni: 9, nine: 9, ti: 10, ten: 10, tyve: 20, twenty: 20, halvtreds: 50, hundrede: 100, hundred: 100 };
+// Number words (folded): Danish (its tens counted in scores: halvtreds is 50), Norwegian, Swedish, English.
+const ONES: Record<string, number> = {
+  ...{ en: 1, et: 1, to: 2, tre: 3, fire: 4, fem: 5, seks: 6, syv: 7, otte: 8, ni: 9, ti: 10, tyve: 20, tredive: 30, fyrre: 40, halvtreds: 50, tres: 60, halvfjerds: 70, firs: 80, halvfems: 90, hundrede: 100 },
+  ...{ tjue: 20, tretti: 30, forti: 40, femti: 50, seksti: 60, sytti: 70, atti: 80, nitti: 90, hundre: 100 },
+  ...{ tjugo: 20, trettio: 30, fyrtio: 40, femtio: 50, sextio: 60, sjuttio: 70, attio: 80, nittio: 90, hundra: 100 },
+  ...{ one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90, hundred: 100 },
+};
+
+/** A number said as a word ("fem", "halvtreds", "twenty"). */
+export const isNumberWord = (word: string) => fold(word) in ONES;
 const SCALE: Record<string, number> = { tusind: 1e3, tusen: 1e3, thousand: 1e3, k: 1e3, t: 1e3, million: 1e6, millioner: 1e6, millionen: 1e6, mio: 1e6, miljon: 1e6, miljoner: 1e6, millions: 1e6, m: 1e6, mia: 1e9, milliard: 1e9, milliarder: 1e9, billion: 1e9 };
 
 /** A number as printed ("203.412,00", "5,234,000", "40.000", "1.2M") or null. */
@@ -273,7 +282,7 @@ export function amounts(text: string): number[] {
   for (let i = 0; i < toks.length; i++) {
     const t = toks[i];
     const glued = /^(\d+(?:[.,]\d+)?)(k|m|mio)$/.exec(t);
-    let v = glued ? Number(glued[1].replace(",", ".")) * SCALE[glued[2]] : (printed(t) ?? ONES[t] ?? null);
+    let v = glued ? Number(glued[1].replace(",", ".")) * SCALE[glued[2]] : (printed(t) ?? ONES[fold(t)] ?? null);
     if (v === null) continue;
     const next = toks[i + 1];
     if (next && SCALE[next] && !glued) {

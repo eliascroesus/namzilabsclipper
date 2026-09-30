@@ -10,7 +10,7 @@
  * sentence (a list said: the pictures follow each other as a run of cards).
  */
 import type { Word } from "./asr/parakeet";
-import { amounts, conceptsOfWord, entitiesIn, fold, heardAt, keysAlike, listenFor, sameAmount, soundKey, TOPIC_NAMES, topicWeights, windowKeys } from "./know";
+import { amounts, conceptsOfWord, entitiesIn, fold, heardAt, isNumberWord, keysAlike, listenFor, sameAmount, soundKey, TOPIC_NAMES, topicWeights, windowKeys } from "./know";
 import type { Extra } from "./types";
 
 export { fold } from "./know";
@@ -77,7 +77,7 @@ export const KIND_CONCEPTS: Record<string, string[]> = {
 export function amountsAt(words: Word[]): { i: number; v: number }[] {
   const out: { i: number; v: number }[] = [];
   for (let i = 0; i < words.length; i++) {
-    if (!/\d|^(en|et|to|tre|fire|fem|seks|syv|otte|ni|ti|tyve|hundrede|one|two|three|four|five|six|seven|eight|nine|ten|twenty|hundred)$/i.test(words[i].text.replace(/[.,!?]$/, ""))) continue;
+    if (!/\d/.test(words[i].text) && !isNumberWord(words[i].text)) continue;
     const said = words
       .slice(i, i + 3)
       .map((w) => w.text)
@@ -96,6 +96,8 @@ export interface Place {
   score: number;
   /** why it goes there, for the page */
   why: string;
+  /** what was said of it there: its name, an amount on it, a word on it (or Gemini's), or only what it stands for */
+  basis: "name" | "amount" | "text" | "topic";
   /** the sentence it's in */
   said: string;
 }
@@ -159,12 +161,13 @@ export function placeByContent(words: Word[], extras: Extra[]): Record<string, P
   const said = amountsAt(words);
   // How every run of one to four words sounds, once for all the pictures' names.
   const keys = windowKeys(words.map((w) => w.text));
-  const cands: { e: Extra; i: number; score: number; why: string }[] = [];
+  const cands: { e: Extra; i: number; score: number; why: string; basis: Place["basis"] }[] = [];
   for (const e of extras) {
     const p = profile(e);
     for (let i = 0; i < words.length; i++) {
       let score = 0;
       const why: string[] = [];
+      let basis: Place["basis"] = "topic";
       // Its name, said (over one to a few words: a speech model splits and joins names).
       let named = 0;
       let namedAs = "";
@@ -182,6 +185,7 @@ export function placeByContent(words: Word[], extras: Extra[]): Record<string, P
       if (named) {
         score += 1.2 * named;
         why.push(`you say "${namedAs}"`);
+        basis = "name";
       }
       // A word printed on it, said.
       const w = fold(words[i].text);
@@ -190,11 +194,13 @@ export function placeByContent(words: Word[], extras: Extra[]): Record<string, P
         if (hit && !named) {
           score += 0.6;
           why.push(`"${words[i].text.replace(/[.,!?]+$/, "")}" is ${hit.own ? "in its name" : "on it"}`);
+          basis = "text";
         }
         const key = p.keywords.find((k) => w.startsWith(k) || k.startsWith(w));
         if (key && !named) {
           score += 0.45;
           why.push(`"${words[i].text.replace(/[.,!?]+$/, "")}" is what it shows`);
+          basis = "text";
         }
       }
       // An amount printed on it, said.
@@ -203,6 +209,7 @@ export function placeByContent(words: Word[], extras: Extra[]): Record<string, P
       if (fig !== undefined) {
         score += 0.8;
         why.push(`you say the ${Math.round(fig).toLocaleString("da-DK")} on it`);
+        if (basis !== "name") basis = "amount";
       }
       // What it stands for, spoken here (what it stands for first counting most), and more so
       // in a sentence full of it.
@@ -213,21 +220,59 @@ export function placeByContent(words: Word[], extras: Extra[]): Record<string, P
         score += 0.3 * here + Math.min(0.3, 0.06 * dense);
         if (!why.length) why.push(`you talk about ${shared.map((c) => TOPIC_NAMES[c] ?? c).join(" and ")}`);
       }
-      if (score >= 0.4) cands.push({ e, i, score, why: why.join(", ") });
+      if (score >= 0.4) cands.push({ e, i, score, why: why.join(", "), basis });
     }
   }
-  // The best fits first: a picture once; a second apart, unless in one sentence (a list said).
-  cands.sort((a, b) => b.score - a.score || a.i - b.i);
+  const picked = assign(cands, (i) => words[i].start, sentOf);
   const out: Record<string, Place> = {};
-  const taken: { i: number; t: number }[] = [];
-  for (const c of cands) {
-    if (c.e.id in out) continue;
-    const t = words[c.i].start;
-    if (taken.some((x) => x.i === c.i || (Math.abs(x.t - t) < 1 && sentOf[x.i] !== sentOf[c.i]) || Math.abs(x.t - t) < 0.3)) continue;
-    out[c.e.id] = { t, w: c.i, score: Math.round(c.score * 100) / 100, why: c.why, said: sents[sentOf[c.i]]?.text ?? "" };
-    taken.push({ i: c.i, t });
-  }
+  for (const c of picked) out[c.e.id] = { t: words[c.i].start, w: c.i, score: Math.round(c.score * 100) / 100, why: c.why, basis: c.basis, said: sents[sentOf[c.i]]?.text ?? "" };
   return out;
+}
+
+/**
+ * The places for all the pictures together, not each in turn (a picture taking its best word
+ * shouldn't cost another its only one): each picture's best few words (three a sentence at
+ * most), then the choice of one or none for each with the most in all, where no two share a
+ * word and two are a second apart unless in one sentence (a list said, 0.3 s apart). A
+ * branch-and-bound search, the pictures with the fewest choices first; past a limit no page
+ * reaches, it keeps the best found.
+ */
+export function assign<C extends { e: { id: string }; i: number; score: number }>(cands: C[], timeOf: (i: number) => number, sentOf: ArrayLike<number>): C[] {
+  const by = new Map<string, C[]>();
+  for (const c of [...cands].sort((a, b) => b.score - a.score || a.i - b.i)) {
+    const list = by.get(c.e.id) ?? [];
+    if (list.length < 8 && list.filter((x) => sentOf[x.i] === sentOf[c.i]).length < 3) list.push(c);
+    by.set(c.e.id, list);
+  }
+  const pics = [...by.values()].sort((a, b) => a.length - b.length || b[0].score - a[0].score);
+  const clash = (a: C, b: C) => {
+    const d = Math.abs(timeOf(a.i) - timeOf(b.i));
+    return a.i === b.i || d < 0.3 || (d < 1 && sentOf[a.i] !== sentOf[b.i]);
+  };
+  // The most the pictures from k on could still add.
+  const could = new Float64Array(pics.length + 1);
+  for (let k = pics.length - 1; k >= 0; k--) could[k] = could[k + 1] + pics[k][0].score;
+  let best: C[] = [];
+  let bestScore = -1;
+  const pick: C[] = [];
+  let nodes = 0;
+  const go = (k: number, sum: number) => {
+    if (++nodes > 200000 || sum + could[k] <= bestScore + 1e-9) return;
+    if (k === pics.length) {
+      bestScore = sum;
+      best = [...pick];
+      return;
+    }
+    for (const c of pics[k]) {
+      if (pick.some((p) => clash(p, c))) continue;
+      pick.push(c);
+      go(k + 1, sum + c.score);
+      pick.pop();
+    }
+    go(k + 1, sum);
+  };
+  go(0, 0);
+  return best;
 }
 
 /** Moments in the script for a sound: money said (a cash register), one every 6 s at most, eight at most. */

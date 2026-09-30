@@ -126,20 +126,35 @@ On the example the analysis takes about 75 s in Node and a little longer in a br
     are compared by how they sound, over one word more or less than they have: "Imangachi"
     is Iman Gadzhi); a word printed on it said; an amount on it said the way people say
     amounts ("5 millioner danske kroner" is the dashboard's "kr. 5.234.118,00"); what it
-    stands for talked about there, more where a sentence is full of it (his photo where
-    agencies and courses come up, when his name isn't said). The best fits are taken
-    first, each picture once, a second apart unless they're in one sentence (a list said:
-    "trading, dropshipping, Amazon FBA", a picture on each). With + Gemini chosen, Gemini
-    also reads your script word by word and looks at small copies of your pictures, says
-    what each shows and the word it belongs on, quoting the words there (`ai.ts`: a model
-    counts words badly and quotes them well, so the quote is found in the script and wins
-    over a number that's off); the page's own reading stands in until it answers, and a
-    name said outright wins over Gemini finding no place.
+    stands for talked about there, what it stands for first counting most, and more where
+    a sentence is full of it (his photo where agencies come up, when his name isn't said);
+    topic words are heard misspelt too ("arbetrage", "jegpart"), and so are the words of a
+    picture's own name ("Mami" for "yacht party miami"). The places are chosen for all the
+    pictures together (a branch-and-bound search over each one's best few words, so one
+    taking its best word doesn't cost another its only one), each picture once, a second
+    apart unless they're in one sentence (a list said: "trading, dropshipping, Amazon FBA",
+    a picture on each). With + Gemini chosen, Gemini
+    also reads your script word by word and looks at copies of your pictures (640 px, enough
+    for a face or a logo), says what each shows, what's said where it goes (its name, a
+    figure, words on it, a topic, a list) and the word, quoting the words there (`ai.ts`: a
+    model counts words badly and quotes them well, so the quote is found in the script and
+    wins over a number that's off; the answer puts the quote before the number). Who a person
+    is comes from the picture's name or text, never from a face. The page's own reading
+    stands in until it answers, and a name said outright wins over Gemini finding no place.
+    Gemini 3 models are asked at their own temperature with a low thinking level, as Google
+    advises (older ones at a low temperature).
   - Each lands on its word in the reference's card for its kind (the reference's screenshot
-    card for a screenshot, its photo card for a photo: shape, corners, way in and out), for
-    as long as its sentence goes on (1.3 to 3 s). Pictures said close together follow each
-    other as a run (the first slides in, the next cut in, the last slides out); a clip goes
-    full frame, the way the reference's cutaway does.
+    card for a screenshot, its photo card for a photo: shape, corners, way in and out): its
+    slide ends as the word starts, and a cut comes two frames before it (viewers forgive a
+    picture a little early, not late: ITU-R BT.1359). It stays for what's said about it, as
+    long as its kind needs: a photo 1.2 to 2.5 s, a screenshot 2 to 3.5 s (text to read).
+    Pictures said close together follow each other as a run (the first slides in, the next
+    cut in, the last slides out), rather than the face flashing for under a second between
+    them; a clip goes full frame, the way the reference's cutaway does.
+  - The first 1.5 s and the last 4 s (the hook and the call to action) take only pictures
+    whose name, figure or words are said there, and a clip there comes as a card (the face
+    opens the edit). Pictures cover at most half the talk (a quarter to all of it, as set):
+    past that the least sure places are left out, then the reference's latest cards.
   - Pictures nothing is said of fill the reference's own cards and cutaways, in order
     (clips to cutaways and clip cards first), where there's room around the placed ones: a
     card of the reference's waits for one to go, and is left out rather than wait over 2 s.
@@ -152,6 +167,8 @@ On the example the analysis takes about 75 s in Node and a little longer in a br
     first word. A run of the reference's keeps its gaps, and nothing lands on top of
     anything else. Its cards and cutaways can also be moved to any of your sentences.
   - Each picture is cropped to its card's shape about its subject (a face).
+  - What tools, papers and editors do about placing pictures, and the plan from here:
+    [mimic-research.md](mimic-research.md).
 - **Zooms** step between wide and close (the reference's close level) where the
   reference's do, at the same share of the talk, and jump at every cut in your footage (so
   a jump cut reads as a punch-in, the way the reference hides its own).

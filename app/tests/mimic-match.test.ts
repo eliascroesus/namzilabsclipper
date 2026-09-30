@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aboutOf, amountsAt, fold, nameWords, placeByContent, sentences, soundsByWords } from "../src/mimic/match";
+import { aboutOf, amountsAt, assign, fold, nameWords, placeByContent, sentences, soundsByWords } from "../src/mimic/match";
 import { amounts, conceptsOf, conceptsOfWord, entitiesIn, sameAmount, soundsLike, topicWeights } from "../src/mimic/know";
 import { labelFromName } from "../src/mimic/extras";
 import { addSfx, SFX_UNDER, talkRms } from "../src/mimic/render";
@@ -72,6 +72,10 @@ describe("names, topics and amounts", () => {
     expect(sameAmount(200000, 203412)).toBe(true);
     expect(sameAmount(200000, 5234000)).toBe(false);
     expect(amountsAt(say("Jeg har tjent fem millioner kroner"))).toEqual([{ i: 3, v: 5e6 }]);
+    // Danish tens are counted in scores; Swedish and Norwegian ones aren't.
+    expect(amounts("halvfjerds tusind kroner")).toEqual([70000]);
+    expect(amounts("åttio tusen")).toEqual([80000]);
+    expect(amountsAt(say("over halvtreds tusind"))).toEqual([{ i: 1, v: 50000 }]);
   });
 
   it("names a picture by its file, not by a camera's or a clipboard's name", () => {
@@ -139,6 +143,20 @@ describe("putting pictures where the footage talks about them", () => {
     expect(list[p.amazon.w].text).toBe("Amazon");
     expect(list[p.chart.w].text).toBe("trading,");
     expect(p.cat).toBeUndefined();
+  });
+
+  it("places the pictures together: one taking its best word doesn't cost another its only one", () => {
+    const pic = (id: string) => ({ id });
+    // Sentences of ten words, 0.3 s a word.
+    const sentOf = Array.from({ length: 60 }, (_, i) => Math.floor(i / 10));
+    const time = (i: number) => i * 0.3;
+    const r = assign([{ e: pic("a"), i: 10, score: 1 }, { e: pic("a"), i: 50, score: 0.9 }, { e: pic("b"), i: 10, score: 0.95 }], time, sentOf);
+    expect(Object.fromEntries(r.map((c) => [c.e.id, c.i]))).toEqual({ a: 50, b: 10 });
+    // A second apart across sentences (19 and 20 are 0.3 s apart), 0.3 s within one (a list).
+    const near = assign([{ e: pic("a"), i: 19, score: 1 }, { e: pic("b"), i: 20, score: 1 }], time, sentOf);
+    expect(near).toHaveLength(1);
+    const list = assign([{ e: pic("a"), i: 12, score: 1 }, { e: pic("b"), i: 13, score: 1 }], time, sentOf);
+    expect(list).toHaveLength(2);
   });
 
   it("takes each picture once, never two on one word", () => {

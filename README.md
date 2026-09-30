@@ -68,6 +68,7 @@ Your videos never leave the computer. Without a key nothing does: both models ru
 | [`docs/namzilabs-context.md`](docs/namzilabs-context.md) | Namzilabs as a product: the app, its look, the content rules |
 | [`reference-edits/`](reference-edits/) | Example Reels to learn from |
 | [`docs/mimic.md`](docs/mimic.md) | The Mimic page: the example ad measured, how a reference is studied and copied |
+| [`docs/mimic-research.md`](docs/mimic-research.md) | Placing pictures on a talk: what tools, papers and editors do, what the page does because of it, and the plan |
 | [`rawvidneededited/`](rawvidneededited/) | Raw footage to edit (the Mimic page's example) |
 | [`inspirationedit/`](inspirationedit/) | An ad to copy (the Mimic page's example) |
 | [`templates/endcard/laptop.html`](templates/endcard/laptop.html) | The original HTML version of the demo card |
