@@ -413,22 +413,22 @@ const CUTTING: { value: Pace; label: string }[] = [
 
 /** How hard a montage cuts on the music; slow and fast re-cuts have their own pace. */
 function CuttingField({ st }: { st: Style }) {
-  const own = st.edit === "slow" || st.edit === "recut" ? paceOf(st.edit, st.cutting) : undefined;
+  const own = st.edit === "slow" || st.edit === "recut" ? paceOf(st.edit, st.pace) : undefined;
   const mix = st.edit === "mix";
   const hint =
     st.edit === "slow"
       ? "Slow and cinematic keeps its long holds."
       : st.edit === "recut"
         ? "Fast re-cuts always cut hard."
-        : st.cutting === "hard"
-          ? `A cut on every hit that stands out (every stab of an intro), on every beat into the drop, and fast after it.${mix ? " A mix leaves out the slow style." : ""}`
-          : st.cutting === "beat"
-            ? "The reference editors' rhythm: two beats a shot into the drop, their pattern after it, and a cut on the hits that stand out."
+        : st.pace === "hard"
+          ? `More cuts, still only on hits: every beat with a hit into the drop, more of the hits that stand out, and more clips re-cut on the beat.${mix ? " A mix leaves out the slow style." : ""}`
+          : st.pace === "beat"
+            ? "The reference editors' rhythm: on the song's loudest hits, two beats a shot or more into the drop and their pattern after it."
             : `Longer shots: a cut on the biggest hits only.${mix ? " A mix leaves out the fast re-cuts." : ""}`;
   return (
     <div className="field">
       <span className="label">Cutting</span>
-      <Segmented label="Cutting" value={own ?? st.cutting} options={CUTTING} disabled={!!own} onChange={(v) => studio.setStyle({ cutting: v })} />
+      <Segmented label="Cutting" value={own ?? st.pace} options={CUTTING} disabled={!!own} onChange={(v) => studio.setStyle({ pace: v })} />
       <span className="hint">{hint}</span>
     </div>
   );

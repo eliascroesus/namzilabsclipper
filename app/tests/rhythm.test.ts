@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { analyzeSong } from "../src/engine/audio/song";
+import { analyzeSong, type SongAnalysis } from "../src/engine/audio/song";
 import { PROFILE_BINS, type Scan } from "../src/engine/media/scan";
 import { CUT_LEAD, mulberry32, planMontage } from "../src/engine/plan/montage";
 import { beatIndex, hitProfile, rhythmCuts, template } from "../src/engine/plan/rhythm";
@@ -100,9 +100,24 @@ describe("the cut rhythm", () => {
       expect(s.srcStart).toBeGreaterThan(prev.srcStart + (prev.end - prev.start) - 1e-6);
       expect(s.crop.zoom0).toBeGreaterThan(prev.crop.zoom0);
     }
-    // One of them at the end of the drop's first four bars, on its last beat.
-    const phrase = drop + 16 * T - plan.music!.songStart;
-    expect(again.some(([s]) => Math.abs(s.start - (phrase - T / 2)) < 0.05)).toBe(true);
+    // None on a half beat that has only a hat on it: a re-cut is on a hit.
+    for (const [sh] of again) {
+      const k = beatIndex(song, plan.music!.songStart + sh.start + CUT_LEAD);
+      expect(Math.abs(k - Math.round(k))).toBeLessThan(0.05);
+    }
+  });
+
+  it("where the song hits the half beat (a clap into the next bar), re-cuts the last beat of four bars on it", () => {
+    // The same groove with a clap on the "and" of every bar's fourth beat.
+    const pickup = analyzeSong(drums(44, [...hits, ...hits.filter((h) => h.hz === 55 && h.t >= drop - 1e-6 && Math.round((h.t - t0) / T) % 4 === 3).map((h) => ({ t: h.t + T / 2, hz: 1800, amp: 0.6, decay: 700 }))]), SR);
+    const recut = (sg: typeof song) => {
+      const from = sg.beats.find((b) => b > drop - 12 * T - 0.05)!;
+      const phrase = drop + 16 * T - from;
+      return rhythmCuts(sg, from, 24, { dropAt: drop - from, hits: "beat", stutter: true, carry: 0 }).some((c) => c.again && Math.abs(c.t - (phrase - T / 2)) < 0.05);
+    };
+    expect(recut(pickup)).toBe(true);
+    // Only a hat there: no re-cut.
+    expect(recut(song)).toBe(false);
   });
 });
 
@@ -150,20 +165,58 @@ describe("an intro of stabs out of silence, then the groove", () => {
     }
   });
 
-  it("after the drop: harder cuts faster, on the beat, never on a hat", () => {
+  it("after the drop: on the beat, never on a hat, relaxed holding longer", () => {
     const shots = { hard: 0, beat: 0, relaxed: 0 };
     for (const pace of ["hard", "beat", "relaxed"] as const) {
       const plan = planMontage({ song, songSource: "s", songName: "stabs", fromStart: true, songStart: 0, scans: scans(), aspect: "9x16", length: 12, card: null, caption: null, variant: 0, pace });
       const cuts = plan.shots.slice(1).map((s) => ({ t: s.start + CUT_LEAD, again: s.again }));
       expect(plan.checks?.drop).toBeCloseTo(drop - CUT_LEAD, 1);
-      for (const c of cuts.filter((c) => !c.again && c.t > drop + 0.05)) {
+      for (const c of cuts.filter((c) => c.t > drop + 0.05)) {
         const k = beatIndex(song, c.t);
         expect(Math.abs(k - Math.round(k))).toBeLessThan(0.05);
       }
       shots[pace] = plan.shots.filter((s) => s.start + CUT_LEAD > drop - 0.05).length;
     }
-    expect(shots.hard).toBeGreaterThan(shots.beat);
+    // (A hat on every "and" and nothing else between the beats: hard cuts the beats as
+    // steady does, no faster.)
+    expect(shots.hard).toBeGreaterThanOrEqual(shots.beat);
     expect(shots.beat).toBeGreaterThan(shots.relaxed);
+  });
+});
+
+describe("cuts only where the song plays something", () => {
+  // The song of a user's edit at 111 bpm, as the analysis hears it: two bars of pads with
+  // a note on the second bar line, the song gone for a beat, a faint lead-in and then a
+  // switch sound half a beat after the bar it comes back on, the drop a bar and a half
+  // later, then a kick or snare on every beat and a hat on every "and".
+  const T = 60 / 111;
+  const at = (k: number) => 0.33 + k * T;
+  const beats = Array.from({ length: 30 }, (_, k) => at(k));
+  const acc = (k: number, s: number, kick: number, mid: number, ls = 1, pop = 8) => ({ t: at(k), beat: k, s, ls, pop, low: kick >= 0.5 ? 2 : 0.3, kick, mid });
+  const accents = [acc(-0.1, 0.49, 0.6, 0.76, 1, 3.5), acc(1.58, 0.37, 0.36, 0.54, 1, 2.5), acc(1.84, 0.41, 0.27, 0.41, 1, 2.9), acc(2.87, 0.27, 0.13, 0.48, 0.66, 2.1), acc(5.23, 0.34, 0.11, 0.16, 0.83, 2.7), acc(5.46, 0.49, 0.61, 0.82, 1, 4), acc(5.8, 0.41, 0.57, 0.36, 1, 3.3)];
+  for (let k = 7; k < 30; k++) accents.push(acc(k, k % 4 === 0 ? 0.9 : 0.6, k % 2 ? 0.2 : 0.7, 0.75, 1, 6), acc(k + 0.5, 0.35, 0.08, 0.35, 0.8, 4));
+  const song = { period: T, beats, downbeats: beats.filter((_, k) => k % 4 === 3), accents, duration: at(29), structure: { bars: [], sections: [], phrases: [], breaks: [[at(4), at(5)]] } } as unknown as SongAnalysis;
+  const drop = at(7);
+  const near = (xs: number[], t: number) => Math.min(...xs.map((x) => Math.abs(x - t)));
+
+  it("before the drop, a cut only on a hit or a bar line, and on the switch sound after the song drops out", () => {
+    for (const hits of ["beat", "hard", "relaxed"] as const) {
+      const cuts = rhythmCuts(song, 0, 12, { dropAt: drop, hits, push: hits === "hard" }).map((c) => c.t);
+      for (const c of cuts.filter((c) => c < drop - 0.05)) expect(Math.min(near(accents.map((a) => a.t), c), near(song.downbeats, c) + 0.04)).toBeLessThan(0.071);
+      expect(cuts.some((c) => c > at(4) + 0.05 && c < at(5) - 0.05)).toBe(false);
+      expect(near(cuts, at(5.46))).toBeLessThan(0.02);
+      expect(near(cuts, drop)).toBeLessThan(0.02);
+    }
+  });
+
+  it("after it, on the beats' hits and never on the hats between them, however hard it cuts", () => {
+    for (const hits of ["beat", "hard", "relaxed"] as const) {
+      const cuts = rhythmCuts(song, 0, 12, { dropAt: drop, hits, push: hits === "hard", stutter: "often", carry: 0 });
+      for (const c of cuts.filter((c) => c.t > drop + 0.05)) {
+        const k = beatIndex(song, c.t);
+        expect(Math.abs(k - Math.round(k)), `${hits} ${c.t.toFixed(3)}${c.again ? "*" : ""}`).toBeLessThan(0.05);
+      }
+    }
   });
 });
 

@@ -1097,7 +1097,7 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
       let run = true;
       for (let k = Math.min(i, j) + 1; k < Math.max(i, j) && run; k++) run = !!chosen[k] && sameFootage(chosen[k], seg, hand);
       if (run) continue;
-      cost += between === 1 ? 0.7 : between === 2 ? 0.45 : 0.12;
+      cost += between === 1 ? 0.7 : between === 2 ? 0.6 : 0.12;
       hop ||= between === 1;
     }
     return { cost, hop };

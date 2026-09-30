@@ -101,25 +101,38 @@ Each reference edit's song, planned by the app from 0:00 to where its editor's c
 
 | Song | Editor: shot, strong hits cut | Before: shot, hits cut, F | Steady | Hard | Relaxed |
 |---|---|---|---|---|---|
-| mico (148 bpm) | 0.47 s, 100% | 0.43 s, 71%, 82 | 0.43 s, 100%, 89 | 0.40 s, 100%, 74 | 0.80 s, 100%, 75 |
-| nio …3659 (155) | 0.43 s, 55% | 0.40 s, 73%, 55 | 0.40 s, 82%, 54 | 0.40 s, 82%, 56 | 0.77 s, 27%, 43 |
-| nio …0002 (156) | 0.33 s, 40% | 0.77 s, 20%, 41 | 0.40 s, 100%, 42 | 0.40 s, 100%, 44 | 0.77 s, 80%, 44 |
-| nio …2531 (143) | 0.27 s, 64% | 0.83 s, 43%, 37 | 0.83 s, 50%, 36 | 0.40 s, 79%, 44 | 0.87 s, 29%, 26 |
-| nio …5448 (110) | 0.43 s, 83% | 0.83 s, 33%, 41 | 0.83 s, 33%, 41 | 0.53 s, 100%, 57 | 1.10 s, 33%, 34 |
-| nio …8678 (87) | 0.63 s, 33% | 0.70 s, 40%, 37 | 0.70 s, 40%, 37 | 0.37 s, 62%, 32 | 0.70 s, 40%, 37 |
-| TJR (88) | 0.70 s, 75% | 1.33 s, 38%, 28 | 1.23 s, 50%, 33 | 0.33 s, 63%, 30 | 1.33 s, 38%, 36 |
-| nio …1290 (86) | 0.67 s, 40% | 1.37 s, 40%, 31 | 1.37 s, 40%, 27 | 0.70 s, 60%, 39 | 1.37 s, 40%, 31 |
-| brezscales …1216 (93, a twist) | 1.60 s, 25% | 1.27 s, 75%, 0 | 0.67 s, 75%, 0 | 0.33 s, 75%, 7 | 1.30 s, 75%, 0 |
-| **All nine** | **57% of strong hits** | **48%, F 39.0** | **63%, F 39.8** | **80%, F 42.8** | **51%, F 36.2** |
+| mico (148 bpm) | 0.47 s, 100% | 0.43 s, 71%, 82 | 0.43 s, 100%, 94 | 0.40 s, 100%, 78 | 0.83 s, 100%, 80 |
+| nio …3659 (155) | 0.43 s, 55% | 0.40 s, 73%, 55 | 0.40 s, 82%, 49 | 0.40 s, 82%, 53 | 0.77 s, 18%, 33 |
+| nio …0002 (156) | 0.33 s, 40% | 0.77 s, 20%, 41 | 0.40 s, 100%, 42 | 0.40 s, 100%, 45 | 0.77 s, 80%, 44 |
+| nio …2531 (143) | 0.27 s, 64% | 0.83 s, 43%, 37 | 0.83 s, 50%, 37 | 0.43 s, 79%, 45 | 0.87 s, 29%, 26 |
+| nio …5448 (110) | 0.43 s, 83% | 0.83 s, 33%, 41 | 0.80 s, 33%, 39 | 0.57 s, 100%, 56 | 1.10 s, 33%, 32 |
+| nio …8678 (87) | 0.63 s, 33% | 0.70 s, 40%, 37 | 0.70 s, 40%, 36 | 0.70 s, 56%, 36 | 0.70 s, 40%, 36 |
+| TJR (88) | 0.70 s, 75% | 1.33 s, 38%, 28 | 1.23 s, 50%, 34 | 0.67 s, 50%, 29 | 1.33 s, 38%, 37 |
+| nio …1290 (86) | 0.67 s, 40% | 1.37 s, 40%, 31 | 1.33 s, 40%, 27 | 0.70 s, 60%, 38 | 1.33 s, 40%, 32 |
+| brezscales …1216 (93, a twist) | 1.60 s, 25% | 1.27 s, 75%, 0 | 0.67 s, 75%, 0 | 0.63 s, 75%, 10 | 1.30 s, 75%, 0 |
+| **All nine** | **57% of strong hits** | **48%, F 39.0** | **63%, F 39.8** | **78%, F 43.4** | **50%, F 35.5** |
 | A user's edit (…0002's sound, 10.7 s) | | 0.77 s, 20% | 0.40 s, 100% | 0.40 s, 100% | 0.77 s, 80% |
 
 What it showed, and what changed:
 
 - **The planner heard the hits and cut past them.** A user's edit to the sound of nio …0002 opens on six stabs in two bars before the drop; the analysis had every one of them at full strength, and the build's every-two-beats rule passed over them: the plan cut a fifth of the song's strong hits. Now a hit that rises far above the music within a second of it (its onset ten times the median around it and more, out of silence; a kick in a busy groove is two or three) is a cut at every pace, and before the drop the grid gives way around a run of them.
 - **Loud intros hid the groove's hits.** The onset picker takes one threshold from the song's loudest moments (as librosa does, which the tempo still uses), so after stabs at full strength a quieter groove's kicks and snares fell under it. The hits are now also picked against the loudest around them (the 95th percentile within two seconds), keeping the ones among the loudest there.
-- **Slow songs were cut on the beat, where the editors cut on the half beat.** At 86 to 110 bpm the editors' shots after the drop run 0.3 to 0.45 s, the half beats; a beat there is 0.55 to 0.7 s. Cutting hard, the pattern after the drop takes the half beats too where a beat runs well past the shots wanted (on anything the song plays there, and on nothing when the shots need it); steady cutting keeps to the beats with hits between them only where the song hits hard, as the sparse songs need (a snap on 2 and 4 with a melody's notes between).
-- **Half of them speed into the drop.** nio …3659, …2531 and …8678 cut every beat of the last bar or so before the drop, after two beats a shot or more; …0002 flashes four photos a sixteenth each. Cutting hard, the build is every beat and its last two beats (the last bar, when a beat is long) the half beats.
+- **Slow songs were cut on the beat, where the editors cut on the half beat.** At 86 to 110 bpm the editors' shots after the drop run 0.3 to 0.45 s, the half beats; a beat there is 0.55 to 0.7 s. For a while cutting hard took the half beats too, on nothing when the shots needed it, and a user's edit showed what that looks like ([below](#a-users-edit-cut-hard)): a cut on every hat, attached to nothing. Now no pace cuts between beats where the song doesn't hit hard there every time.
+- **Half of them speed into the drop.** nio …3659, …2531 and …8678 cut every beat of the last bar or so before the drop, after two beats a shot or more; …0002 flashes four photos a sixteenth each. Cutting hard, the build is every beat that has a hit on it.
 - **Relaxed wasn't.** The pattern's cuts are worth more than a shot's length costs, so a longer target still cut every beat of a four-on-the-floor; relaxed now holds two beats a shot at least (one where a beat is 0.65 s or more).
+
+### A user's edit, cut hard
+
+A user's montage at 111 bpm, cut hard, came back as "all over the place": it didn't seem to cut to any beat. Taken apart against its song:
+
+| Stretch | The song | What hard cut | What it cuts now |
+|---|---|---|---|
+| 0 to 2.5 s | pads and a melody, no drums; the loudest onset under a third of the song's | 0.87, 1.4, 1.67, 1.8, 1.93: every beat and a burst on soft notes | the bar line at 1.95, on a melody note |
+| 2.5 to 3.0 s | the song gone | (nothing) | (nothing) |
+| 3.0 to 3.9 s | a faint lead-in at 3.16, then the switch sound at 3.28, half a beat after the bar the silence ends on | 3.03, 3.3, 3.57, 3.83: the half beats of a run into the drop | 3.28, the switch sound (hard: 3.58 too, its second hit) |
+| 4.1 s on | the beat: a kick or snare on every beat (onsets 0.6 to 1.7), a hat on every "and" (0.1 to 0.5), an 808 ducking under each beat | 22 cuts in 7.5 s, most of them half a beat apart | the drop at 4.11, then every beat, the hit each one has |
+
+Measured on the rendered edit: 87% of the cuts within a frame and a half of a beat (39% before), 93% on a hit (58%), and one cut between beats, the switch sound itself (14). What it makes the rules, for every pace: a cut before the drop needs something under it (a hit among the loudest around it) or a bar line; the song coming back after it drops out is cut on the sound it comes back with, not the bar the silence ends on; and nothing is cut between the beats, a clip's re-cut included, unless the song hits there every time it comes round. The user's word for steady cutting: it "cuts to the actual beat that is the loudest".
 
 ## The styles
 
@@ -166,7 +179,7 @@ Two things the frames show that the numbers alone don't:
 | **Slow and cinematic** | brezscales, TJR's build | A bar a shot before the drop, two beats after it, every clip pushing in or pulling out slowly, no flash, burn or punch-ins |
 | **Mix** (the default) | | Each edit in a batch in the next of these (the talking one only when someone talks in the footage, the burst only with four clips or photos, the slow one not when cutting hard, the fast re-cuts not when relaxed), so no two in a row look alike |
 
-**Cutting** (Hard by default) sets how hard the montage cuts: **hard** cuts on every hit that stands out, every beat into the drop with the last two beats on the half beats, and after it about a beat a shot (a slow song's half beats); **steady** is the references' own rhythm, the build two beats a shot or more and their pattern after the drop; **relaxed** holds two beats a shot or more. Every pace cuts on the hits nobody can miss ([the planner against the editors](#the-planner-against-the-editors)). Slow and cinematic cuts relaxed and Fast re-cuts hard, whatever is picked.
+**Cutting** (Steady by default) sets how hard the montage cuts: **steady** is the references' own rhythm on the song's loudest hits, the build two beats a shot or more and their pattern after the drop; **hard** cuts on more of the hits, every beat into the drop that has one, with more re-cuts; **relaxed** holds two beats a shot or more. Every pace cuts only where the song plays something, and on the hits nobody can miss ([the planner against the editors](#the-planner-against-the-editors)). Slow and cinematic cuts relaxed and Fast re-cuts hard, whatever is picked.
 
 **Loop the ending** (a switch, on by default, without an end card): the last shot is the moment just before the first, or the first shot again, as TJR ends, and the music stops on the bar line instead of fading, so the replay runs straight on. Not after talking.
 
