@@ -42,7 +42,7 @@ export interface PlanInput {
   placed?: Record<string, number>;
   /** how sure each of those is of its place: 3 the user's own, 2 its name, a figure or a word on it said, 1 only what it stands for */
   strength?: Record<string, number>;
-  /** at most this share of the talk under pictures (0.5) */
+  /** at most this share of the talk under pictures (unset: as much as the reference and the pictures make) */
   cover?: number;
   sfx?: SfxOptions;
   /** cut the footage's pauses down to the reference's */
@@ -248,7 +248,7 @@ export function planMimic(inp: PlanInput): MimicPlan {
     .map((e) => ({ e, t: snap(toOutNear(placedAt[e.id]), words, new Set(), 0.3), s: strength[e.id] ?? 2 }))
     .filter((x) => x.t < body - 0.6 && !(x.s < 2 && (x.t < 1.5 || x.t > body - 4)));
   // Half the talk at most: the weakest (then the latest) left out first; the user's own stay.
-  const cap = (inp.cover ?? 0.5) * body;
+  const cap = (inp.cover ?? 1) * body;
   let covered = items.reduce((a, x) => a + (fullFrame(x.e, x.t) ? cutFor(x.e, x.t) : hold(x.e, x.t)), 0);
   for (const x of [...items].sort((a, b) => a.s - b.s || b.t - a.t)) {
     if (covered <= cap) break;

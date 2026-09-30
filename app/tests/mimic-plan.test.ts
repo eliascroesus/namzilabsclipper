@@ -372,6 +372,8 @@ describe("pictures where the footage talks about them", () => {
     const many = planMimic({ ...base, cover: 0.2, placed: { a: words[3].start, b: words[25].start, c: words[35].start }, strength: { a: 2, b: 1, c: 2 } });
     expect(many.left).toEqual({ b: "cover", c: "cover" });
     expect(many.cards.map((c) => c.extra)).toEqual(["a"]);
+    // Unless asked, no limit (the reference's own cards as it has them).
+    expect(planMimic({ ...base, placed: { a: words[3].start, b: words[25].start, c: words[35].start }, strength: { a: 2, b: 1, c: 2 } }).left).toBeUndefined();
   });
 });
 
