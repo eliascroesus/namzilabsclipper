@@ -140,6 +140,18 @@ describe("the mimic plan", () => {
     expect(c2.crop.cx).toBeGreaterThan(0.5);
   });
 
+  it("gives the clips to the cutaways before a card left without a picture takes one", () => {
+    const tpl = { ...template, broll: [...template.broll, { id: "broll2", start: 14, end: 16, zoom: [1, 1.2] as [number, number], cuts: 0 }] };
+    const clip = (id: string) => ({ id, name: `${id}.mp4`, kind: "video" as const, width: 1920, height: 1080, duration: 4 });
+    const extras = [base.extras[0], { ...base.extras[0], id: "b" }, clip("v"), clip("w")];
+    const plan = planMimic({ ...base, template: tpl, extras });
+    expect(plan.broll.map((b) => b.extra)).toEqual(["v", "w"]);
+    expect(plan.cards.map((c) => c.extra)).toEqual(["a", "b"]);
+    // A clip over, with every cutaway filled, goes to the card.
+    const more = planMimic({ ...base, template: tpl, extras: [...extras, clip("x")] });
+    expect(more.cards.find((c) => c.slot === "card3")?.extra).toBe("x");
+  });
+
   it("jumps the zoom at every cut in the footage, and steps it where the reference does", () => {
     const plan = planMimic(base);
     for (const cut of base.raw.cuts) {

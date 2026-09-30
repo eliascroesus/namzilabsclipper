@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { captionLook, CAP_HEIGHT, type CaptionSample, type LineInk } from "../src/mimic/analyze/captions";
+import { captionLook, CAP_HEIGHT, X_HEIGHT, type CaptionSample, type LineInk } from "../src/mimic/analyze/captions";
+import { DEFAULT_LOOK, layoutPage } from "../src/mimic/captions";
 
 const W = 360;
 const H = 640;
@@ -13,8 +14,8 @@ function line(text: string, y: number, px: number, width: number, x = W / 2): Ca
     x1: x + width / 2,
     y0: y - px * 0.36,
     y1: y + px * 0.36,
-    xh: Math.round(px * 0.546),
-    tall: Math.round(px * CAP_HEIGHT),
+    xh: px * X_HEIGHT,
+    tall: px * CAP_HEIGHT,
     density: 0.5,
     color: [250, 250, 245],
     ring: 150,
@@ -91,6 +92,66 @@ describe("the reference's caption look", () => {
     const look = captionLook(wordByWord(PAGES, false), W, H)!;
     expect(look.fit).toBe(false);
     expect(look.maxSize * H).toBeCloseTo(22, 0);
+  });
+});
+
+describe("the space between words", () => {
+  /** Six captions of three words (60 px of letters each, `gap` px apart) coming on a word a frame. */
+  function growing(gap: number, recentre: boolean): CaptionSample[] {
+    const pages = [["alle", "kan", "gøre"], ["hvis", "du", "vil"], ["det", "er", "gratis"], ["jeg", "viser", "dig"], ["om", "at", "tjene"], ["så", "go", "watch"]];
+    const out: CaptionSample[] = [];
+    let t = 0;
+    for (const words of pages) {
+      const full = 3 * 60 + 2 * gap;
+      for (let k = 1; k <= 3; k++) {
+        const part = k * 60 + (k - 1) * gap;
+        const x0 = recentre ? W / 2 - part / 2 : W / 2 - full / 2;
+        const l = line(words.slice(0, k).join(" "), 0.62 * H, 26, part, x0 + part / 2);
+        l.ink!.runs = Array.from({ length: k }, (_, i): [number, number] => [x0 + i * (60 + gap), x0 + i * (60 + gap) + 59]);
+        l.ink!.x1 = x0 + part - 1;
+        out.push({ t, lines: [l] });
+        t += 1 / 3;
+      }
+      t += 0.4;
+    }
+    return out;
+  }
+
+  it("is read from a caption laid out whole as its words come on", () => {
+    // 4 px at a size of 26 px: 0.15 of the size (Inter's own leaves about 0.26).
+    expect(captionLook(growing(4, false), W, H)!.wordGap).toBeCloseTo(0.15, 2);
+    // Set about as Inter sets them: its own spaces.
+    expect(captionLook(growing(7, false), W, H)!.wordGap).toBeUndefined();
+  });
+
+  it("is left to the face when the caption moves as it grows", () => {
+    expect(captionLook(growing(4, true), W, H)!.wordGap).toBeUndefined();
+  });
+
+  it("puts the same ink between every two words, whatever their letters", () => {
+    // A stand-in canvas: letters half the size wide, a t's bar reaching past its sides.
+    class Stand {
+      font = "";
+      letterSpacing = "";
+      textAlign = "left";
+      measureText(t: string) {
+        const px = Number(/([\d.]+)px/.exec(this.font)![1]);
+        const reach = (c: string) => (c === "t" ? 0.06 : -0.04) * px;
+        return { width: t.length * 0.5 * px, actualBoundingBoxLeft: reach(t[0]), actualBoundingBoxRight: t.length * 0.5 * px + reach(t[t.length - 1]) };
+      }
+    }
+    const ctx = new Stand() as unknown as OffscreenCanvasRenderingContext2D;
+    const look = { ...DEFAULT_LOOK, fit: false, maxSize: 0.04, width: 0.9, wordGap: 0.15 };
+    const words = ["overladet", "til", "dig", "at"].map((text, i) => ({ text, start: i, end: i + 0.5 }));
+    const [line] = layoutPage(ctx, look, { start: 0, end: 4, lines: [words] }, 1080, 1920);
+    const px = line.size;
+    const edges = line.words.map((w) => {
+      const m = ctx.measureText(w.text);
+      return [w.x - m.actualBoundingBoxLeft, w.x + m.actualBoundingBoxRight];
+    });
+    for (let i = 1; i < edges.length; i++) expect(edges[i][0] - edges[i - 1][1]).toBeCloseTo(0.15 * px, 6);
+    // Centred by its ink.
+    expect((edges[0][0] + edges[edges.length - 1][1]) / 2).toBeCloseTo(540, 6);
   });
 });
 

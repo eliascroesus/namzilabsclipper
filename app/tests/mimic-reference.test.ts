@@ -49,6 +49,12 @@ describe.skipIf(!have)("studying the example ad", () => {
     expect(t.captions!.fit).toBe(true);
     expect(t.captions!.width).toBeGreaterThan(0.4);
     expect(t.captions!.width).toBeLessThan(0.47);
+    // A short line's lowercase is 13 px of 640 (Inter's display cut is 0.516 of its size), and
+    // the words sit close: 3 to 4 px apart, where Inter's own space would leave 6 or 7.
+    expect(t.captions!.maxSize * 640 * 0.516).toBeGreaterThan(12.4);
+    expect(t.captions!.maxSize * 640 * 0.516).toBeLessThan(14);
+    expect(t.captions!.wordGap).toBeGreaterThan(0.1);
+    expect(t.captions!.wordGap).toBeLessThan(0.19);
     // Cards: the hook's run of four photos, then the others; a card in each place the ad has one.
     const at = (s: number) => t.cards.find((c) => c.start <= s && c.end > s);
     const hook = [1.3, 1.8, 2.2, 2.7].map(at);

@@ -11,8 +11,11 @@
 import type { CaptionLook, FontFamily } from "../types";
 import type { Picture, TextBox } from "./ocr";
 
-/** x-height of the caption face (Inter) over its size. */
-export const X_HEIGHT = 0.546;
+/**
+ * x-height of the caption face over its size: Inter's display cut, which the browser draws
+ * at caption sizes (its optical size follows the font size, and captions are over 32 px).
+ */
+export const X_HEIGHT = 0.516;
 
 export interface LineInk {
   /** the letters' extent, in the picture's pixels */
@@ -38,6 +41,8 @@ export interface LineInk {
   bgSpread: number;
   /** the brightest word's colour and the rest's, when one stands out (a highlighted word) */
   accent: [number, number, number] | null;
+  /** the letters' columns: each run of columns with ink, left to right */
+  runs?: [number, number][];
 }
 
 const luma = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
@@ -222,6 +227,15 @@ export function measureLine(p: Picture, b: TextBox): LineInk | null {
     }
   }
   if (a >= 0) words.push([a, bx1]);
+  const runs: [number, number][] = [];
+  for (let x = bx0, r = -1; x <= bx1 + 1; x++) {
+    const has = x <= bx1 && cols[x] > 0;
+    if (has && r < 0) r = x;
+    else if (!has && r >= 0) {
+      runs.push([x0 + r, x0 + x - 1]);
+      r = -1;
+    }
+  }
   if (words.length >= 2) {
     const wc = words.map(([u, v]) => {
       const c = [0, 0, 0];
@@ -258,17 +272,27 @@ export function measureLine(p: Picture, b: TextBox): LineInk | null {
     bg,
     bgSpread,
     accent,
+    runs,
   };
 }
 
 /** Cap height (and ascenders, near enough) of the caption face over its size. */
 export const CAP_HEIGHT = 0.727;
 
-/** A line's font size in pixels: from its tall letters when it has any, else its lowercase. */
+/**
+ * A line's font size in pixels, the size Inter needs to draw its letters as tall: from its
+ * lowercase (whose height is the busiest rows'), or, for a line of capitals, from theirs.
+ * (Not from the tallest letters: faces differ most in how far those reach over the
+ * lowercase, and a t is shorter than an h.)
+ */
 export function lineSize(ink: LineInk, text: string): number {
-  const hasTall = /[A-ZÆØÅbdfhklt0-9]/.test(text);
-  return hasTall && ink.tall > ink.xh * 1.15 ? ink.tall / CAP_HEIGHT : ink.xh / X_HEIGHT;
+  const lower = /\p{Ll}/u.test(text);
+  const upper = /[\p{Lu}\p{N}]/u.test(text);
+  return upper && !lower ? Math.max(ink.xh, ink.tall) / CAP_HEIGHT : ink.xh / X_HEIGHT;
 }
+
+/** The ink between two words of Inter over its size (the median over word pairs), with the look's tracking (-0.02), by weight. */
+const interWordGap = (weight: number) => 0.264 - 0.00017 * (weight - 600);
 
 export interface CaptionSample {
   t: number;
@@ -423,6 +447,25 @@ export function captionLook(samples: CaptionSample[], W: number, H: number, card
   // Narrow letters: a condensed face.
   const perLetter = median(full.map((l) => (l.ink.x1 - l.ink.x0) / Math.max(1, letters(l.text ?? "")) / (l.size * H)), 0.5);
   const font: FontFamily = perLetter < 0.4 ? "condensed" : "sans";
+  // The space between words. A caption laid out whole and coming on word by word shows it
+  // exactly: a line's new word starts one word gap past where the line ended a frame before.
+  // (The reader can't: it runs tightly set words together.) Set well apart from Inter's own,
+  // it's kept as the ink gap itself, which such a caption holds whatever the letters.
+  const gaps: number[] = [];
+  for (const p of pages)
+    for (let i = 1; i < p.length; i++)
+      for (let k = 0; k < Math.min(p[i - 1].ls.length, p[i].ls.length); k++) {
+        const a = p[i - 1].ls[k];
+        const b = p[i].ls[k];
+        if (Math.abs(a.ink.x0 - b.ink.x0) > 1 || b.ink.x1 < a.ink.x1 + b.ink.xh) continue;
+        const next = b.ink.runs?.find(([u]) => u > a.ink.x1);
+        const gap = next ? next[0] - a.ink.x1 - 1 : 0;
+        if (gap >= 1 && gap < 1.2 * b.ink.xh) gaps.push(gap / (b.size * H));
+      }
+  const gapFor = (w: number) => {
+    const g = median(gaps);
+    return font === "sans" && gaps.length >= 6 && Math.abs(g - interWordGap(w)) > 0.04 ? Math.round(Math.max(0.05, Math.min(0.6, g)) * 100) / 100 : undefined;
+  };
   const r3 = (v: number) => Math.round(v * 1000) / 1000;
   return {
     y: r3(y),
@@ -440,6 +483,7 @@ export function captionLook(samples: CaptionSample[], W: number, H: number, card
     font,
     weight,
     tracking: font === "sans" ? -0.02 : 0,
+    wordGap: gapFor(weight),
     color: hex(color),
     active,
     stroke,

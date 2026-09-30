@@ -160,22 +160,30 @@ export function planMimic(inp: PlanInput): MimicPlan {
   for (const v of Object.values(assigned)) if (v) used.add(v);
   type Slot = { kind: "card"; slot: CardSlot } | { kind: "broll"; slot: MimicTemplate["broll"][number] };
   const slots: Slot[] = [...tpl.cards.map((slot) => ({ kind: "card" as const, slot })), ...tpl.broll.map((slot) => ({ kind: "broll" as const, slot }))].sort((a, b) => a.slot.start - b.slot.start);
-  const pick = (s: Slot): Extra | null => {
-    const id = s.slot.id;
-    if (id in assigned) return assigned[id] ? (extras.get(assigned[id]!) ?? null) : null;
-    // Clips go first to cutaways and clip cards; pictures to cards; then whatever is left.
-    const wantVideo = s.kind === "broll" || (s.kind === "card" && s.slot.content === "video");
-    const free = inp.extras.filter((e) => !used.has(e.id));
-    const e = free.find((x) => (x.kind === "video") === wantVideo) ?? free[0] ?? null;
+  // Clips go to cutaways and clip cards, pictures to cards, in order; only then does a slot
+  // left empty take whatever is left (so an early card doesn't take a later cutaway's clip).
+  const fill = new Map<Slot, Extra | null>();
+  const take = (want: (e: Extra) => boolean) => {
+    const e = inp.extras.find((x) => !used.has(x.id) && want(x)) ?? null;
     if (e) used.add(e.id);
     return e;
   };
+  for (const s of slots) {
+    const id = s.slot.id;
+    if (id in assigned) fill.set(s, assigned[id] ? (extras.get(assigned[id]!) ?? null) : null);
+    else {
+      const wantVideo = s.kind === "broll" || s.slot.content === "video";
+      const e = take((x) => (x.kind === "video") === wantVideo);
+      if (e) fill.set(s, e);
+    }
+  }
+  for (const s of slots) if (!fill.has(s)) fill.set(s, take(() => true));
   const cards: PlanCard[] = [];
   const broll: PlanBroll[] = [];
   // A run of cards moves together: its first card is placed, the rest keep their gaps.
   const runStart = new Map<number, number>();
   for (const s of slots) {
-    const e = pick(s);
+    const e = fill.get(s);
     if (!e) continue;
     if (s.kind === "card") {
       const c = s.slot;

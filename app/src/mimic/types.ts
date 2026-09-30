@@ -31,6 +31,8 @@ export interface CaptionLook {
   weight: number;
   /** letter spacing, in font sizes */
   tracking: number;
+  /** the gap from one word's last letter to the next's first, in font sizes; unset: the face's own spaces */
+  wordGap?: number;
   color: string;
   /** the word being said, in its own colour; null for none */
   active: string | null;

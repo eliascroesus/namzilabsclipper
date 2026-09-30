@@ -27,7 +27,7 @@ Python tools in `tools/`):
 
 | What | The reference |
 | --- | --- |
-| Captions | White, a tight semi-bold sans (Inter at 600 to 700 is close), sentence case with the speech's punctuation, a soft shadow. The first line's middle at 62% of the height, two lines at most. Words come on one at a time as they're said, fading in over about 0.1 s, laid out for the whole caption first (a line doesn't jump as it fills). Each line is sized to fill 43% of the frame's width, up to a cap: a long line ("hvordan og hvorfor") is small, a short one ("webshop.") big. A caption ends at a sentence or a pause and leaves when the voice stops. |
+| Captions | White, a semi-bold sans (Inter at 600 matches its strokes), set tight: 3 to 4 px between words on a 13 px x-height (0.15 of the size, where Inter's own space leaves 0.26), sentence case with the speech's punctuation, a soft shadow. The first line's middle at 62% of the height, two lines at most. Words come on one at a time as they're said, fading in over about 0.1 s, laid out for the whole caption first (a line doesn't jump as it fills). Each line is sized to fill 43% of the frame's width, up to a cap: a long line ("hvordan og hvorfor") is small, a short one ("webshop.") big. A caption ends at a sentence or a pause and leaves when the voice stops. |
 | Cards | Ten, in five runs. The hook: four 4:5 photos in one place (80% of the width, centred), the first sliding in from the right in 0.2 s easing out, the next three cutting in on the same spot every half second, the last sliding out to the left. Later: a sales screenshot (76% wide), a pair of screenshots, a 16:10 video thumbnail (70% wide), a pair of product pictures, each sliding in from the right and out to the left. Captions stay on top. |
 | Cutaways | Three stretches of full-frame footage over the voice (7.5 to 12.5 s with two cuts, 22.5 to 25.3 s zooming into a laptop screen, 38.0 to 40.4 s). |
 | Zooms | 19 on the talking: steps between the wide framing and one about 16% closer, most over 6 frames (0.2 s) at an even speed, a few as jumps on a cut, about every 2 s where they come (long stretches have none). |
@@ -62,12 +62,18 @@ Python tools in `tools/`):
    most often is the caption band; small text inside a card makes it a screenshot.
 3. **Three frames a second of the caption band, read closely** (`captions.ts`). Inside each
    line the letters are picked out (the extreme of brightness away from what the box's
-   border shows), which gives their height (from the tall letters, or the lowercase), their
-   width, colour, weight, and what sits around them (an outline, a shadow, a box). Frames
-   of one caption show how it comes on (one more word each time is word by word); each
-   caption's last frame is the whole caption: letters per line, alignment, and whether
-   lines are fitted to one width (their widths stay put while their letters vary) or all
-   one size (their widths grow with their letters).
+   border shows), which gives their height, width, colour, weight, and what sits around
+   them (an outline, a shadow, a box). A line's size is the one Inter needs to draw its
+   lowercase as tall (capitals only for a line of capitals: faces differ most in how far
+   their tall letters reach), with Inter's display cut, which the browser draws at caption
+   sizes. Frames of one caption show how it comes on (one more word each time is word by
+   word) and, when it's laid out whole, the space between words: each new word starts one
+   gap past where its line ended (the reader can't tell, as it runs tight words together).
+   The example keeps 3 to 4 px between words whatever the letters (a t's bar to the next
+   t's too), so the gap is kept as ink, not as a narrower space.
+   Each caption's last frame is the whole caption: letters per line, alignment, and
+   whether lines are fitted to one width (their widths stay put while their letters vary)
+   or all one size (their widths grow with their letters).
 4. **The sound** (`sound.ts`, 16 kHz): where the voice is and its pauses; a bed under it
    (the low end under a voice, 20 to 90 Hz, rising well above where it starts and staying
    up; its level from the quiet between words); and sounds on events (for each kind of
@@ -87,12 +93,15 @@ On the example the analysis takes about 75 s in Node and a little longer in a br
 - **Captions** come from your words: a sentence's end or a pause of 0.35 s ends a caption,
   lines fill up to the reference's letters per line (breaking after a comma when half
   full), a caption holds the reference's number of lines. `captions.ts` sizes and places
-  them as measured and brings each word on as it's said.
+  them as measured and brings each word on as it's said. Where the reference sets its
+  words tighter or looser than Inter would, each word is placed by its letters' edges, the
+  reference's gap from one word to the next (the example's 0.15 of the size, where Inter
+  leaves 0.26).
 - **Cards and cutaways** come at the same point of the talk: the hook's (the first 5 s) to
   the second, later ones at the same share of the speech through, on a caption's first
-  word. A run keeps its gaps. Your extras fill them in order (clips first to cutaways and
-  clip cards, pictures to cards), or as you pick per slot; each is cropped to the slot's
-  shape about its subject (a face).
+  word. A run keeps its gaps. Your extras fill them in order (clips to cutaways and clip
+  cards, pictures to cards, then anything left over to slots still empty), or as you pick
+  per slot; each is cropped to the slot's shape about its subject (a face).
 - **Zooms** step between wide and close (the reference's close level) where the
   reference's do, at the same share of the talk, and jump at every cut in your footage (so
   a jump cut reads as a punch-in, the way the reference hides its own).

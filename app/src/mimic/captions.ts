@@ -88,25 +88,40 @@ export function layoutPage(ctx: Ctx, look: CaptionLook, page: CaptionPage, W: nu
   const room = look.width * W;
   const out: LaidLine[] = [];
   let prev: LaidLine | null = null;
+  // A line at a size: where each word starts (from the line's left) and how wide the line is.
+  // With the face's own spaces, words follow each other by their widths; with a gap of the
+  // look's, by their letters' edges, the same ink between every two words.
+  const measure = (texts: string[], px: number) => {
+    setFont(ctx, look, px);
+    ctx.textAlign = "left";
+    const xs: number[] = [];
+    if (look.wordGap === undefined) {
+      const space = ctx.measureText(" ").width;
+      let x = 0;
+      for (const t of texts) {
+        xs.push(x);
+        x += ctx.measureText(t).width + space;
+      }
+      return { xs, total: x - space };
+    }
+    const ms = texts.map((t) => ctx.measureText(t));
+    let x = ms[0]?.actualBoundingBoxLeft ?? 0;
+    ms.forEach((m, i) => {
+      if (i) x += ms[i - 1].actualBoundingBoxRight + look.wordGap! * px + m.actualBoundingBoxLeft;
+      xs.push(x);
+    });
+    return { xs, total: ms.length ? x + ms[ms.length - 1].actualBoundingBoxRight : 0 };
+  };
   for (const words of page.lines) {
     const texts = words.map((w) => cased(w.text, look));
-    setFont(ctx, look, maxPx);
-    const natural = ctx.measureText(texts.join(" ")).width;
+    const natural = measure(texts, maxPx).total;
     // Fitted: as big as fills the width, never over the biggest; otherwise shrunk only to fit.
     let px = look.fit ? maxPx * (room / Math.max(1, natural)) : natural > room ? maxPx * (room / natural) : maxPx;
     px = Math.max(Math.min(px, maxPx), look.fit ? minPx : 0.5 * maxPx);
-    setFont(ctx, look, px);
-    const space = ctx.measureText(" ").width;
-    const widths = texts.map((t) => ctx.measureText(t).width);
-    const total = widths.reduce((a, b) => a + b, 0) + space * (texts.length - 1);
+    const { xs, total } = measure(texts, px);
     const x0 = look.align === "center" ? (W - total) / 2 : (W - room) / 2;
     const y: number = prev ? prev.y + (look.pitch * (prev.size + px)) / 2 : look.y * H;
-    let x = x0;
-    const laid: LaidWord[] = words.map((w, i) => {
-      const lw = { text: texts[i], start: w.start, end: w.end, x, y: y + px * 0.36 };
-      x += widths[i] + space;
-      return lw;
-    });
+    const laid: LaidWord[] = words.map((w, i) => ({ text: texts[i], start: w.start, end: w.end, x: x0 + xs[i], y: y + px * 0.36 }));
     const line = { size: px, y, x0, x1: x0 + total, words: laid };
     out.push(line);
     prev = line;
