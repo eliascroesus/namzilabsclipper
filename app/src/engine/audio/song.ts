@@ -28,6 +28,12 @@ export interface Accent {
   beat: number;
   /** its start was found to 3 ms (attacks.ts); otherwise it's read off its 23 ms frame */
   exact?: boolean;
+  /** strength against the music around it (the loudest hits within two seconds), 0 to 1 */
+  ls?: number;
+  /** how far it rises above the music within a second of it: its onset over their median (a stab out of silence, 10 and more; a kick in a busy groove, 2 or 3) */
+  pop?: number;
+  /** how much of its onset is low end: the kick band's onset over the whole spectrum's (a kick or an 808, 2 and more; a plucked note, under 1) */
+  low?: number;
 }
 
 export interface Drop {
@@ -71,6 +77,70 @@ export interface SongAnalysis {
   /** smoothed loudness per frame, 0 to 1 over the song's own range */
   loudness: Float32Array;
   rms: Float32Array;
+}
+
+/**
+ * The music around every frame of an onset envelope: the level of its loudest hits
+ * within two seconds (the 95th percentile, never under 4% of the song's loudest: a
+ * near silence isn't a groove) and its median within a second (what a hit has to rise
+ * above to stand out). Measured every eighth frame and joined by straight lines.
+ */
+export function localLevels(env: Float32Array, fps: number): { ref: Float32Array; median: Float32Array } {
+  const n = env.length;
+  const ref = new Float32Array(n);
+  const median = new Float32Array(n);
+  if (!n) return { ref, median };
+  const floor = 0.04 * Math.max(1e-9, percentile(env, 99.5));
+  const stride = 8;
+  const wide = Math.round(2 * fps);
+  const near = Math.round(fps);
+  const at = (f: number, r: number, q: number) => {
+    const w = Array.from(env.subarray(Math.max(0, f - r), Math.min(n, f + r + 1))).sort((a, b) => a - b);
+    return w[Math.min(w.length - 1, Math.floor(q * w.length))];
+  };
+  const ks: number[] = [];
+  for (let f = 0; f < n; f += stride) ks.push(f);
+  if (ks[ks.length - 1] !== n - 1) ks.push(n - 1);
+  const refK = ks.map((f) => Math.max(floor, at(f, wide, 0.95)));
+  const medK = ks.map((f) => at(f, near, 0.5));
+  for (let j = 0; j + 1 < ks.length; j++) {
+    const [a, b] = [ks[j], ks[j + 1]];
+    for (let f = a; f <= b; f++) {
+      const u = b > a ? (f - a) / (b - a) : 0;
+      ref[f] = refK[j] + (refK[j + 1] - refK[j]) * u;
+      median[f] = medK[j] + (medK[j + 1] - medK[j]) * u;
+    }
+  }
+  return { ref, median };
+}
+
+/**
+ * Onsets picked against the music around them (see localLevels): a peak that's the
+ * highest within 30 ms, a tenth above the average of the tenth of a second around it,
+ * and at least a third of the loudest hits nearby, 30 ms after the one before.
+ */
+export function localOnsets(env: Float32Array, ref: Float32Array, fps: number): number[] {
+  const n = env.length;
+  const x = new Float32Array(n);
+  for (let i = 0; i < n; i++) x[i] = env[i] / Math.max(1e-9, ref[i]);
+  const pre = Math.max(1, Math.round(0.03 * fps));
+  const avg = Math.max(1, Math.round(0.1 * fps));
+  const wait = Math.max(1, Math.round(0.03 * fps));
+  const out: number[] = [];
+  let last = -Infinity;
+  for (let i = 1; i + 1 < n; i++) {
+    if (x[i] < 0.33 || i - last <= wait) continue;
+    let top = true;
+    for (let k = Math.max(0, i - pre); k <= Math.min(n - 1, i + 1) && top; k++) if (x[k] > x[i]) top = false;
+    if (!top) continue;
+    let m = 0;
+    let c = 0;
+    for (let k = Math.max(0, i - avg); k <= Math.min(n - 1, i + avg); k++) (m += x[k]), c++;
+    if (x[i] < m / c + 0.1) continue;
+    out.push(i);
+    last = i;
+  }
+  return out;
 }
 
 /** The analysis frame nearest a time. */
@@ -126,6 +196,15 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
   const midRef = Math.max(1e-6, percentile(mid, 99.5));
 
   const onsetFrames = detectOnsets(env, sr, hop);
+  // The hits, judged against the music around them as well as against the whole song:
+  // after a loud intro, a quieter groove's hits still count (librosa's picking, used
+  // for the tempo, sets one threshold from the song's loudest moments).
+  const local = localLevels(env, sr / hop);
+  const hitFrames = [...onsetFrames];
+  // (Only the ones among the loudest around them: a groove's hits, not the ghost notes
+  // between a loud song's hits.)
+  for (const f of localOnsets(env, local.ref, sr / hop)) if (env[f] >= 0.5 * local.ref[f] && !onsetFrames.some((g) => Math.abs(g - f) <= 2)) hitFrames.push(f);
+  hitFrames.sort((a, b) => a - b);
   let track = beatTrack(env, sr, hop);
   // A song made at one exact tempo gets a steady grid at that tempo, on the kick and
   // snare; anything else keeps the tracker's beats.
@@ -222,10 +301,11 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
   // Every onset's hit: where it starts, about as far ahead of its frame as the song's
   // beats are, and exactly where its attack stands out there (looked for on the hits
   // strong enough to cut on; the rest only count towards the groove).
-  const hits = onsetFrames.map((f) => {
+  const hits = hitFrames.map((f) => {
     const near = (f * hop) / sr + lead;
-    const hit = env[f] >= 0.25 * envRef ? hitStart(y, sr, near - 0.035, near + 0.035) : null;
-    return { t: hit?.t ?? near, s: Math.min(1, env[f] / envRef), kick: Math.min(1, peakNear(kick, f, 1) / kickRef), mid: Math.min(1, peakNear(mid, f, 1) / midRef), ...(hit ? { exact: true } : {}) };
+    const ls = Math.min(1, env[f] / Math.max(1e-9, local.ref[f]));
+    const hit = env[f] >= 0.25 * envRef || ls >= 0.5 ? hitStart(y, sr, near - 0.035, near + 0.035) : null;
+    return { t: hit?.t ?? near, s: Math.min(1, env[f] / envRef), ls, pop: env[f] / Math.max(0.02 * envRef, local.median[f]), low: peakNear(kick, f, 1) / Math.max(1e-9, env[f]), kick: Math.min(1, peakNear(kick, f, 1) / kickRef), mid: Math.min(1, peakNear(mid, f, 1) / midRef), ...(hit ? { exact: true } : {}) };
   });
   // A tracked beat (not a steady grid's) is only as exact as its 23 ms frame: where it
   // falls on a hit strong enough to cut on, it moves onto where the hit starts, so a

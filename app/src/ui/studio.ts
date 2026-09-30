@@ -20,6 +20,7 @@ import { lookFor, LOOK_VERSION, photoSheets, rateSheets, restoreLook, storeLook,
 import { senseSheets, SENSE_VERSION } from "../engine/vision/sense";
 import { findMoments, transcribe, type Moment, type Transcript } from "../engine/story/story";
 import { musicWindow, planMontage, usedRanges, type Ranges } from "../engine/plan/montage";
+import type { Pace } from "../engine/plan/rhythm";
 import { CALM_LABEL, mixOrder, styleFor, styleLabel, talks, type EditStyle, type Talker } from "../engine/plan/styles";
 import { NO_GRADE, WARM_GRADE, type Aspect, type CardSpec, type EditPlan } from "../engine/plan/types";
 import { pickCodecs, renderPlan } from "../engine/render/export";
@@ -122,6 +123,8 @@ export interface Style {
   velocity: boolean;
   /** how a montage is shaped (engine/plan/styles.ts), or "mix": each edit in a batch another way */
   edit: "mix" | EditStyle;
+  /** how hard a montage cuts on the music (engine/plan/rhythm.ts): every hit, the editors' rhythm, or longer shots */
+  cutting: Pace;
   /** with the card off: end on the moment the edit opens on, so the replay loops */
   loop: boolean;
 }
@@ -197,6 +200,7 @@ const DEFAULT_STYLE: Style = {
   smart: true,
   velocity: false,
   edit: "mix",
+  cutting: "hard",
   loop: true,
 };
 const STYLE_STORE = "clipper.style.v1";
@@ -1023,7 +1027,7 @@ class Studio {
     // A montage's style, edit by edit: the one picked, or each edit the next in the mix
     // (the talking style only when someone talks in the footage).
     const canTalk = style.format === "montage" ? this.talkingClips(ready) : [];
-    const order = mixOrder(scans, canTalk.length > 0);
+    const order = mixOrder(scans, canTalk.length > 0, style.cutting);
 
     // Another batch with the same footage and sound picks up where the last left off.
     const key = [style.format, style.aspect, ready.map((f) => f.id).join(","), s.sound?.id ?? ""].join("|");
@@ -1099,7 +1103,7 @@ class Studio {
               return planMeme({ ...common, text: style.memeText, position: style.memePosition });
             }
             if (!song) throw new Error("Add a sound first");
-            return planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text }, style: edit, talkers, loop: style.loop });
+            return planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text }, style: edit, talkers, loop: style.loop, pace: style.cutting });
           };
           // Planned, then planned again until no shot runs over one of a long video's own
           // cuts (media/cuts.ts: every frame of what the edit uses gets looked at).

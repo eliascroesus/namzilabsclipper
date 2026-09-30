@@ -9,8 +9,8 @@ import { pickSection, type Accent, type SongAnalysis } from "../audio/song";
 import type { Bar } from "../audio/structure";
 import { KINDS, PROFILE_BINS, type Scan } from "../media/scan";
 import { frameShot, kenBurns } from "./framing";
-import { rhythmCuts, type RhythmCut, type RhythmOptions } from "./rhythm";
-import { mono, monoFlips, photoBurst, styleLabel, TALK_DROP, talkEnd, talkingIntro, talky, type EditStyle, type Talker } from "./styles";
+import { rhythmCuts, type Pace, type RhythmCut, type RhythmOptions } from "./rhythm";
+import { mono, monoFlips, paceOf, photoBurst, styleLabel, TALK_DROP, talkEnd, talkingIntro, talky, type EditStyle, type Talker } from "./styles";
 import { FPS, FRAME_SIZE, sourceSpan, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type Crop, type EditPlan, type FxEvent, type Ramp, type ShotEvent } from "./types";
 
 /**
@@ -190,6 +190,16 @@ export function musicWindow(song: SongAnalysis, length: number, cardHold: number
   // holds through the silence.
   const brk = dropSong !== undefined ? song.structure?.breaks.find(([s]) => s > dropSong! - 0.05 && s - dropSong! < 1.6) : undefined;
   if (brk) dropSong = song.structure!.sections.find((s) => s.t >= brk[1] - 0.05 && s.t - brk[1] < 2.5)?.t ?? brk[1];
+  // A drop read off the loudness can land a beat early, off the bar line, just after the
+  // last of a run of stabs: when nothing hits on it and a loud hit comes on the bar line
+  // within the next beat, that's the drop.
+  if (dropSong !== undefined) {
+    const d = dropSong;
+    const onBar = (t: number) => song.downbeats.some((b) => Math.abs(b - t) <= 0.07);
+    const hitOn = song.accents.some((a) => Math.abs(a.t - d) <= 0.07 && a.s >= 0.3);
+    const next = song.accents.find((a) => a.t > d + 0.07 && a.t <= d + 1.05 * song.period && (a.ls ?? a.s) >= 0.6 && a.s >= 0.25);
+    if (!hitOn && !onBar(d) && next && onBar(next.t)) dropSong = next.t;
+  }
   const dropEdit = dropSong !== undefined ? dropSong - songStart : undefined;
   const dropAt = dropEdit !== undefined && dropEdit > 1.2 && dropEdit < cardAt - 1.2 ? dropEdit : undefined;
   return { songStart, cardAt, duration, dropAt };
@@ -1533,7 +1543,12 @@ export interface MontageOptions {
   talkers?: Talker[];
   /** with no card: end on the moment the edit opens on, so the replay loops without a seam */
   loop?: boolean;
+  /** how hard it cuts on the music (rhythm.ts); the style's own when it has one (slow: relaxed, fast re-cuts: hard), steady ("beat") when unset */
+  pace?: Pace;
 }
+
+/** A pace's cutting against the references' (the template's shot length, times this). */
+const PACE_LENGTH: Record<Pace, number> = { hard: 0.62, beat: 1, relaxed: 1.5 };
 
 export function planMontage(o: MontageOptions): EditPlan {
   const style = o.style ?? "beat";
@@ -1553,15 +1568,21 @@ export function planMontage(o: MontageOptions): EditPlan {
     intro.shots[intro.shots.length - 1].end = lead(handover);
     intro.end = lead(handover);
   }
-  // On the beat: every two beats into the drop, one two-bar pattern after it with one
-  // clip carried over a beat in every bar, and at the end of every four bars (two, in
-  // every other edit) one clip re-cut on the half beat (rhythm.ts). Faster re-cuts:
-  // every bar, a little faster. Slow: a bar a shot, then two beats.
-  const beat = { pace, calm, stutter: (o.variant % 2 ? "often" : true) as boolean | "often", carry: (o.variant % 2 ? 1 : 0) as 0 | 1 };
-  const opts: RhythmOptions = style === "recut" ? { pace: 0.9 * pace, calm, stutter: "bar", carry: o.variant % 2 ? 0 : 1 } : style === "slow" ? { pace, calm, slow: true } : beat;
+  // Cutting steady: every two beats into the drop, one two-bar pattern after it with
+  // one clip carried over a beat in every bar, and at the end of every four bars (two,
+  // in every other edit) one clip re-cut on the half beat (rhythm.ts). Hard: on more of
+  // the hits, every beat into the drop and the half beats of the run into it, faster
+  // after it, re-cut every two bars. Relaxed: two beats a shot or more. Every pace cuts
+  // on the hits nobody can miss. Fast re-cuts: hard, re-cut every bar. Slow: relaxed,
+  // a bar a shot, then two beats.
+  const hard = paceOf(style, o.pace ?? "beat");
+  const cutPace = pace * PACE_LENGTH[hard];
+  const beat = { pace: cutPace, calm, stutter: (hard === "hard" || o.variant % 2 ? "often" : true) as boolean | "often", carry: (o.variant % 2 ? 1 : 0) as 0 | 1, hits: hard, push: hard === "hard" };
+  // (Fast re-cuts keep two beats a clip into the drop, re-cut on the beat, below.)
+  const opts: RhythmOptions = style === "recut" ? { pace: 0.9 * cutPace, calm, stutter: "bar", carry: o.variant % 2 ? 0 : 1, hits: hard } : style === "slow" ? { pace: cutPace, calm, slow: true, hits: hard } : beat;
   let rhythm: RhythmCut[];
   if (handover !== undefined) {
-    const build = rhythmCuts(song, win.songStart, handover, { from: intro ? intro.end + CUT_LEAD : 0, slow: true }).filter((c) => c.t < handover - 0.3);
+    const build = rhythmCuts(song, win.songStart, handover, { from: intro ? intro.end + CUT_LEAD : 0, slow: true, ...(intro ? {} : { hits: hard }) }).filter((c) => c.t < handover - 0.3);
     rhythm = [...build, { t: handover }, ...rhythmCuts(song, win.songStart, win.cardAt, { ...opts, from: handover })];
   } else rhythm = rhythmCuts(song, win.songStart, win.cardAt, { ...opts, dropAt: win.dropAt });
   const cuts = rhythm.filter((c) => !c.again).map((c) => lead(c.t));

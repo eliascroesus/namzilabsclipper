@@ -22,11 +22,11 @@ export function Section({ title, right, children }: { title: string; right?: Rea
   );
 }
 
-export function Segmented<T extends string | number>({ value, options, onChange, label }: { value: T; options: { value: T; label: ReactNode }[]; onChange: (v: T) => void; label: string }) {
+export function Segmented<T extends string | number>({ value, options, onChange, label, disabled }: { value: T; options: { value: T; label: ReactNode }[]; onChange: (v: T) => void; label: string; disabled?: boolean }) {
   return (
     <div className="seg" role="group" aria-label={label}>
       {options.map((o) => (
-        <button key={String(o.value)} type="button" aria-pressed={o.value === value} onClick={() => onChange(o.value)}>
+        <button key={String(o.value)} type="button" aria-pressed={o.value === value} disabled={disabled} onClick={() => onChange(o.value)}>
           {o.label}
         </button>
       ))}

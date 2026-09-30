@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { analyzeSong } from "../src/engine/audio/song";
 import { PROFILE_BINS, type Scan } from "../src/engine/media/scan";
-import { mulberry32, planMontage } from "../src/engine/plan/montage";
+import { CUT_LEAD, mulberry32, planMontage } from "../src/engine/plan/montage";
 import { beatIndex, hitProfile, rhythmCuts, template } from "../src/engine/plan/rhythm";
 
 const SR = 22050;
@@ -103,6 +103,67 @@ describe("the cut rhythm", () => {
     // One of them at the end of the drop's first four bars, on its last beat.
     const phrase = drop + 16 * T - plan.music!.songStart;
     expect(again.some(([s]) => Math.abs(s.start - (phrase - T / 2)) < 0.05)).toBe(true);
+  });
+});
+
+describe("an intro of stabs out of silence, then the groove", () => {
+  // 124 bpm: six stabs in the first two bars (a chord over a low hit, on beats 0, 1.5,
+  // 2.5, 4, 5 and 6.5) and nothing else, then the drop on beat 8: a kick on every beat,
+  // a clap on 2 and 4, a hat on every "and", a bass note ringing on every beat. The user's edit held two beats a shot over
+  // stabs like these, and cut on none of them.
+  const T = 60 / 124;
+  const t0 = 0.3;
+  const stabs = [0, 1.5, 2.5, 4, 5, 6.5].map((b) => t0 + b * T);
+  const drop = t0 + 8 * T;
+  const y = new Float32Array(Math.round(24 * SR));
+  const partials = [6300, 7100, 8200, 9400, 10300];
+  // (Each hit dies away to nothing: a tone cut off mid-ring clicks, and a click is a hit.)
+  const hit = (t: number, amp: number, decay: number, hz: number | "hat") => {
+    const s0 = Math.round(t * SR);
+    const len = Math.round(7 * decay);
+    for (let i = 0; i < len && s0 + i < y.length; i++) {
+      const v = hz === "hat" ? partials.reduce((a, f, k) => a + Math.sin((2 * Math.PI * f * i) / SR + k), 0) / partials.length : Math.sin((2 * Math.PI * hz * i) / SR);
+      y[s0 + i] += amp * Math.min(1, i / 20) * Math.exp(-i / decay) * v;
+    }
+  };
+  stabs.forEach((t, i) => {
+    hit(t, 0.8, 1000, 60);
+    for (const hz of i % 2 ? [220, 262, 330] : [262, 330, 392]) hit(t, 0.35, 1500, hz);
+  });
+  for (let k = 8; t0 + k * T < 23.5; k++) {
+    const t = t0 + k * T;
+    hit(t, 0.8, 900, 55);
+    hit(t + T / 2, 0.3, 120, "hat");
+    if (k % 2) hit(t, 0.55, 700, 1800);
+    hit(t + 0.004, 0.45, 6000, 110);
+  }
+  const song = analyzeSong(y, SR);
+  const near = (xs: number[], t: number) => Math.min(...xs.map((x) => Math.abs(x - t)));
+
+  it("cuts on every stab and nothing between them, whatever the pace, and on the drop", () => {
+    expect(song.bpm).toBeCloseTo(124, 0);
+    for (const hits of ["hard", "beat", "relaxed"] as const) {
+      const cuts = rhythmCuts(song, 0, 12, { dropAt: drop, hits, push: hits === "hard" }).map((c) => c.t);
+      for (const s of stabs.slice(1)) expect(near(cuts, s)).toBeLessThan(0.03);
+      expect(near(cuts, drop)).toBeLessThan(0.03);
+      for (const c of cuts.filter((c) => c < drop - 0.05)) expect(near(stabs, c)).toBeLessThan(0.03);
+    }
+  });
+
+  it("after the drop: harder cuts faster, on the beat, never on a hat", () => {
+    const shots = { hard: 0, beat: 0, relaxed: 0 };
+    for (const pace of ["hard", "beat", "relaxed"] as const) {
+      const plan = planMontage({ song, songSource: "s", songName: "stabs", fromStart: true, songStart: 0, scans: scans(), aspect: "9x16", length: 12, card: null, caption: null, variant: 0, pace });
+      const cuts = plan.shots.slice(1).map((s) => ({ t: s.start + CUT_LEAD, again: s.again }));
+      expect(plan.checks?.drop).toBeCloseTo(drop - CUT_LEAD, 1);
+      for (const c of cuts.filter((c) => !c.again && c.t > drop + 0.05)) {
+        const k = beatIndex(song, c.t);
+        expect(Math.abs(k - Math.round(k))).toBeLessThan(0.05);
+      }
+      shots[pace] = plan.shots.filter((s) => s.start + CUT_LEAD > drop - 0.05).length;
+    }
+    expect(shots.hard).toBeGreaterThan(shots.beat);
+    expect(shots.beat).toBeGreaterThan(shots.relaxed);
   });
 });
 

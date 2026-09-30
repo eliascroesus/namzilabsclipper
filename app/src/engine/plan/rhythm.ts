@@ -21,8 +21,13 @@
  * half beat at 67). Before the drop it cuts every two beats on the bar's beats,
  * holding through a break's silence, and the drop lands on the return. At the end of
  * every four bars after the drop, the last beat is one clip re-cut on the half beat.
+ *
+ * Over that, the hits nobody can miss: a stab out of silence, a snare fill, the hit
+ * that opens a section (standouts). Each is a cut, as many of them as the pace hears;
+ * before the drop, where they are the rhythm (a run of stabs), the grid gives way
+ * around them (withHits).
  */
-import type { SongAnalysis } from "../audio/song";
+import type { Accent, SongAnalysis } from "../audio/song";
 
 export interface RhythmCut {
   /** where it cuts, edit seconds on the music (the cut lead not yet taken off) */
@@ -54,6 +59,111 @@ export interface RhythmOptions {
    * (and throughout, with none), every two beats after it; no template, no re-cuts
    */
   slow?: boolean;
+  /** cut on every hit that stands out from the music around it, as hard as this pace hears them (see PACES); relaxed, two beats a shot at least */
+  hits?: Pace;
+  /**
+   * cutting hard: every beat into the drop, the run into it on the half beats (its last
+   * two beats, or bar when a beat is long), and after it the half beats too where a beat
+   * runs well past the shots wanted
+   */
+  push?: boolean;
+}
+
+/**
+ * How hard an edit cuts on the music: hard, steady ("beat", the reference editors' own
+ * rhythm) or relaxed. Every pace cuts on the hits nobody can miss (a stab out of
+ * silence, a snare fill); a harder one on more of them, closer together, and pushed (see
+ * RhythmOptions) on every beat into the drop and faster after it.
+ */
+export type Pace = "hard" | "beat" | "relaxed";
+
+/**
+ * Per pace: how far a hit has to rise above the music within a second of it (its onset
+ * over their median: a stab out of silence is 10 and more, a kick in a busy groove 2 or
+ * 3), how loud it has to be (against the song, or the loudest hits around it), and how
+ * close two cuts can come (a hard edit's three frames).
+ */
+export const PACES: Record<Pace, { pop: number; s: number; gap: number }> = {
+  hard: { pop: 3, s: 0.2, gap: 0.1 },
+  beat: { pop: 4.5, s: 0.3, gap: 0.17 },
+  relaxed: { pop: 7, s: 0.55, gap: 0.3 },
+};
+
+/**
+ * The hits no one can miss between `from` and `end` (edit seconds on the music), as a
+ * pace hears them: with some body to them (a kick, a snare or clap, a stab, an 808; a
+ * hat alone is never one), loud enough, rising far enough above the music around them,
+ * and not the groove's own (a hit much like it a bar or two bars either side, twice or
+ * more, is the rhythm the template already cuts to: a run of stabs, a fill or a hit on
+ * a new section is not).
+ */
+export function standouts(song: SongAnalysis, songStart: number, from: number, end: number, pace: Pace, drop?: number): { t: number; s: number }[] {
+  const p = PACES[pace];
+  const bodied = song.accents.filter((a) => Math.max(a.kick, a.mid) >= 0.4);
+  // (Its echoes: a hit much like it a period on either side and two periods on, a bar or
+  // three beats (a riff in dotted eighths); two or more make it the groove's. Only on
+  // the same side of the drop: an intro's stabs on the beat aren't the groove's kicks
+  // after it.)
+  const side = (t: number) => drop !== undefined && t >= songStart + drop - 0.05;
+  const like = (a: Accent, b: number) => bodied.some((x) => x !== a && Math.abs(x.beat - b) <= 0.12 && x.s >= 0.6 * a.s && side(x.t) === side(a.t));
+  const echoes = (a: Accent) => Math.max(...[3, 4].map((d) => [-2 * d, -d, d, 2 * d].filter((k) => like(a, a.beat + k)).length));
+  // (On the grid: a sung syllable pops out of a sparse song as much as a stab does, but
+  // lands anywhere. Halfway between beats only with the low end carrying it, a kick, an
+  // 808 or a whole stab: a melody's note there is the tune.)
+  const onBeat = (a: Accent) => Math.abs(a.beat - Math.round(a.beat)) <= 0.1;
+  const onHalf = (a: Accent) => Math.abs(a.beat * 2 - Math.round(a.beat * 2)) <= 0.2 && a.kick >= 0.5 && (a.low ?? 0) >= 1;
+  const T = song.period;
+  const standing = (a: Accent) => {
+    const t = a.t - songStart;
+    return Math.max(a.kick, a.mid) >= 0.5 && t > from - 2 * T && t < end + 2 * T && (a.pop ?? 0) >= p.pop && Math.max(a.s, a.ls ?? 0) >= p.s && echoes(a) < 2;
+  };
+  const beats = bodied.filter((a) => onBeat(a) && standing(a));
+  // (One between the beats counts in a hard edit, or in a run of them: within a beat and
+  // a half of one on the beat.)
+  const halves = bodied.filter((a) => !onBeat(a) && onHalf(a) && standing(a) && (pace === "hard" || beats.some((b) => Math.abs(b.beat - a.beat) <= 1.5)));
+  // (A cut on one only where the first and the last shot keep a beat: finish's rule.)
+  const inside = (a: Accent) => a.t - songStart > from + Math.min(T, 0.5) - 0.02 && a.t - songStart < end - Math.max(T, 0.4) + 0.02;
+  return [...beats, ...halves]
+    .filter(inside)
+    .map((a) => ({ t: a.t - songStart, s: Math.max(a.s, a.ls ?? 0) }))
+    .sort((x, y) => x.t - y.t);
+}
+
+/**
+ * The cuts with the standout hits in: each hit takes the cut nearest it (within 75 ms)
+ * or gets one of its own, the strongest first; then a cut on nothing gives way, when it
+ * comes closer to a hit than the pace lets two cuts come, and before the drop anywhere
+ * within a beat and a half of one (where the hits are the rhythm: a run of stabs, not
+ * the grid under them).
+ */
+export function withHits(song: SongAnalysis, songStart: number, cuts: RhythmCut[], hits: { t: number; s: number }[], pace: Pace, drop?: number): RhythmCut[] {
+  const { gap } = PACES[pace];
+  const T = song.period;
+  const out = cuts.map((c) => ({ ...c, hit: false }));
+  for (const h of [...hits].sort((a, b) => b.s - a.s)) {
+    // (A harder hit's cut too close already: this one goes by in its shot.)
+    if (out.some((c) => c.hit && Math.abs(c.t - h.t) < gap)) continue;
+    let near: (typeof out)[number] | undefined;
+    for (const c of out) if (!c.hit && Math.abs(c.t - h.t) <= 0.075 && (!near || Math.abs(c.t - h.t) < Math.abs(near.t - h.t))) near = c;
+    // (A re-cut that takes a hit stays one: the clip jumps on, on the hit.)
+    if (near) Object.assign(near, { t: h.t, hit: true });
+    else out.push({ t: h.t, again: false, hit: true });
+  }
+  const on = out.filter((c) => c.hit);
+  if (!on.length) return cuts;
+  // (Heard: something under the cut that counts next to the hits around it, not a
+  // hat's tick between two stabs.)
+  const audible = (t: number, next: number) => song.accents.some((a) => Math.abs(a.t - songStart - t) <= 0.07 && Math.max(a.s, 0.5 * (a.ls ?? 0)) >= 0.4 * next);
+  const kept = out.filter((c) => {
+    if (c.hit) return true;
+    let nearest: { t: number; s: number } | undefined;
+    for (const h of on) if (!nearest || Math.abs(c.t - h.t) < Math.abs(c.t - nearest.t)) nearest = { t: h.t, s: hits.find((x) => x.t === h.t)?.s ?? 1 };
+    const d = Math.abs(c.t - nearest!.t);
+    if (d < gap) return false;
+    if ((drop === undefined || c.t < drop - 0.05) && d < 1.5 * T && !audible(c.t, nearest!.s)) return false;
+    return true;
+  });
+  return kept.sort((a, b) => a.t - b.t).map(({ t, again }) => (again ? { t, again } : { t }));
 }
 
 /** Sixteenths in two bars of 4/4: the length of the template. */
@@ -125,16 +235,19 @@ export function hitProfile(song: SongAnalysis, anchor: number): Float64Array {
  * `minShot` and `maxShot` seconds and as near `target` as the hits allow, and the
  * first shot of the two bars holds a beat at least: it lands the phrase.
  */
-export function template(profile: ArrayLike<number>, sixteenth: number, target: number, minShot: number, maxShot: number): number[] {
+export function template(profile: ArrayLike<number>, sixteenth: number, target: number, minShot: number, maxShot: number, loose = false): number[] {
   const value = (p: number) => {
     const here = profile[p];
     if (p % 4 === 0) {
       // A beat with nothing on it, or whose hit is really a harder one a sixteenth off
       // (a broken beat's kick), is empty.
       const beside = Math.max(profile[(p + 1) % STEPS], profile[(p + STEPS - 1) % STEPS]);
-      return here < 0.1 || beside > here + 0.3 ? -0.3 : here - 0.05 + (p % 16 === 0 ? 0.1 : 0);
+      return here < 0.2 || beside > here + 0.3 ? -0.3 : here - 0.05 + (p % 16 === 0 ? 0.1 : 0);
     }
-    if (p % 2 === 0) return here >= 0.5 ? here - 0.3 : -Infinity;
+    // (Loose: where a beat runs well past the shots wanted, the half beats count, on
+    // anything the song plays there and, when the shots need it, on nothing: the
+    // references cut a slow song's eighths.)
+    if (p % 2 === 0) return loose ? (here >= 0.3 ? here - 0.1 : -0.15) : here >= 0.5 ? here - 0.3 : -Infinity;
     return here >= 0.6 ? here - 0.4 : -Infinity;
   };
   // Shorter than the target costs more than longer: a slow song cut on every half beat
@@ -170,9 +283,19 @@ export function template(profile: ArrayLike<number>, sixteenth: number, target: 
 
 /**
  * The cuts between `from` and `end` (edit time; the song starts at `songStart`),
- * in order, as the reference editors place them. See the top of this file.
+ * in order, as the reference editors place them (see the top of this file), with the
+ * song's standout hits cut on as the pace asks.
  */
 export function rhythmCuts(song: SongAnalysis, songStart: number, end: number, opts: RhythmOptions = {}): RhythmCut[] {
+  const cuts = gridCuts(song, songStart, end, opts);
+  if (!opts.hits) return cuts;
+  const from = opts.from ?? 0;
+  const drop = opts.dropAt !== undefined && opts.dropAt > from + song.period && opts.dropAt < end - song.period ? opts.dropAt : undefined;
+  return withHits(song, songStart, cuts, standouts(song, songStart, from, end, opts.hits, drop), opts.hits, drop);
+}
+
+/** The cuts on the grid: every two beats into the drop and one pattern after it (see the top of this file). */
+function gridCuts(song: SongAnalysis, songStart: number, end: number, opts: RhythmOptions = {}): RhythmCut[] {
   const from = opts.from ?? 0;
   const pace = opts.pace ?? 1;
   const T = song.period;
@@ -184,9 +307,9 @@ export function rhythmCuts(song: SongAnalysis, songStart: number, end: number, o
   const add = (t: number, again = false) => {
     if (t > from + 0.05 && t < end - 0.05 && !silent(t)) cuts.push({ t, again });
   };
-  // Every two beats (a bar at a very fast tempo, one beat at a very slow one), on the
-  // beats `anchor` falls on, between `lo` and `hi`.
-  const u = 2 * T < 0.55 ? 4 : 2 * T > 1.8 ? 1 : 2;
+  // Every two beats (a bar at a very fast tempo, one beat at a very slow one, or when
+  // pushed), on the beats `anchor` falls on, between `lo` and `hi`.
+  const u = (opts.push && T >= 0.3) || 2 * T > 1.8 ? 1 : 2 * T < 0.55 ? 4 : 2;
   const steady = (anchor: number, lo: number, hi: number, every = u) => {
     const k0 = anchor + every * Math.ceil((beatIndex(song, songStart + lo) - anchor) / every);
     for (let k = k0; at(k) < hi; k += every) if (at(k) > lo) add(at(k));
@@ -233,6 +356,8 @@ export function rhythmCuts(song: SongAnalysis, songStart: number, end: number, o
     anchor = Math.round(beatIndex(song, songStart + drop));
     // Before the drop: every two beats, the first shot a beat at least.
     steady(anchor, first, drop - 0.5 * T);
+    // The run into it on the half beats, where a half beat is a sixth of a second or more.
+    if (opts.push && T >= 0.36) steady(anchor, Math.max(first, drop - (T >= 0.6 ? 4 : 2) * T - 0.02), drop - 0.3 * T, 0.5);
     add(drop);
   } else {
     // No drop: from the first bar line, or the first beat when the bar line is more
@@ -241,8 +366,10 @@ export function rhythmCuts(song: SongAnalysis, songStart: number, end: number, o
   }
   // After the drop: one template, repeated.
   const maxShot = opts.maxShot !== undefined ? Math.max(opts.maxShot, T) : Math.max(1.5 * Math.max(1, pace), 2 * T);
-  const minShot = Math.min(0.3 * pace, 0.9 * T);
-  const shape = template(hitProfile(song, anchor), T / 4, TARGET * pace, minShot, maxShot);
+  // (Relaxed: two beats a shot, or one where a beat is long.)
+  const minShot = opts.hits === "relaxed" ? Math.min(0.65, 1.8 * T) : Math.min(0.3 * pace, 0.9 * T);
+  const loose = !!opts.push && T > 1.4 * TARGET * pace;
+  const shape = template(hitProfile(song, anchor), T / 4, TARGET * pace, minShot, maxShot, loose);
   // A cut between the beats needs its hit in that bar too (the pattern repeats, a
   // syncopated hit doesn't always): where there's none, the beat before it, or no cut
   // at all when that beat is too close to the one before.
@@ -254,7 +381,7 @@ export function rhythmCuts(song: SongAnalysis, songStart: number, end: number, o
   for (let c = 0; at(anchor + 8 * c) < end; c++) {
     for (const p of shape) {
       let k = anchor + 8 * c + p / 4;
-      if (p % 4 && !heard(k)) {
+      if (p % 4 && !(loose && p % 2 === 0) && !heard(k)) {
         k = Math.floor(k + 1e-6);
         if (at(k) - last < minShot - 0.02) continue;
       }

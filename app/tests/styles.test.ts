@@ -214,6 +214,9 @@ describe("edit styles", () => {
     expect(order).toEqual(["beat", "talk", "mono", "burst", "recut", "slow"]);
     expect(mixOrder(scans, false)).toEqual(["beat", "mono", "burst", "recut", "slow"]);
     expect(mixOrder(scans.slice(0, 3), false)).toEqual(["beat", "mono", "recut", "slow"]);
+    // Cutting hard, no slow edit in the mix; relaxed, no fast re-cuts.
+    expect(mixOrder(scans, false, "hard")).toEqual(["beat", "mono", "burst", "recut"]);
+    expect(mixOrder(scans, false, "relaxed")).toEqual(["beat", "mono", "burst", "slow"]);
     expect([0, 1, 2, 6, 7].map((n) => styleFor(n, "mix", order))).toEqual(["beat", "talk", "mono", "beat", "talk"]);
     expect(styleFor(4, "slow", order)).toBe("slow");
     // Two talking edits in a batch talk from different places.

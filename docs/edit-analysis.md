@@ -95,6 +95,32 @@ What that makes the rules:
 - **Faster means one clip re-cut, not more clips.** A run of two to eight cuts inside one clip, each a jump further into it (the car further down the street, the crowd a moment later), on the half beat or faster: a fifth to a third of all the nio.trade cuts. It's how they get the pace without the footage.
 - **On the beat, touches:** photos flying in tilted, three frames each; a shot flipping from black and white to colour on a hit; the drop with a flash or a burn.
 
+### The planner against the editors
+
+Each reference edit's song, planned by the app from 0:00 to where its editor's card or last cut comes (the first edit of a batch, with footage standing in), and every planned cut checked against the editor's own (a match within two frames) and against the song's strong hits (onsets at 0.6 of the song's loudest or more). A shot's length is the median over the whole edit, build included. F is how well the planned cuts and the editor's line up (the harmonic mean of the share of planned cuts the editor also made and the share of the editor's cuts the plan has).
+
+| Song | Editor: shot, strong hits cut | Before: shot, hits cut, F | Steady | Hard | Relaxed |
+|---|---|---|---|---|---|
+| mico (148 bpm) | 0.47 s, 100% | 0.43 s, 71%, 82 | 0.43 s, 100%, 89 | 0.40 s, 100%, 74 | 0.80 s, 100%, 75 |
+| nio …3659 (155) | 0.43 s, 55% | 0.40 s, 73%, 55 | 0.40 s, 82%, 54 | 0.40 s, 82%, 56 | 0.77 s, 27%, 43 |
+| nio …0002 (156) | 0.33 s, 40% | 0.77 s, 20%, 41 | 0.40 s, 100%, 42 | 0.40 s, 100%, 44 | 0.77 s, 80%, 44 |
+| nio …2531 (143) | 0.27 s, 64% | 0.83 s, 43%, 37 | 0.83 s, 50%, 36 | 0.40 s, 79%, 44 | 0.87 s, 29%, 26 |
+| nio …5448 (110) | 0.43 s, 83% | 0.83 s, 33%, 41 | 0.83 s, 33%, 41 | 0.53 s, 100%, 57 | 1.10 s, 33%, 34 |
+| nio …8678 (87) | 0.63 s, 33% | 0.70 s, 40%, 37 | 0.70 s, 40%, 37 | 0.37 s, 62%, 32 | 0.70 s, 40%, 37 |
+| TJR (88) | 0.70 s, 75% | 1.33 s, 38%, 28 | 1.23 s, 50%, 33 | 0.33 s, 63%, 30 | 1.33 s, 38%, 36 |
+| nio …1290 (86) | 0.67 s, 40% | 1.37 s, 40%, 31 | 1.37 s, 40%, 27 | 0.70 s, 60%, 39 | 1.37 s, 40%, 31 |
+| brezscales …1216 (93, a twist) | 1.60 s, 25% | 1.27 s, 75%, 0 | 0.67 s, 75%, 0 | 0.33 s, 75%, 7 | 1.30 s, 75%, 0 |
+| **All nine** | **57% of strong hits** | **48%, F 39.0** | **63%, F 39.8** | **80%, F 42.8** | **51%, F 36.2** |
+| A user's edit (…0002's sound, 10.7 s) | | 0.77 s, 20% | 0.40 s, 100% | 0.40 s, 100% | 0.77 s, 80% |
+
+What it showed, and what changed:
+
+- **The planner heard the hits and cut past them.** A user's edit to the sound of nio …0002 opens on six stabs in two bars before the drop; the analysis had every one of them at full strength, and the build's every-two-beats rule passed over them: the plan cut a fifth of the song's strong hits. Now a hit that rises far above the music within a second of it (its onset ten times the median around it and more, out of silence; a kick in a busy groove is two or three) is a cut at every pace, and before the drop the grid gives way around a run of them.
+- **Loud intros hid the groove's hits.** The onset picker takes one threshold from the song's loudest moments (as librosa does, which the tempo still uses), so after stabs at full strength a quieter groove's kicks and snares fell under it. The hits are now also picked against the loudest around them (the 95th percentile within two seconds), keeping the ones among the loudest there.
+- **Slow songs were cut on the beat, where the editors cut on the half beat.** At 86 to 110 bpm the editors' shots after the drop run 0.3 to 0.45 s, the half beats; a beat there is 0.55 to 0.7 s. Cutting hard, the pattern after the drop takes the half beats too where a beat runs well past the shots wanted (on anything the song plays there, and on nothing when the shots need it); steady cutting keeps to the beats with hits between them only where the song hits hard, as the sparse songs need (a snap on 2 and 4 with a melody's notes between).
+- **Half of them speed into the drop.** nio …3659, …2531 and …8678 cut every beat of the last bar or so before the drop, after two beats a shot or more; …0002 flashes four photos a sixteenth each. Cutting hard, the build is every beat and its last two beats (the last bar, when a beat is long) the half beats.
+- **Relaxed wasn't.** The pattern's cuts are worth more than a shot's length costs, so a longer target still cut every beat of a four-on-the-floor; relaxed now holds two beats a shot at least (one where a beat is 0.65 s or more).
+
 ## The styles
 
 Every edit was measured again for what shapes it besides where it cuts: the colour of every shot (black and white is under 3.5 on the Lab colour scale), the drop (the biggest jump in the low end) and the shot lengths either side of it, the first shot against the last, and every time the edit goes back to a clip within 2.5 seconds of leaving it. The latest upload had one new edit, TJR's; the other file was a third copy of nio.trade's …8678.
@@ -132,13 +158,15 @@ Two things the frames show that the numbers alone don't:
 
 | Style | From | What it does |
 |---|---|---|
-| **On the beat** | mico, nio …3659 | The build two beats a shot or more, then one rhythm from the drop to the end (see [the rhythm](#the-rhythm-cut-by-cut-against-each-songs-grid)) |
+| **On the beat** | mico, nio …3659 | Straight cuts: the build, then one rhythm from the drop to the end (see [the rhythm](#the-rhythm-cut-by-cut-against-each-songs-grid)), as hard as the Cutting picked |
 | **Talk, then the drop** | TJR, and the talking intros described above | Someone talking, in black and white, with their own voice over the song's intro (the song kept low), their pauses cut out; a hard cut into colour on the drop, then the edit. The song is picked so the drop lands a third to two thirds of the way in. With no one talking in the footage, a few calm shots a bar each, as TJR's build |
 | **Black and white to colour** | nio …5448, …2531 | The build in black and white, colour from the drop, and after it a shot or two that start in black and white and turn to colour on the beat (or on the clip's first re-cut) |
 | **Photo burst** | nio …0002 | After the first shot, four or five pictures fly in tilted on black, a sixteenth each (three or four frames): your photos first, then a moment of each clip |
 | **Fast re-cuts** | nio …2531, …5448 | A clip re-cut on the half beat in every bar and carried over a beat, and the build re-cut on the beat too: over a third of the cuts |
 | **Slow and cinematic** | brezscales, TJR's build | A bar a shot before the drop, two beats after it, every clip pushing in or pulling out slowly, no flash, burn or punch-ins |
-| **Mix** (the default) | | Each edit in a batch in the next of these (the talking one only when someone talks in the footage, the burst only with four clips or photos), so no two in a row look alike |
+| **Mix** (the default) | | Each edit in a batch in the next of these (the talking one only when someone talks in the footage, the burst only with four clips or photos, the slow one not when cutting hard, the fast re-cuts not when relaxed), so no two in a row look alike |
+
+**Cutting** (Hard by default) sets how hard the montage cuts: **hard** cuts on every hit that stands out, every beat into the drop with the last two beats on the half beats, and after it about a beat a shot (a slow song's half beats); **steady** is the references' own rhythm, the build two beats a shot or more and their pattern after the drop; **relaxed** holds two beats a shot or more. Every pace cuts on the hits nobody can miss ([the planner against the editors](#the-planner-against-the-editors)). Slow and cinematic cuts relaxed and Fast re-cuts hard, whatever is picked.
 
 **Loop the ending** (a switch, on by default, without an end card): the last shot is the moment just before the first, or the first shot again, as TJR ends, and the music stops on the bar line instead of fading, so the replay runs straight on. Not after talking.
 

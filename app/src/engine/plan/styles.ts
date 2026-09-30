@@ -27,18 +27,22 @@ import type { SongAnalysis } from "../audio/song";
 import { keepSpeech, type Run } from "../audio/speech";
 import { KINDS, type Scan } from "../media/scan";
 import { frameShot } from "./framing";
+import type { Pace } from "./rhythm";
 import { FPS, sourceSpan, type Aspect, type Crop, type FxEvent, type ShotEvent } from "./types";
 
 export type EditStyle = "beat" | "talk" | "mono" | "burst" | "recut" | "slow";
 
 export const EDIT_STYLES: { value: EditStyle; name: string; label: string; desc: string }[] = [
-  { value: "beat", name: "On the beat", label: "Montage", desc: "Holds back, then one rhythm from the drop." },
+  { value: "beat", name: "On the beat", label: "Montage", desc: "Straight cuts on the music, one rhythm from the drop." },
   { value: "talk", name: "Talk, then the drop", label: "Talk + drop", desc: "Someone talking in black and white, then the drop in colour." },
   { value: "mono", name: "Black and white to colour", label: "B&W flip", desc: "Black and white until the drop, then colour." },
   { value: "burst", name: "Photo burst", label: "Photo burst", desc: "Pictures fly in, three frames each, then the edit." },
   { value: "recut", name: "Fast re-cuts", label: "Re-cuts", desc: "One clip cut again and again, a jump further each time." },
   { value: "slow", name: "Slow and cinematic", label: "Slow", desc: "Long holds and slow pushes. A mood piece." },
 ];
+
+/** How hard a style cuts: slow and fast re-cuts have their own pace, the rest the one picked. */
+export const paceOf = (s: EditStyle, pick: Pace): Pace => (s === "slow" ? "relaxed" : s === "recut" ? "hard" : pick);
 
 export const styleName = (s: EditStyle) => EDIT_STYLES.find((x) => x.value === s)!.name;
 export const styleLabel = (s: EditStyle) => EDIT_STYLES.find((x) => x.value === s)!.label;
@@ -76,11 +80,11 @@ export const talks = (runs: Run[]) => runs.reduce((a, r) => a + r.end - r.start,
 /**
  * The styles a batch set to mix goes through, in order, for this footage: the talking
  * one only when someone talks in it, the burst only with four pictures or clips to
- * flash (the user's photos first).
+ * flash (the user's photos first). Cutting hard, no slow one; relaxed, no fast re-cuts.
  */
-export function mixOrder(scans: Scan[], talk: boolean): EditStyle[] {
+export function mixOrder(scans: Scan[], talk: boolean, pace?: Pace): EditStyle[] {
   const burst = scans.length >= 4;
-  return ["beat", ...(talk ? (["talk"] as const) : []), "mono", ...(burst ? (["burst"] as const) : []), "recut", "slow"];
+  return ["beat", ...(talk ? (["talk"] as const) : []), "mono", ...(burst ? (["burst"] as const) : []), ...(pace === "relaxed" ? [] : (["recut"] as const)), ...(pace === "hard" ? [] : (["slow"] as const))];
 }
 
 /** The style for edit number `n` of a batch (counting on from earlier batches): the one picked, or the next in the mix. */

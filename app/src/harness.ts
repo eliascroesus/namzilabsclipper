@@ -9,6 +9,7 @@ import { findVocals } from "./engine/audio/vocals";
 import { decodeMono, openSource, type Source } from "./engine/media/sources";
 import { KINDS, scanImage, scanVideo, scoreInterest, type Scan } from "./engine/media/scan";
 import { planMontage, usedRanges, type Ranges } from "./engine/plan/montage";
+import type { Pace } from "./engine/plan/rhythm";
 import { mixOrder, styleFor, talks, type EditStyle, type Talker } from "./engine/plan/styles";
 import { detectSpeech } from "./engine/audio/speech";
 import { planMeme, planTwist } from "./engine/plan/formats";
@@ -206,6 +207,8 @@ export interface MontageRun {
   style?: EditStyle | "mix";
   /** with no card: end on the moment the edit opens on */
   loop?: boolean;
+  /** how hard a montage cuts on the music (the app's Cutting; the planner's own default, steady, when unset) */
+  pace?: Pace;
   /** save only each edit's soundtrack, as 48 kHz 16-bit WAV (no pictures) */
   audioOnly?: boolean;
 }
@@ -299,7 +302,7 @@ async function montage(run: MontageRun) {
     }
     lap("talking");
   }
-  const order = mixOrder(scans, talkers.length > 0);
+  const order = mixOrder(scans, talkers.length > 0, run.pace);
   const results = [];
   const avoid: Ranges = new Map();
   for (let v = 0; v < (run.variants ?? 1); v++) {
@@ -309,7 +312,7 @@ async function montage(run: MontageRun) {
         ? planTwist({ ...common, actB: new Set((run.actB ?? []).map((i) => `clip${i}`)), captionA: run.caption?.text ?? "what they see vs...", captionB: run.captionB ?? "what they don't..." })
         : run.format === "meme"
           ? planMeme({ ...common, text: run.memeText ?? "", position: run.memePosition ?? "upper" })
-          : planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style: run.style ? styleFor(v, run.style, order) : undefined, talkers, loop: run.loop });
+          : planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style: run.style ? styleFor(v, run.style, order) : undefined, talkers, loop: run.loop, pace: run.pace });
     // As the app does: planned again until no shot runs over one of the footage's own cuts.
     const plan = run.settle === false ? make() : await settlePlan(make, new Map(scans.map((sc) => [sc.id, sc])), cutFinder(sources));
     usedRanges(plan, avoid);

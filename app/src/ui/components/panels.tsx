@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { drawCard } from "../../engine/render/card";
 import { loadFonts } from "../../engine/render/fonts";
 import { FRAME_SIZE, type Aspect } from "../../engine/plan/types";
-import { EDIT_STYLES } from "../../engine/plan/styles";
-import { CARD_VIDEO_LENGTH, cardHoldOf, MAX_LENGTH, studio, type Format, type State } from "../studio";
+import type { Pace } from "../../engine/plan/rhythm";
+import { EDIT_STYLES, paceOf } from "../../engine/plan/styles";
+import { CARD_VIDEO_LENGTH, cardHoldOf, MAX_LENGTH, studio, type Format, type State, type Style } from "../studio";
 import { Drop, fmtTime, Section, Segmented, Switch } from "./bits";
 import { SongTimeline } from "./song";
 
@@ -404,6 +405,35 @@ export function StoryPanel({ s }: { s: State }) {
   );
 }
 
+const CUTTING: { value: Pace; label: string }[] = [
+  { value: "hard", label: "Hard" },
+  { value: "beat", label: "Steady" },
+  { value: "relaxed", label: "Relaxed" },
+];
+
+/** How hard a montage cuts on the music; slow and fast re-cuts have their own pace. */
+function CuttingField({ st }: { st: Style }) {
+  const own = st.edit === "slow" || st.edit === "recut" ? paceOf(st.edit, st.cutting) : undefined;
+  const mix = st.edit === "mix";
+  const hint =
+    st.edit === "slow"
+      ? "Slow and cinematic keeps its long holds."
+      : st.edit === "recut"
+        ? "Fast re-cuts always cut hard."
+        : st.cutting === "hard"
+          ? `A cut on every hit that stands out (every stab of an intro), on every beat into the drop, and fast after it.${mix ? " A mix leaves out the slow style." : ""}`
+          : st.cutting === "beat"
+            ? "The reference editors' rhythm: two beats a shot into the drop, their pattern after it, and a cut on the hits that stand out."
+            : `Longer shots: a cut on the biggest hits only.${mix ? " A mix leaves out the fast re-cuts." : ""}`;
+  return (
+    <div className="field">
+      <span className="label">Cutting</span>
+      <Segmented label="Cutting" value={own ?? st.cutting} options={CUTTING} disabled={!!own} onChange={(v) => studio.setStyle({ cutting: v })} />
+      <span className="hint">{hint}</span>
+    </div>
+  );
+}
+
 export function StylePanel({ s }: { s: State }) {
   const st = s.style;
   const hold = cardHoldOf(s.kit);
@@ -435,6 +465,7 @@ export function StylePanel({ s }: { s: State }) {
           </div>
         </div>
       )}
+      {st.format === "montage" && <CuttingField st={st} />}
       <div className="field" style={st.format === "montage" ? undefined : { marginTop: 0 }}>
         <span className="label">Frame</span>
         <Segmented label="Frame" value={st.aspect} options={aspects} onChange={(v) => studio.setStyle({ aspect: v })} />
