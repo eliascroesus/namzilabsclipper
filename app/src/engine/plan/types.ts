@@ -234,7 +234,7 @@ export interface Grade {
   grain: number;
 }
 
-export const WARM_GRADE: Grade = { warmth: 0.35, contrast: 0.35, saturation: 1.06, vignette: 0.35, grain: 0.25 };
+export const WARM_GRADE: Grade = { warmth: 0.45, contrast: 0.5, saturation: 1.0, vignette: 0.35, grain: 0.25 };
 export const NO_GRADE: Grade = { warmth: 0, contrast: 0, saturation: 1, vignette: 0, grain: 0 };
 
 export interface PostNote {

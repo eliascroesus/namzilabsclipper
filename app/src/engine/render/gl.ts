@@ -35,6 +35,8 @@ export interface LayerDraw {
    * clip in it): its centre and its width and height, 0 to 1 of the frame; turned by tilt
    */
   card?: { x: number; y: number; w: number; h: number };
+  /** the shot balanced on its own (render/tone.ts): black point, white point, gamma, saturation */
+  tone?: [number, number, number, number];
 }
 
 export interface FrameDraw {
@@ -84,6 +86,7 @@ uniform float uTilt; // the picture as a card turned this far clockwise (radians
 uniform bool uCard; // drawn as a card: centred at uCardC, uCardS of the frame's width and height
 uniform vec2 uCardC;
 uniform vec2 uCardS;
+uniform vec4 uTone; // black point, white point, gamma, saturation (none when the white point isn't above the black)
 out vec4 outColor;
 vec2 toTex(vec2 d) {
   if (uFlip) d.x = 1.0 - d.x;
@@ -119,6 +122,13 @@ void main() {
   vec2 d = c + (o - 0.5) * f;
   if (d.x < 0.0 || d.x > 1.0 || d.y < 0.0 || d.y > 1.0) { outColor = vec4(0.0); return; }
   vec3 col = texture(uTex, toTex(uRect.xy + d * uRect.zw)).rgb * uGain;
+  // The shot balanced on its own before the look goes on: black point down, white point
+  // up, the exposure and the colour towards the look's.
+  if (uTone.y > uTone.x) {
+    col = pow(clamp((col - uTone.x) / (uTone.y - uTone.x), 0.0, 1.0), vec3(uTone.z));
+    float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
+    col = clamp(mix(vec3(l), col, uTone.w), 0.0, 1.0);
+  }
   outColor = vec4(col * uAlpha * edge, uAlpha * edge);
 }`;
 
@@ -371,7 +381,30 @@ export class Compositor {
     gl.uniform1i(p.loc("uCard"), card ? 1 : 0);
     gl.uniform2f(p.loc("uCardC"), card?.x ?? 0.5, card?.y ?? 0.5);
     gl.uniform2f(p.loc("uCardS"), Math.max(1e-3, card?.w ?? 1), Math.max(1e-3, card?.h ?? 1));
+    const tone = l.tone ?? [0, 0, 1, 1];
+    gl.uniform4f(p.loc("uTone"), tone[0], tone[1], tone[2], tone[3]);
     this.quad(target);
+  }
+
+  /**
+   * The pixels of a layer as it shows, untouched (for balancing a shot: render/tone.ts):
+   * drawn at an eighth of the frame, RGBA, transparent where there's no picture.
+   */
+  measure(l: LayerDraw): Uint8Array {
+    const gl = this.gl;
+    const [a] = this.small;
+    gl.disable(gl.BLEND);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, a.fb);
+    gl.viewport(0, 0, a.w, a.h);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    const shake = this.shake;
+    this.shake = [0, 0];
+    this.drawLayer({ ...l, tone: undefined }, a, l.fit === "fit" ? 1 : 0, 1);
+    this.shake = shake;
+    const px = new Uint8Array(a.w * a.h * 4);
+    gl.readPixels(0, 0, a.w, a.h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    return px;
   }
 
   draw(f: FrameDraw) {

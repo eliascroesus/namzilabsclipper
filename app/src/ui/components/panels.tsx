@@ -563,7 +563,7 @@ export function StylePanel({ s }: { s: State }) {
       <div className="field">
         <span className="label">Look</span>
         <Segmented label="Look" value={st.look} options={[{ value: "warm", label: "Warm film" }, { value: "natural", label: "As shot" }]} onChange={(v) => studio.setStyle({ look: v })} />
-        <span className="hint">{st.look === "warm" ? "The nio.trade grade: warm highlights, soft contrast, a little grain and vignette." : "No grade: for footage that's already graded."}</span>
+        <span className="hint">{st.look === "warm" ? "Each shot balanced on its own (deep blacks, rich colour), then the nio.trade look: warm highlights, film contrast, a little grain and vignette." : "No grade: for footage that's already graded."}</span>
       </div>
       {st.format !== "meme" && (
         <div className="field">

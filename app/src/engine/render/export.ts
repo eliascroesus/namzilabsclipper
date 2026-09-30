@@ -29,6 +29,7 @@ import { drawCard } from "./card";
 import { loadFonts } from "./fonts";
 import { Compositor, OVERLAY_SLOTS, type LayerDraw, type Rotation } from "./gl";
 import { mixPlan } from "./mix";
+import { balance, lookOf, type Tone } from "./tone";
 import { audioDelay, shiftAudio } from "./avsync";
 
 export interface RenderOptions {
@@ -200,6 +201,8 @@ export class FramePainter {
   private readonly sinks = new Map<string, VideoSampleSink>();
   private readonly readers = new Map<number, ShotReader>();
   private readonly overReaders = new Map<OverlayEvent, ShotReader>();
+  /** each shot's balance, once measured (render/tone.ts) */
+  private readonly tones = new Map<number, { tone?: Tone; tries: number }>();
   /** what's in each overlay slot now */
   private readonly overKeys: string[] = [];
   private lastUpload = "";
@@ -244,6 +247,22 @@ export class FramePainter {
     return sink;
   }
 
+  /**
+   * A shot's layer balanced on its own under a look (render/tone.ts): its first frame as
+   * it shows, measured once (again on the next frames while there's too little to
+   * measure: a black frame, a flat colour).
+   */
+  private balanced(idx: number, layer: LayerDraw, graded: boolean): LayerDraw {
+    if (!graded) return layer;
+    let b = this.tones.get(idx);
+    if (!b || (!b.tone && b.tries < 6)) {
+      const look = lookOf(this.comp.measure(layer));
+      b = { tone: look ? balance(look) : undefined, tries: (b?.tries ?? 0) + 1 };
+      this.tones.set(idx, b);
+    }
+    return b.tone ? { ...layer, tone: b.tone } : layer;
+  }
+
   /** An overlay's frame at `tau` seconds into it (a clip in a window plays; a still holds). */
   private async overlayFrame(o: OverlayEvent, tau: number): Promise<VideoSample | null> {
     let r = this.overReaders.get(o);
@@ -282,6 +301,8 @@ export class FramePainter {
     const inOwnCard = !!plan.card && ownCard && t >= plan.card.start - 1e-6;
     const e = fxAt(plan.fx, t, fps);
     const shot: ShotEvent | undefined = idx >= 0 ? plan.shots[idx] : undefined;
+    // (Each shot balanced on its own only under a look: "as shot" is as shot.)
+    const graded = !inOwnCard && (plan.grade.warmth !== 0 || plan.grade.contrast !== 0);
     if (shot && !inCard) {
       this.reader(idx + 1); // start decoding the next shot now
       const p = (t - shot.start) / Math.max(1e-6, shot.end - shot.start);
@@ -298,7 +319,7 @@ export class FramePainter {
             comp.upload(0, img, img.width, img.height);
             this.lastUpload = key;
           }
-          layers.push({ slot: 0, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1, ...card });
+          layers.push(this.balanced(idx, { slot: 0, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1, ...card }, graded));
         }
       } else {
         const sample = await this.reader(idx)?.at(shot.srcStart + sourceAt(shot, t - shot.start));
@@ -310,7 +331,7 @@ export class FramePainter {
             vf.close();
             this.lastUpload = key;
           }
-          layers.push({ slot: 0, srcW: sample.displayWidth, srcH: sample.displayHeight, rotation: sample.rotation as Rotation, flip: sample.flip, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1, ...card });
+          layers.push(this.balanced(idx, { slot: 0, srcW: sample.displayWidth, srcH: sample.displayHeight, rotation: sample.rotation as Rotation, flip: sample.flip, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1, ...card }, graded));
         }
       }
     }

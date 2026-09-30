@@ -216,6 +216,20 @@ What the app does with them:
 
 **Loop the ending** (a switch, on by default, without an end card): the last shot is the moment just before the first, or the first shot again, as TJR ends, and the music stops on the bar line instead of fading, so the replay runs straight on. Not after talking.
 
+## The look, measured
+
+Every frame of five edits measured, twice a second (the frames that aren't black): how colourful the lit part of the picture is (HSV saturation), where the darkest twentieth of it sits (the black point), how warm it is (red over blue) and how bright.
+
+| Edit | Saturation | Black point | Warmth | Brightness |
+|---|---|---|---|---|
+| nio …0002 | 0.36 | 0.003 | 0.085 | 0.27 |
+| nio …3659 | 0.31 | 0.05 | 0.07 | 0.28 |
+| mico | 0.26 | 0.03 | 0.03 | 0.37 |
+| tjr …7392 | 0.13 | 0.04 | 0.03 | 0.46 |
+| A user's edit from the app, before | 0.17 | 0.12 | 0.00 | 0.52 |
+
+The user's phone footage came out flat: milky blacks, half the colour, brighter, and the app's warm look (a light touch of warmth, a fifth of a film curve) didn't reach it. A colourist balances each shot before the look goes on, so the app now does too: each shot's first frame, as it shows (cropped), is measured, its black point taken down to black (a lift of up to a fifth), its white point up (by a sixth at most, so a hazy shot isn't blown out), its exposure pulled towards 0.40 and its colour towards the references' 0.33; then the look, warmer and with more of the film curve. On raw footage (a Cabo vlog, a walk, a vlog, a car clip, a letterboxed film) the same edit's frames went from a median black point of 0.127 to 0.017, saturation 0.17 to 0.30 and brightness 0.50 to 0.45; footage that's already graded, the references' own, is barely touched.
+
 ## Craft rules, measured
 
 - **Hook on frame one.** Every Nio clip opens with its caption on black before any footage. Nothing opens on a logo.
