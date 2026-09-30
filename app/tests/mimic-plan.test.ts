@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { retime } from "../src/mimic/asr/align";
 import { DEFAULT_LOOK, paginate } from "../src/mimic/captions";
-import { planMimic, progress, zoomAt } from "../src/mimic/plan";
+import { lineAt, planMimic, progress, zoomAt } from "../src/mimic/plan";
 import { cardOffset } from "../src/mimic/render";
 import type { MimicTemplate } from "../src/mimic/types";
 import type { Word } from "../src/mimic/asr/parakeet";
@@ -176,5 +176,120 @@ describe("the mimic plan", () => {
     expect(plan.cards.find((c) => c.slot === "card2")?.extra).toBe("a");
     expect(plan.music?.gain).toBe(-16);
     expect(plan.music!.start).toBeGreaterThan(8);
+  });
+});
+
+describe("sound effects", () => {
+  const words = say("En to tre fire fem seks syv otte ni ti elleve tolv tretten fjorten femten seksten sytten atten nitten tyve. En to tre fire fem seks syv otte ni ti elleve tolv tretten fjorten femten seksten sytten atten nitten tyve. Det koster fem tusind kroner.");
+  const dur = words[words.length - 1].end + 0.5;
+  const base = {
+    template,
+    raw: { id: "raw", duration: dur, width: 608, height: 1080, cuts: [] },
+    words,
+    speech: [{ start: 0, end: dur - 0.5 }],
+    extras: [
+      { id: "a", name: "a.jpg", kind: "image" as const, width: 800, height: 1000, duration: 0 },
+      { id: "b", name: "b.jpg", kind: "image" as const, width: 800, height: 1000, duration: 0 },
+      { id: "v", name: "v.mp4", kind: "video" as const, width: 1920, height: 1080, duration: 4 },
+      { id: "c", name: "c.jpg", kind: "image" as const, width: 800, height: 1000, duration: 0 },
+    ],
+    clip: false,
+  };
+  const at = (p: ReturnType<typeof planMimic>, key: string) => p.sfx.find((c) => c.key === key);
+
+  it("whoosh as a card slides in (from its side) and out, swipe as a run's picture changes, whoosh into a cutaway", () => {
+    const plan = planMimic(base);
+    const inn = at(plan, "in:card1")!;
+    expect(inn.sound).toBe("whoosh");
+    expect(inn.t).toBeCloseTo(1 + 0.2 * 0.7, 6);
+    expect(inn.pan).toEqual([0.7, 0]);
+    expect(at(plan, "swap:card2")).toMatchObject({ sound: "swipe", t: 1.5 });
+    const out = at(plan, "out:card2")!;
+    expect(out.t).toBeCloseTo(2.2 - 0.4 * 0.6, 6);
+    expect(out.pan).toEqual([0, -0.7]);
+    expect(at(plan, "cut:broll1")!.t).toBeCloseTo(plan.broll[0].start, 6);
+    // In order, and none on a card that's a straight cut out.
+    expect(plan.sfx.map((c) => c.t)).toEqual([...plan.sfx.map((c) => c.t)].sort((x, y) => x - y));
+    expect(at(plan, "out:card1")).toBeUndefined();
+  });
+
+  it("keeps the user's changes by what they're on, and their own sounds", () => {
+    const plan = planMimic({ ...base, sfx: { mode: "moves", move: "swipe", db: -3, edits: { "in:card1": { dt: 0.1, db: -6, sound: "pop" }, "swap:card2": { off: true } }, mine: [{ key: "mine:1", t: 5, sound: "ding", db: 2, why: "yours" }] } });
+    expect(at(plan, "in:card1")).toMatchObject({ sound: "pop", db: -6 });
+    expect(at(plan, "in:card1")!.t).toBeCloseTo(1 + 0.14 + 0.1, 6);
+    expect(at(plan, "swap:card2")).toBeUndefined();
+    expect(at(plan, "out:card2")!.sound).toBe("swipe");
+    expect(at(plan, "mine:1")).toMatchObject({ t: 5, sound: "ding", db: 2 });
+    expect(plan.sfxGain).toBe(-3);
+    const none = planMimic({ ...base, sfx: { mode: "none", move: "whoosh", db: 0, mine: [{ key: "mine:1", t: 5, sound: "ding", db: 0, why: "yours" }] } });
+    expect(none.sfx.map((c) => c.key)).toEqual(["mine:1"]);
+  });
+
+  it("puts the script's sounds on their words, through the edit's clock", () => {
+    const kroner = words.findIndex((w) => w.text.startsWith("kroner"));
+    const plan = planMimic({ ...base, sfx: { mode: "script", move: "whoosh", db: 0, script: [{ key: `word:${kroner}`, t: words[kroner].start, sound: "cash", why: "money" }] } });
+    expect(at(plan, `word:${kroner}`)).toMatchObject({ sound: "cash" });
+    expect(at(plan, `word:${kroner}`)!.t).toBeCloseTo(words[kroner].start, 6);
+    expect(planMimic({ ...base, sfx: { mode: "moves", move: "whoosh", db: 0, script: [{ key: "word:1", t: 1, sound: "cash", why: "" }] } }).sfx.some((c) => c.key === "word:1")).toBe(false);
+  });
+});
+
+describe("cards where the script says it", () => {
+  const words = say("En to tre fire fem seks syv otte ni ti elleve tolv tretten fjorten femten seksten sytten atten nitten tyve. En to tre fire fem seks syv otte ni ti elleve tolv tretten fjorten femten seksten sytten atten nitten tyve.");
+  const dur = words[words.length - 1].end + 0.5;
+  const base = {
+    template,
+    raw: { id: "raw", duration: dur, width: 608, height: 1080, cuts: [] },
+    words,
+    speech: [{ start: 0, end: dur - 0.5 }],
+    extras: [
+      { id: "a", name: "a.jpg", kind: "image" as const, width: 800, height: 1000, duration: 0 },
+      { id: "b", name: "b.jpg", kind: "image" as const, width: 800, height: 1000, duration: 0 },
+      { id: "c", name: "c.jpg", kind: "image" as const, width: 800, height: 1000, duration: 0 },
+    ],
+    clip: false,
+  };
+
+  it("moves a run to its moment, keeping its own rhythm, and lets nothing land on top of it", () => {
+    const w = words[30];
+    const plan = planMimic({ ...base, anchor: { card1: w.start + 0.05, card3: w.start } });
+    const [c1, c2] = ["card1", "card2"].map((id) => plan.cards.find((c) => c.slot === id)!);
+    expect(c1.start).toBeCloseTo(w.start, 6);
+    expect(c2.start - c1.start).toBeCloseTo(0.5, 6);
+    // card3 was sent to the same moment: it waits for the run to go.
+    const c3 = plan.cards.find((c) => c.slot === "card3")!;
+    expect(c3.start).toBeGreaterThanOrEqual(c2.end + 0.15 - 1e-9);
+    // And its sounds came along.
+    expect(plan.sfx.find((c) => c.key === "in:card1")!.t).toBeGreaterThan(c1.start);
+  });
+
+  it("finds the moment when the footage's pause there was cut", () => {
+    const gap = say("Et to tre. Fire fem seks.").map((x, i) => (i >= 3 ? { ...x, start: x.start + 3, end: x.end + 3 } : x));
+    const plan = planMimic({ ...base, words: gap, speech: gap.map((x) => ({ start: x.start, end: x.end })), raw: { ...base.raw, duration: 8 }, clip: true, extras: [base.extras[2]], assign: { card1: null, card2: null }, anchor: { card3: gap[2].end + 1.5 } });
+    const c3 = plan.cards.find((c) => c.slot === "card3");
+    // In the pause that was cut: it goes on the next word kept.
+    expect(c3?.start).toBeCloseTo(plan.captions!.pages.flatMap((p) => p.lines.flat()).find((x) => x.text === "Fire")!.start, 6);
+  });
+});
+
+describe("the music", () => {
+  const words = say("En to tre fire fem seks syv otte ni ti elleve tolv tretten fjorten femten seksten sytten atten nitten tyve.");
+  const dur = words[words.length - 1].end + 0.5;
+  const base = { template, raw: { id: "raw", duration: dur, width: 608, height: 1080, cuts: [] }, words, speech: [{ start: 0, end: dur - 0.5 }], extras: [], clip: false };
+
+  it("comes in with the reference's music or from the top, from a point in the song, at the user's level and volume line", () => {
+    const line: [number, number][] = [[0, 0], [3, -12], [6, 0]];
+    const plan = planMimic({ ...base, music: { id: "m", duration: 60, db: 4, from: 12, at: "start", line } });
+    expect(plan.music).toMatchObject({ start: 0, from: 12, gain: -16 + 4, line });
+    expect(planMimic({ ...base, music: { id: "m", duration: 60 } }).music!.start).toBeGreaterThan(0);
+  });
+
+  it("follows its volume line: straight between points, flat past the ends", () => {
+    const line: [number, number][] = [[2, 0], [4, -12], [8, 0]];
+    expect(lineAt(line, 0)).toBe(0);
+    expect(lineAt(line, 3)).toBeCloseTo(-6, 6);
+    expect(lineAt(line, 6)).toBeCloseTo(-6, 6);
+    expect(lineAt(line, 20)).toBe(0);
+    expect(lineAt([], 5)).toBe(0);
   });
 });

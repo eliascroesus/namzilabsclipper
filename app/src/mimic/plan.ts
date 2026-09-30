@@ -9,7 +9,7 @@
  */
 import { keepSpeech, type Run } from "../engine/audio/speech";
 import { paginate, DEFAULT_LOOK } from "./captions";
-import type { CardSlot, Extra, MimicPlan, MimicTemplate, PlanBroll, PlanCard, PlanWord, Segment } from "./types";
+import type { CardSlot, Edge, Extra, MimicPlan, MimicTemplate, PlanBroll, PlanCard, PlanWord, Segment, SfxCue, VolumeLine } from "./types";
 import type { Word } from "./asr/parakeet";
 
 export interface PlanInput {
@@ -33,9 +33,16 @@ export interface PlanInput {
   assign?: Record<string, string | null>;
   /** slot id → output time the user moved it to */
   at?: Record<string, number>;
+  /**
+   * slot id (a run's first card, or a cutaway) → the moment of the footage (source time) it
+   * belongs at: where its script says what it shows, or where the user put it
+   */
+  anchor?: Record<string, number>;
+  sfx?: SfxOptions;
   /** cut the footage's pauses down to the reference's */
   clip: boolean;
-  music?: { id: string; duration: number } | null;
+  /** music: its level against the reference's (dB), where in the song it starts, where in the edit (with the reference's music, or from the top), and the user's volume line */
+  music?: { id: string; duration: number; db?: number; from?: number; at?: "bed" | "start"; line?: VolumeLine } | null;
   width?: number;
   height?: number;
   fps?: number;
@@ -44,6 +51,23 @@ export interface PlanInput {
   /** the captions' look, as the user tuned it */
   look?: MimicTemplate["captions"];
 }
+
+export interface SfxOptions {
+  /** none; on the cards' and cutaways' moves; those and moments in the script */
+  mode: "none" | "moves" | "script";
+  /** the sound a card or cutaway moves with (a made one, or one of the user's) */
+  move: string;
+  /** all of them up or down (dB) */
+  db: number;
+  /** the user's changes, by cue key: moved (seconds), another sound, its own level, or taken out */
+  edits?: Record<string, { dt?: number; sound?: string; db?: number; off?: boolean }>;
+  /** sounds the user put in themselves (output times) */
+  mine?: Omit<SfxCue, "pan">[];
+  /** moments in the script for a sound (source times), read off the words or by Gemini */
+  script?: { key: string; t: number; sound: string; why: string }[];
+}
+
+const panFrom = (e: Edge | undefined) => (e === "right" ? 0.7 : e === "left" ? -0.7 : 0);
 
 /** A clock that maps source time to edit time through the kept segments. */
 export function segmentClock(segs: Segment[]) {
@@ -178,30 +202,64 @@ export function planMimic(inp: PlanInput): MimicPlan {
     }
   }
   for (const s of slots) if (!fill.has(s)) fill.set(s, take(() => true));
-  const cards: PlanCard[] = [];
-  const broll: PlanBroll[] = [];
+  // A moment of the footage on the edit's clock (the next moment kept, if that one was cut),
+  // on the start of the word said there.
+  const toOutNear = (t: number) => {
+    const d = clock.toOut(t);
+    if (d !== null) return d;
+    const next = segments.find((sg) => sg.from >= t);
+    return next ? next.start : body;
+  };
+  const anchored = (id: string) => (inp.anchor && id in inp.anchor ? snap(toOutNear(inp.anchor[id]), words, pageStarts, 0.6) : undefined);
+  let cards: PlanCard[] = [];
+  let broll: PlanBroll[] = [];
   // A run of cards moves together: its first card is placed, the rest keep their gaps.
   const runStart = new Map<number, number>();
+  const runOf = new Map<string, number>();
   for (const s of slots) {
     const e = fill.get(s);
     if (!e) continue;
     if (s.kind === "card") {
       const c = s.slot;
       const first = tpl.cards.find((x) => x.run === c.run)!;
-      if (!runStart.has(c.run)) runStart.set(c.run, inp.at?.[first.id] ?? place(first.start));
+      if (!runStart.has(c.run)) runStart.set(c.run, inp.at?.[first.id] ?? anchored(first.id) ?? place(first.start));
       const start = inp.at?.[c.id] ?? runStart.get(c.run)! + (c.start - first.start);
       const end = start + (c.end - c.start);
       if (start >= body - 0.3) continue;
+      runOf.set(c.id, c.run);
       cards.push({ slot: c.id, start, end: Math.min(end, body), rect: c.rect, enter: c.enter, exit: c.exit, radius: c.radius, extra: e.id, crop: coverCrop(e, c.rect, W, H), from: 0 });
     } else {
       const b = s.slot;
-      const start = inp.at?.[b.id] ?? place(b.start);
+      const start = inp.at?.[b.id] ?? anchored(b.id) ?? place(b.start);
       let end = start + (b.end - b.start);
       if (e.kind === "video" && e.duration > 0) end = Math.min(end, start + e.duration);
       if (start >= body - 0.3) continue;
       broll.push({ slot: b.id, start, end: Math.min(end, body), extra: e.id, from: 0, zoom: [b.zoom[0], Math.max(0.8, Math.min(1.6, b.zoom[1]))], crop: { cx: e.focus?.x ?? 0.5, cy: e.focus?.y ?? 0.5 } });
     }
   }
+  // Nothing lands on top of anything else: where two come together (a run the script moved
+  // onto another), the later one waits for the earlier to go.
+  type Block = { start: number; end: number; cards: PlanCard[]; cut: PlanBroll | null };
+  const blocks: Block[] = [];
+  for (const run of new Set(cards.map((c) => runOf.get(c.slot)))) {
+    const cs = cards.filter((c) => runOf.get(c.slot) === run);
+    blocks.push({ start: Math.min(...cs.map((c) => c.start)), end: Math.max(...cs.map((c) => c.end)), cards: cs, cut: null });
+  }
+  for (const b of broll) blocks.push({ start: b.start, end: b.end, cards: [], cut: b });
+  blocks.sort((a, b) => a.start - b.start);
+  let free = 0;
+  for (const b of blocks) {
+    const shift = Math.max(0, free + 0.15 - b.start);
+    if (shift > 0) {
+      b.start += shift;
+      b.end += shift;
+      for (const c of b.cards) (c.start += shift), (c.end = Math.min(body, c.end + shift));
+      if (b.cut) (b.cut.start += shift), (b.cut.end = Math.min(body, b.cut.end + shift));
+    }
+    if (b.start < body - 0.3) free = b.end;
+  }
+  cards = cards.filter((c) => c.start < body - 0.3 && c.end > c.start);
+  broll = broll.filter((b) => b.start < body - 0.3 && b.end > b.start);
 
   // 4. Zoom: the reference's steps between wide and close, at the same points of the talk,
   // and a jump at every cut in the footage (to hide it).
@@ -268,26 +326,63 @@ export function planMimic(inp: PlanInput): MimicPlan {
     }
   frames.sort((a, b) => a.start - b.start);
 
-  // 6. Sounds on the same events as the reference's.
-  const sfx: MimicPlan["sfx"] = [];
-  for (const s of tpl.sound.sfx) {
-    const gain = Math.pow(10, Math.min(0, s.level - 12) / 20);
-    if (s.on === "card-in" || s.on === "card-out") {
-      const runs = new Map<string, PlanCard[]>();
-      for (const c of cards) {
-        const run = tpl.cards.find((x) => x.id === c.slot)?.run ?? -1;
-        runs.set(String(run), [...(runs.get(String(run)) ?? []), c]);
-      }
-      for (const r of runs.values()) sfx.push({ t: s.on === "card-in" ? r[0].start : r[r.length - 1].end - r[r.length - 1].exit.dur, kind: s.kind, gain });
-    } else if (s.on === "broll") for (const b of broll) sfx.push({ t: b.start, kind: s.kind, gain });
-    else if (s.on === "zoom") for (const c of changes.filter((c) => !c.jump)) sfx.push({ t: c.t, kind: s.kind, gain });
+  // 6. Sound effects: a whoosh as a card lands and as it goes (from the side it comes from), a
+  // swipe as a run's picture changes, a whoosh into a cutaway (or the reference's own sounds
+  // on these, where it had some); sounds on moments of the script; the user's own; and the
+  // user's changes to any of them, kept by what they're on.
+  const so: SfxOptions = inp.sfx ?? { mode: "moves", move: "whoosh", db: 0 };
+  const heard = new Map(tpl.sound.sfx.map((x) => [x.on, x.kind]));
+  const sfx: SfxCue[] = [];
+  const cue = (key: string, t: number, sound: string, db: number, why: string, pan?: [number, number]) => {
+    const e = so.edits?.[key];
+    if (e?.off) return;
+    const at = t + (e?.dt ?? 0);
+    if (at < 0 || at > body + 0.5) return;
+    sfx.push({ key, t: at, sound: e?.sound ?? sound, db: e?.db ?? db, why, ...(pan ? { pan } : {}) });
+  };
+  if (so.mode !== "none") {
+    const runs = new Map<number, PlanCard[]>();
+    for (const c of [...cards].sort((a, b) => a.start - b.start)) runs.set(runOf.get(c.slot) ?? -1, [...(runs.get(runOf.get(c.slot) ?? -1) ?? []), c]);
+    for (const r of runs.values()) {
+      const [first, last] = [r[0], r[r.length - 1]];
+      if (first.enter.kind === "cut") cue(`in:${first.slot}`, first.start, heard.get("card-in") ?? "pop", -4, "a card cuts in");
+      else cue(`in:${first.slot}`, first.start + first.enter.dur * 0.7, heard.get("card-in") ?? so.move, 0, "a card slides in", [panFrom(first.enter.from), 0]);
+      for (const c of r.slice(1)) if (c.enter.kind === "cut") cue(`swap:${c.slot}`, c.start, "swipe", -5, "the card's picture changes");
+      if (last.exit.kind !== "cut") cue(`out:${last.slot}`, last.end - last.exit.dur * 0.6, heard.get("card-out") ?? so.move, -3, "a card slides out", [0, panFrom(last.exit.from)]);
+    }
+    for (const b of broll) cue(`cut:${b.slot}`, b.start, heard.get("broll") ?? so.move, -2, "a cutaway");
+    const zoomSound = heard.get("zoom");
+    if (zoomSound) changes.filter((c) => !c.jump).forEach((c, i) => cue(`zoom:${i}`, c.t, zoomSound, -6, "a zoom"));
   }
+  if (so.mode === "script")
+    for (const x of so.script ?? []) {
+      const t = clock.toOut(x.t);
+      if (t !== null) cue(x.key, t, x.sound, -2, x.why);
+    }
+  for (const m of so.mine ?? []) cue(m.key, m.t, m.sound, m.db, m.why);
+  sfx.sort((a, b) => a.t - b.t);
 
-  // 7. Music under it, from where the reference's bed comes in, as far under the voice.
+  // 7. Music under it, from where the reference's bed comes in (or from the top), as far under
+  // the voice, then the user's level and volume line.
   const tail = inp.tail === false ? 0 : Math.min(4, tpl.tail);
-  const music = inp.music ? { source: inp.music.id, start: tpl.sound.bed ? place(tpl.sound.bed.start) : 0, from: 0, gain: tpl.sound.bed ? tpl.sound.bed.level : -18, fadeOut: Math.max(0.5, tail) } : null;
+  const m = inp.music;
+  const music = m ? { source: m.id, start: m.at === "start" || !tpl.sound.bed ? 0 : place(tpl.sound.bed.start), from: Math.max(0, m.from ?? 0), gain: (tpl.sound.bed ? tpl.sound.bed.level : -18) + (m.db ?? 0), fadeOut: Math.max(0.5, tail), ...(m.line?.length ? { line: m.line } : {}) } : null;
 
-  return { width: W, height: H, fps, duration: body + tail, segments, zoom, frame, frames, broll, cards: cards.sort((a, b) => a.start - b.start), captions: { look, pages }, sfx, music, tail };
+  return { width: W, height: H, fps, duration: body + tail, segments, zoom, frame, frames, broll, cards: cards.sort((a, b) => a.start - b.start), captions: { look, pages }, sfx, sfxGain: so.db, music, tail };
+}
+
+/** The music's own level at t (dB) along the user's volume line: flat before the first key and after the last. */
+export function lineAt(line: VolumeLine | undefined, t: number): number {
+  if (!line?.length) return 0;
+  if (t <= line[0][0]) return line[0][1];
+  for (let i = 1; i < line.length; i++) {
+    const [t1, d1] = line[i];
+    if (t <= t1) {
+      const [t0, d0] = line[i - 1];
+      return t1 > t0 ? d0 + ((d1 - d0) * (t - t0)) / (t1 - t0) : d1;
+    }
+  }
+  return line[line.length - 1][1];
 }
 
 /** The level of the footage's zoom at t, from the plan's keyframes (a jump is two keys at one time). */

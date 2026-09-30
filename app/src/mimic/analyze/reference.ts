@@ -8,7 +8,7 @@
  */
 import type { MimicTemplate, BrollSlot, CardSlot, SoundLook } from "../types";
 import { CardFinder, type Gray } from "./cards";
-import { captionLook, measureLine, type CaptionSample } from "./captions";
+import { captionLook, captionScript, measureLine, type CaptionSample } from "./captions";
 import type { Picture, TextBox, TextReader } from "./ocr";
 import { blackTail, classifyShots, findCuts, type Shot } from "./shots";
 import { findSfx, soundProfile } from "./sound";
@@ -160,6 +160,7 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
   cancelled(signal);
   a.onSamples?.(samples);
   const captions = captionLook(samples, pw, ph, cards);
+  const script = band ? captionScript(samples, ph, band) : [];
 
   // 4. Shots: the talking footage and the cutaways.
   const faceTimes = [...faceAt.keys()];
@@ -286,7 +287,7 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
   if (cutaways.length) notes.push(`${cutaways.length} cutaway${cutaways.length > 1 ? "s" : ""} over the voice.`);
   if (zoom) notes.push(`${zoom.changes.length} zooms on the talking, to about ${Math.round((zoom.close - 1) * 100)}% closer.`);
   if (sound.bed) notes.push(`A bed under the voice from ${sound.bed.start.toFixed(1)} s, ${-sound.bed.level} dB down.`);
-  notes.push(sound.sfx.length ? `Sounds on ${sound.sfx.map((s) => s.on).join(", ")}.` : "No sound effects.");
+  notes.push(sound.sfx.length ? `Sounds on ${sound.sfx.map((s) => s.on).join(", ")}.` : "No sound effects to be heard in its sound (the edit gets whooshes on the cards' moves; see Sound).");
   if (tail > 0.2) notes.push(`Ends on ${tail.toFixed(1)} s of black.`);
 
   return {
@@ -304,6 +305,7 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
     tail,
     speaker,
     maxPause: sp.maxPause,
+    script,
     notes,
   };
 }

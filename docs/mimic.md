@@ -8,8 +8,10 @@ size, colour, how they come on), the same cards sliding over the talk with your 
 them, the same cutaways, zooms, sound under the voice and ending. A switch decides whether
 your footage is also clipped (its pauses cut to the reference's) or kept as it is.
 
-Nothing is uploaded unless you choose Gemini for the words (then the sound goes to Google).
-Everything else (the analysis, the speech model, the render) runs in the browser.
+Nothing is uploaded unless you choose Gemini for the words (then the sound goes to Google,
+and, when the cards are placed by your script or sounds picked from it, the transcript and
+small copies of your pictures). Everything else (the analysis, the speech model, the mix,
+the render) runs in the browser.
 
 Extras can be pasted instead of dropped (`app/src/mimic/ui/paste.ts`): copy a picture in any
 tab (right-click, Copy image) and press Ctrl+V (⌘V on a Mac) anywhere on the page, or use the
@@ -38,7 +40,7 @@ Python tools in `tools/`):
 | Cards | Ten, in five runs. The hook: four 4:5 photos in one place (80% of the width, centred), the first sliding in from the right in 0.2 s easing out, the next three cutting in on the same spot every half second, the last sliding out to the left. Later: a sales screenshot (76% wide), a pair of screenshots, a 16:10 video thumbnail (70% wide), a pair of product pictures, each sliding in from the right and out to the left. Captions stay on top. |
 | Cutaways | Three stretches of full-frame footage over the voice (7.5 to 12.5 s with two cuts, 22.5 to 25.3 s zooming into a laptop screen, 38.0 to 40.4 s). |
 | Zooms | 19 on the talking: steps between the wide framing and one about 16% closer, most over 6 frames (0.2 s) at an even speed, a few as jumps on a cut, about every 2 s where they come (long stretches have none). |
-| Sound | Voice only for the first 18.7 s, then a low bed under it (about 16 dB down) to the end. No sound effects: the loudest high-frequency moments near the cards and cuts are no louder than anywhere else. |
+| Sound | Voice only for the first 18.7 s, then a low bed under it (about 16 dB down) to the end. No sound effect to be found in its sound: with the voice taken out (Spleeter's separation, already in the clipper) nothing rises at the cards' moves above any other moment, no two moves share a sound (compared sample by sample against random moments), and the quiet between syllables doesn't fill up there. The file is a 48 kb/s HE-AAC download, so a faint whoosh may have been lost; the edit puts whooshes on the moves anyway (below). |
 | Ending | A cut to 3 s of black. |
 
 ## How a reference is studied
@@ -104,23 +106,54 @@ On the example the analysis takes about 75 s in Node and a little longer in a br
   words tighter or looser than Inter would, each word is placed by its letters' edges, the
   reference's gap from one word to the next (the example's 0.15 of the size, where Inter
   leaves 0.26).
-- **Cards and cutaways** come at the same point of the talk: the hook's (the first 5 s) to
-  the second, later ones at the same share of the speech through, on a caption's first
-  word. A run keeps its gaps. Your extras fill them in order (clips to cutaways and clip
-  cards, pictures to cards, then anything left over to slots still empty), or as you pick
-  per slot; each is cropped to the slot's shape about its subject (a face).
+- **Cards and cutaways**, with a switch for where they go:
+  - *As in the reference*: at the same point of the talk, the hook's (the first 5 s) to the
+    second, later ones at the same share of the speech through, on a caption's first word.
+  - *Where your script says it* (`match.ts`, `ai.ts`): where you talk about what they show.
+    Each run of cards (and each cutaway) is given what the reference was saying while it
+    showed (its captions, kept as the reference's script) and the names of your pictures in
+    it (a pasted picture is named by the page it came from), and those are looked for in
+    your sentences: letters three at a time with the filler words left out, the topics both
+    touch (money, shops and products, social media, gurus, students' results, the good
+    life), and the names said aloud. With + Gemini chosen, Gemini reads your script, sees
+    your pictures and picks the sentence for each, which is what finds a meaning said in
+    other words (the example's hook of gurus goes where the footage says "trading,
+    dropshipping, Amazon FBA", 29 s in). Every card and cutaway shows where it went and why,
+    and can be moved to any of your sentences by hand.
+  - A run keeps its gaps, and nothing lands on top of anything else (a later one waits for
+    the earlier to go). Your extras fill them in order (clips to cutaways and clip cards,
+    pictures to cards, then anything left over to slots still empty), or as you pick per
+    slot; each is cropped to the slot's shape about its subject (a face).
 - **Zooms** step between wide and close (the reference's close level) where the
   reference's do, at the same share of the talk, and jump at every cut in your footage (so
   a jump cut reads as a punch-in, the way the reference hides its own).
 - **Framing**: when both faces are found, the footage is cropped (up to 1.3 times) so the
   face is as big, and where, the reference has it.
-- **Sound**: sounds on the same events as the reference's (synthesised in the page:
-  whoosh, pop, click, hit, riser, ding); your music from where the reference's bed came in,
-  as far under the voice; the whole at -14 LUFS.
+- **Sound effects** (`sfx.ts`, made in the page: whoosh, swipe, pop, click, boom, riser,
+  ding, cash register; or your own files), with a switch: none; *on the moves* (a whoosh
+  peaking as a card lands, moving across from the side it comes in from, a softer one as
+  it leaves, a swipe as a run's picture changes, a whoosh into each cutaway, or the
+  reference's own sounds on these where it has some); or *moves and script* (and a cash
+  register where money is said, or, with + Gemini, the moments Gemini picks: a ding on a key
+  number, a boom on a big claim). Each sits at a set loudness against the voice's talking
+  (8 dB under, then its own level and the effects' level). Every one can be heard, moved
+  (dragged along the Sound timeline), given another sound or level, or taken out, and your
+  changes stay with what it's on when the edit is planned again; add your own anywhere.
+- **Music**: from where the reference's bed came in (or the top), as far under the voice,
+  from any point of the song, up or down as a whole, and shaped stretch by stretch on the
+  Sound timeline: a volume line with points to drag (click the music's lane for a point,
+  drag it up or down, double-click to take it out), the way an editor keyframes it.
+- **Listening before making**: the Sound card mixes the edit's sound (voice, music, effects,
+  all at -14 LUFS as the render will be) and plays it from any moment; the voice and music
+  are decoded once, so a change is heard again within a second.
 - **Ending**: the reference's black, if it has one (a switch).
 
 `render.ts` draws each frame on a canvas (footage or cutaway, cards, captions) and encodes
 it with WebCodecs, H.264 and AAC in MP4 where the browser can.
+
+The captions can be seen before any of that: the Captions card draws one of your captions
+over a frame of your footage (framed as the edit frames it) in the look as it's set, redrawn
+as you change it, stepping through the captions and playing one coming on word by word.
 
 ## Hearing the footage
 

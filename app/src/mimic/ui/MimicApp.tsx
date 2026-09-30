@@ -1,7 +1,11 @@
-import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, ClipboardPaste, Download, Film, Image as ImageIcon, Music, Sparkles, Square, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ClipboardPaste, Download, Film, Image as ImageIcon, Music, Play, Sparkles, Square, Volume2, X } from "lucide-react";
 import { Drop, fmtBytes, fmtTime, Mark, Section, Segmented, Switch } from "../../ui/components/bits";
-import type { CaptionLook, CardSlot, MimicTemplate } from "../types";
+import { sentences, type Sentence } from "../match";
+import { SOUNDS } from "../sfx";
+import type { CaptionLook, CardSlot, MimicPlan, MimicTemplate } from "../types";
+import { CaptionPreview } from "./CaptionPreview";
+import { SoundCard } from "./SoundCard";
 import { fromPaste, PASTE_KEY } from "./paste";
 import { mimic, useMimic, type Item, type Job, type State } from "./store";
 
@@ -154,17 +158,114 @@ function ExtrasPanel({ s }: { s: State }) {
 
 function SoundPanel({ s }: { s: State }) {
   const bed = s.template?.sound.bed;
+  const own = s.sounds.filter((x) => x.status === "ready");
   return (
     <Section title="4 · Sound and ending">
       <Drop accept="audio/*,video/*" onFiles={(f) => void mimic.setMusic(f[0])}>
         <Music size={16} /> <strong>{s.music ? s.music.name : "Drop music (optional)"}</strong>
       </Drop>
-      <span className="hint">{bed ? `The reference has music under the voice from ${bed.start.toFixed(1)} s, ${-bed.level} dB down. Yours comes in at the same point, as far down.` : "Music you add plays under the voice."}</span>
-      {s.music && (
-        <button type="button" className="btn ghost" onClick={() => void mimic.setMusic(null)}>
-          Remove the music
-        </button>
+      {s.music?.status === "error" && <div className="error-text">{s.music.error}</div>}
+      {s.music && s.music.status === "ready" ? (
+        <div className="field">
+          <label className="slider">
+            <span>Music volume</span>
+            <input type="range" min={-24} max={12} step={1} value={s.musicDb} onChange={(e) => mimic.setMusicOption({ musicDb: Number(e.target.value) })} />
+            <span className="num">{s.musicDb > 0 ? "+" : ""}{s.musicDb} dB</span>
+          </label>
+          <span className="hint">{bed ? `The reference has music ${-bed.level} dB under the voice; this moves yours up or down from there.` : "Up or down from 18 dB under the voice."} Shape it stretch by stretch on the Sound timeline.</span>
+          <label className="slider">
+            <span>Comes in</span>
+            <select className="select" value={s.musicAt} onChange={(e) => mimic.setMusicOption({ musicAt: e.target.value as State["musicAt"] })}>
+              <option value="bed">{bed ? `where the reference's does (${bed.start.toFixed(0)} s through its talk)` : "from the start"}</option>
+              <option value="start">from the start</option>
+            </select>
+          </label>
+          <label className="slider">
+            <span>Start the song at</span>
+            <input className="input num" type="number" min={0} max={Math.max(0, Math.floor(s.music.duration - 1))} step={1} value={s.musicFrom} onChange={(e) => mimic.setMusicOption({ musicFrom: Math.max(0, Number(e.target.value) || 0) })} />
+            <span className="hint">s</span>
+          </label>
+          <button type="button" className="btn ghost" onClick={() => void mimic.setMusic(null)}>
+            Remove the music
+          </button>
+        </div>
+      ) : (
+        <span className="hint">{bed ? `The reference has music under the voice from ${bed.start.toFixed(1)} s, ${-bed.level} dB down. Yours comes in at the same point, as far down.` : "Music you add plays under the voice."}</span>
       )}
+      <div className="field">
+        <span className="label">Sound effects</span>
+        <Segmented
+          label="Sound effects"
+          value={s.sfxMode}
+          onChange={(v) => mimic.setSfx({ sfxMode: v })}
+          options={[
+            { value: "none", label: "None" },
+            { value: "moves", label: "On the moves" },
+            { value: "script", label: "Moves + script" },
+          ]}
+        />
+        <span className="hint">
+          {s.sfxMode === "none"
+            ? "No sound effects (add your own on the Sound timeline)."
+            : s.sfxMode === "moves"
+              ? "A whoosh as each card slides in and out and into each cutaway, a swipe as a card's picture changes."
+              : mimic.canAsk()
+                ? "The moves, and Gemini picks moments in your script for a sound: a cash register on money, a ding on a key point, a boom on a big claim."
+                : "The moves, and a cash register where money is said. With + Gemini chosen above, Gemini picks the moments."}
+        </span>
+        {s.sfxMode !== "none" && (
+          <>
+            <label className="slider">
+              <span>The moves sound like</span>
+              <select className="select" value={s.sfxMove} onChange={(e) => mimic.setSfx({ sfxMove: e.target.value })}>
+                {SOUNDS.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.name}
+                  </option>
+                ))}
+                {own.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.name}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="btn icon" aria-label="Hear it" onClick={() => void mimic.hearSound(s.sfxMove)}>
+                <Play size={12} />
+              </button>
+            </label>
+            <label className="slider">
+              <span>Effects volume</span>
+              <input type="range" min={-18} max={12} step={1} value={s.sfxDb} onChange={(e) => mimic.setSfx({ sfxDb: Number(e.target.value) })} />
+              <span className="num">{s.sfxDb > 0 ? "+" : ""}{s.sfxDb} dB</span>
+            </label>
+          </>
+        )}
+        <Drop accept="audio/*" multiple onFiles={(f) => void mimic.addSounds(f)}>
+          <Volume2 size={14} /> <strong>Drop your own sounds</strong>
+        </Drop>
+        {s.sounds.length > 0 && (
+          <div className="own-sounds">
+            {s.sounds.map((x) => (
+              <div key={x.id} className="row between">
+                <span className={x.status === "error" ? "error-text" : ""} title={x.error ?? x.name}>
+                  {x.status === "reading" ? "Reading " : ""}
+                  {x.name}
+                </span>
+                <span className="row">
+                  {x.status === "ready" && (
+                    <button type="button" className="btn icon" aria-label={`Hear ${x.name}`} onClick={() => void mimic.hearSound(x.id)}>
+                      <Play size={12} />
+                    </button>
+                  )}
+                  <button type="button" className="btn icon" aria-label={`Remove ${x.name}`} onClick={() => mimic.removeSound(x.id)}>
+                    <X size={12} />
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       {s.template && s.template.tail > 0.2 && (
         <div className="field">
           <Switch checked={s.tail} onChange={(v) => mimic.setOption({ tail: v })} hint={`The reference ends on ${s.template.tail.toFixed(1)} s of black.`}>
@@ -184,7 +285,33 @@ const motionText = (c: CardSlot) => {
   return `${on}, ${off}`;
 };
 
-function SlotRow({ s, id, label, detail, thumb, want }: { s: State; id: string; label: string; detail: string; thumb?: string; want: string }) {
+/** Where a run (its first card) or a cutaway sits in the edit, why, and a sentence of the footage to move it to. */
+function Placed({ s, plan, slot, sents }: { s: State; plan: MimicPlan | null; slot: string; sents: Sentence[] }) {
+  const t = plan?.cards.find((c) => c.slot === slot)?.start ?? plan?.broll.find((b) => b.slot === slot)?.start;
+  const p = mimic.lastPlaces[slot];
+  const by = p?.by === "gemini" ? "Gemini: " : p?.by === "words" ? "your words: " : p?.by === "you" ? "you put it at: " : "";
+  const moved = s.moved[slot];
+  return (
+    <div className="placed">
+      <span className="hint">
+        {t === undefined ? "not in the edit (nothing to put in it)" : `at ${fmtTime(t)}`}
+        {p?.said ? ` · ${by}"${p.said.length > 70 ? `${p.said.slice(0, 70)}…` : p.said}"` : t !== undefined ? " · as in the reference" : ""}
+      </span>
+      {sents.length > 0 && t !== undefined && (
+        <select className="select" aria-label="Move it to a sentence" value={moved === undefined ? "" : String(sents.find((x) => Math.abs(x.start - moved) < 0.05)?.i ?? "")} onChange={(e) => mimic.moveSlot(slot, e.target.value === "" ? null : sents[Number(e.target.value)].start)}>
+          <option value="">{moved === undefined ? "Move to…" : "Put it back"}</option>
+          {sents.map((x) => (
+            <option key={x.i} value={x.i}>
+              {fmtTime(x.start)} {x.text.length > 60 ? `${x.text.slice(0, 60)}…` : x.text}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
+function SlotRow({ s, id, label, detail, thumb, want, place }: { s: State; id: string; label: string; detail: string; thumb?: string; want: string; place?: React.ReactNode }) {
   const value = id in s.assign ? (s.assign[id] ?? "none") : "auto";
   const waiting = s.pasteSlot === id;
   return (
@@ -204,6 +331,7 @@ function SlotRow({ s, id, label, detail, thumb, want }: { s: State; id: string; 
             detail
           )}
         </span>
+        {place}
       </div>
       <button type="button" className="btn icon" title={`Paste a copied picture into ${label}`} aria-label={`Paste a copied picture into ${label}`} onClick={() => void mimic.pasteFromClipboard(id)}>
         <ClipboardPaste size={14} />
@@ -223,16 +351,34 @@ function SlotRow({ s, id, label, detail, thumb, want }: { s: State; id: string; 
   );
 }
 
-function Slots({ s, t }: { s: State; t: MimicTemplate }) {
+function Slots({ s, t, plan }: { s: State; t: MimicTemplate; plan: MimicPlan | null }) {
+  const sents = useMemo(() => sentences(s.words), [s.words]);
   if (!t.cards.length && !t.broll.length) return <p className="hint">The reference has no cards or cutaways over the talk.</p>;
+  const firstOfRun = new Map<number, string>();
+  for (const c of t.cards) if (!firstOfRun.has(c.run)) firstOfRun.set(c.run, c.id);
   const rows = [
-    ...t.cards.map((c, i) => ({
-      at: c.start,
-      node: <SlotRow key={c.id} s={s} id={c.id} thumb={c.thumb} want={c.content === "video" ? "a clip" : "a picture"} label={`Card ${i + 1} at ${fmtTime(c.start)}`} detail={`${Math.round(c.rect[2] * 100)}% wide, ${motionText(c)}, ${c.content}${c.said ? `, over "${c.said}"` : ""}`} />,
-    })),
+    ...t.cards.map((c, i) => {
+      const lead = firstOfRun.get(c.run)!;
+      const leadNo = t.cards.findIndex((x) => x.id === lead) + 1;
+      return {
+        at: c.start,
+        node: (
+          <SlotRow
+            key={c.id}
+            s={s}
+            id={c.id}
+            thumb={c.thumb}
+            want={c.content === "video" ? "a clip" : "a picture"}
+            label={`Card ${i + 1} at ${fmtTime(c.start)}`}
+            detail={`${Math.round(c.rect[2] * 100)}% wide, ${motionText(c)}, ${c.content}${c.said ? `, over "${c.said}"` : ""}`}
+            place={lead === c.id ? <Placed s={s} plan={plan} slot={c.id} sents={sents} /> : <span className="hint">moves with card {leadNo}</span>}
+          />
+        ),
+      };
+    }),
     ...t.broll.map((b, i) => ({
       at: b.start,
-      node: <SlotRow key={b.id} s={s} id={b.id} thumb={b.thumb} want="a clip" label={`Cutaway ${i + 1} at ${fmtTime(b.start)}`} detail={`full frame for ${(b.end - b.start).toFixed(1)} s${b.zoom[1] > 1.05 ? `, pushing in ${Math.round((b.zoom[1] - 1) * 100)}%` : ""}`} />,
+      node: <SlotRow key={b.id} s={s} id={b.id} thumb={b.thumb} want="a clip" label={`Cutaway ${i + 1} at ${fmtTime(b.start)}`} detail={`full frame for ${(b.end - b.start).toFixed(1)} s${b.zoom[1] > 1.05 ? `, pushing in ${Math.round((b.zoom[1] - 1) * 100)}%` : ""}`} place={<Placed s={s} plan={plan} slot={b.id} sents={sents} />} />,
     })),
   ].sort((a, b) => a.at - b.at);
   return <div className="slots">{rows.map((r) => r.node)}</div>;
@@ -340,6 +486,7 @@ function Preview() {
 
 function Outputs({ s }: { s: State }) {
   const t = s.template;
+  const plan = useMemo(() => (t && s.footage ? mimic.plan() : null), [s, t]);
   return (
     <>
       <div className="outputs-head">
@@ -380,17 +527,49 @@ function Outputs({ s }: { s: State }) {
               <span className="caps">Captions</span>
               <span className="right">{t.captions ? "as measured; adjust if you like" : "none found in the reference; these are a start"}</span>
             </div>
-            <LookControls s={s} />
-            <Preview />
+            <div className="cap-layout">
+              <CaptionPreview look={s.look} plan={plan} />
+              <div>
+                <LookControls s={s} />
+                <Preview />
+              </div>
+            </div>
           </section>
           <section className="card">
             <div className="section-head">
               <span className="caps">Cards and cutaways</span>
-              <span className="right">placed at the same point of your talk; copy a picture and paste it straight into one</span>
+              <span className="right">copy a picture and paste it straight into one</span>
+            </div>
+            <div className="field">
+              <span className="label">Where they go</span>
+              <Segmented
+                label="Where they go"
+                value={s.placement}
+                onChange={(v) => mimic.setPlacement(v)}
+                options={[
+                  { value: "reference", label: "As in the reference" },
+                  { value: "script", label: "Where your script says it" },
+                ]}
+              />
+              <span className="hint">
+                {s.placement === "reference"
+                  ? "At the same point of your talk as the reference has them (its hook to the second)."
+                  : mimic.canAsk()
+                    ? "Where you talk about what they show: Gemini reads your script and sees your pictures."
+                    : "Where your words and topics match what the reference was saying over them. Choose + Gemini above for it to read the meaning, or move any of them to a sentence yourself."}
+              </span>
+              {s.placement === "script" && mimic.canAsk() && s.placing.stage !== "working" && (
+                <button type="button" className="btn" onClick={() => void mimic.askGeminiPlaces()}>
+                  Ask Gemini again
+                </button>
+              )}
+              <Bar job={s.placing} />
+              <Problem job={s.placing} />
             </div>
             <PasteNote s={s} where="slots" />
-            <Slots s={s} t={t} />
+            <Slots s={s} t={t} plan={plan} />
           </section>
+          {plan && <SoundCard s={s} plan={plan} />}
         </>
       )}
     </>

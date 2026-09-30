@@ -42,3 +42,39 @@ kbd { font: 600 11px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; padd
 .paste-note { margin: 8px 0; padding: 8px 10px; border-radius: 6px; font-size: 13px; background: var(--control); border: 1px solid var(--line); }
 .paste-note.bad { border-color: rgba(251, 44, 54, 0.45); background: rgba(251, 44, 54, 0.06); }
 .link { border: 0; background: none; padding: 0; color: var(--brand); cursor: pointer; font: inherit; }
+
+/* The live caption preview beside the caption controls. */
+.cap-layout { display: grid; grid-template-columns: 220px 1fr; gap: 18px; align-items: start; }
+.cap-preview { display: flex; flex-direction: column; gap: 6px; }
+.cap-preview canvas { width: 100%; border-radius: 8px; border: 1px solid var(--line); background: #000; display: block; }
+@media (max-width: 900px) { .cap-layout { grid-template-columns: 1fr; } .cap-preview { max-width: 240px; } }
+
+/* Where a card or cutaway sits, and moving it. */
+.placed { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.placed .select { max-width: 100%; font-size: 12px; }
+
+/* The sound panel's rows. */
+.slider { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.slider > span:first-child { flex: none; min-width: 110px; }
+.slider input[type="range"] { flex: 1; min-width: 0; accent-color: var(--brand); }
+.slider .select { flex: 1; min-width: 0; }
+.slider .input { width: 80px; }
+.own-sounds { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.own-sounds .row { gap: 4px; }
+
+/* The sound timeline and its sound effects. */
+.timeline { position: relative; user-select: none; }
+.timeline canvas { display: block; touch-action: none; cursor: crosshair; border-radius: 6px; }
+.timeline .lanes { position: absolute; right: 6px; top: 0; height: 170px; pointer-events: none; font-size: 10px; opacity: 0.8; }
+.timeline .lanes span { position: absolute; right: 0; white-space: nowrap; }
+.timeline .lanes span:nth-child(1) { top: 22px; }
+.timeline .lanes span:nth-child(2) { top: 45px; }
+.timeline .lanes span:nth-child(3) { top: 70px; }
+.timeline .lanes span:nth-child(4) { top: 97px; }
+.cues { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.cue { display: grid; grid-template-columns: 52px 1fr 150px 130px auto auto; gap: 8px; align-items: center; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
+.cue.on { background: var(--control); }
+.cue .why { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cue .level { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.cue .level input { flex: 1; min-width: 0; accent-color: var(--brand); }
+@media (max-width: 700px) { .cue { grid-template-columns: 48px 1fr auto auto; } .cue .select, .cue .level { grid-column: 1 / -1; } }

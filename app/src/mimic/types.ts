@@ -103,7 +103,7 @@ export interface ZoomLook {
   changes: ZoomChange[];
 }
 
-export type SfxKind = "whoosh" | "pop" | "click" | "hit" | "riser" | "ding";
+export type SfxKind = "whoosh" | "swipe" | "pop" | "click" | "hit" | "riser" | "ding" | "cash";
 export type SfxOn = "card-in" | "card-out" | "cut" | "zoom" | "broll";
 
 export interface SoundLook {
@@ -132,6 +132,8 @@ export interface MimicTemplate {
   speaker: { x: number; y: number; h: number } | null;
   /** the longest pause the reference keeps between phrases */
   maxPause: number;
+  /** what the reference says, caption by caption (as read off its captions) */
+  script?: { start: number; end: number; text: string }[];
   /** measurements for the page to show */
   notes: string[];
 }
@@ -195,6 +197,25 @@ export interface Segment {
   end: number;
 }
 
+/** A sound effect in the edit. */
+export interface SfxCue {
+  /** what it's on, to keep the user's changes to it when the edit is planned again ("in:card1", "swap:card2", "word:41", or the user's own) */
+  key: string;
+  /** output time of its moment (its loudest part lines up here) */
+  t: number;
+  /** a sound made in the page, or one of the user's (its id) */
+  sound: string;
+  /** dB against the level sound effects sit at under the voice */
+  db: number;
+  /** from where to where it moves across (-1 left to 1 right), for a card sliding past */
+  pan?: [number, number];
+  /** why it's there, for the page */
+  why: string;
+}
+
+/** The music's own level over the edit: [output time, dB] keyframes joined by straight lines. */
+export type VolumeLine = [number, number][];
+
 export interface MimicPlan {
   width: number;
   height: number;
@@ -211,7 +232,10 @@ export interface MimicPlan {
   broll: PlanBroll[];
   cards: PlanCard[];
   captions: { look: CaptionLook; pages: CaptionPage[] } | null;
-  sfx: { t: number; kind: SfxKind; gain: number }[];
-  music: { source: string; start: number; from: number; gain: number; fadeOut: number } | null;
+  sfx: SfxCue[];
+  /** all the sound effects up or down (dB) */
+  sfxGain?: number;
+  /** music: from `from` s into the song, starting at `start` in the edit, `gain` dB under the voice, then the user's volume line on top */
+  music: { source: string; start: number; from: number; gain: number; fadeOut: number; line?: VolumeLine } | null;
   tail: number;
 }

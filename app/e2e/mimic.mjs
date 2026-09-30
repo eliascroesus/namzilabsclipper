@@ -1,5 +1,6 @@
 // Drives the mimic page in headless Chromium, as a user would:
 //   node e2e/mimic.mjs --ref ad.mp4 --raw raw.mp4 [--extra a.jpg ...] [--music m.mp3] [--clip]
+//                      [--placement script] [--sfx none|moves|script] [--mix]
 //                      [--stills 1,2.5,20] [--no-render] [--out DIR]
 // Serves a built copy (E2E_DIST, with the speech model at dist/models/parakeet-v3),
 // saves screenshots of the page, the template, the plan and the finished video in --out.
@@ -58,7 +59,36 @@ try {
   if (opt("--music")) await inputs.nth(3).setInputFiles(resolve(opt("--music")));
   if (args.includes("--clip")) await page.evaluate(() => window.__mimic.setOption({ clip: true }));
   await until((s) => s.study.stage === "ready" && s.hearing.stage === "ready" && s.extras.every((e) => e !== "reading"), "waiting");
+  if (args.includes("--fake-gemini")) {
+    // Gemini answered here, as it would: the hook's pictures of gurus go where the script
+    // talks about get-rich schemes; anything else stays put.
+    await page.route("https://generativelanguage.googleapis.com/**", async (route) => {
+      const req = route.request();
+      if (req.method() === "GET") return route.fulfill({ json: { models: [{ name: "models/gemini-2.5-flash", supportedGenerationMethods: ["generateContent"] }] } });
+      const prompt = JSON.parse(req.postData()).contents[0].parts[0].text;
+      const hit = /\[(\d+)\] \([\d.]+ s\) Det er altid trading/.exec(prompt);
+      const places = hit ? [{ group: "card1", sentence: Number(hit[1]), why: "get-rich gurus" }] : [];
+      return route.fulfill({ json: { candidates: [{ content: { parts: [{ text: JSON.stringify({ places }) }] } }] } });
+    });
+    await page.evaluate(() => {
+      window.__mimic.setKey("test-key");
+      window.__mimic.setOption({ ear: "gemini" });
+    });
+  }
+  if (opt("--placement")) await page.evaluate((v) => window.__mimic.setPlacement(v), opt("--placement"));
+  if (args.includes("--fake-gemini")) {
+    await page.waitForFunction(() => window.__mimic.get().placing.stage !== "working");
+    const r = await page.evaluate(() => ({ placing: window.__mimic.get().placing, ai: window.__mimic.get().aiPlaces, card1: window.__mimic.plan().cards.find((c) => c.slot === "card1")?.start, why: window.__mimic.lastPlaces.card1 }));
+    log("gemini places", JSON.stringify(r));
+  }
+  if (opt("--sfx")) await page.evaluate((v) => window.__mimic.setSfx({ sfxMode: v }), opt("--sfx"));
+  await page.waitForTimeout(1500);
   await page.screenshot({ path: resolve(outDir, "page-ready.png"), fullPage: false });
+  // The whole page, tall enough for every card on the right.
+  await page.setViewportSize({ width: 1440, height: 3400 });
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: resolve(outDir, "page-tall.png"), fullPage: false });
+  await page.setViewportSize({ width: 1440, height: 1000 });
   const facts = await page.evaluate(() => {
     const s = window.__mimic.get();
     const t = s.template;
@@ -66,6 +96,73 @@ try {
   });
   writeFileSync(resolve(outDir, "facts.json"), JSON.stringify(facts, null, 1));
   log("template", JSON.stringify(facts.template.notes));
+  if (args.includes("--ui-check")) {
+    // The sound timeline by hand: a dip in the music's volume, a sound effect dragged along.
+    await page.setViewportSize({ width: 1440, height: 3400 });
+    await page.waitForTimeout(500);
+    const box = await page.locator(".timeline canvas").boundingBox();
+    const dur = await page.evaluate(() => window.__mimic.plan().duration);
+    const xAt = (t) => box.x + (t / dur) * box.width;
+    await page.mouse.move(xAt(dur * 0.6), box.y + 110);
+    await page.mouse.down();
+    await page.mouse.move(xAt(dur * 0.6), box.y + 155, { steps: 6 });
+    await page.mouse.up();
+    const first = await page.evaluate(() => window.__mimic.plan().sfx[0]);
+    await page.mouse.move(xAt(first.t), box.y + 77);
+    await page.mouse.down();
+    await page.mouse.move(xAt(first.t + 1), box.y + 77, { steps: 6 });
+    await page.mouse.up();
+    const after = await page.evaluate((key) => ({ line: window.__mimic.get().musicLine, edits: window.__mimic.get().cueEdits, moved: window.__mimic.plan().sfx.find((c) => c.key === key) }), first.key);
+    log("ui", JSON.stringify({ first: { key: first.key, t: first.t }, ...after }));
+    await page.locator(".sound-card").screenshot({ path: resolve(outDir, "sound-card.png") });
+    await page.locator(".cap-layout").screenshot({ path: resolve(outDir, "captions-card.png") });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+  }
+  if (args.includes("--time-mix")) {
+    const t = await page.evaluate(async () => {
+      const t0 = performance.now();
+      await window.__mimic.soundtrack();
+      const t1 = performance.now();
+      window.__mimic.setSfx({ sfxDb: 1 });
+      await window.__mimic.soundtrack();
+      const t2 = performance.now();
+      window.__mimic.setSfx({ sfxDb: 0 });
+      return { first: Math.round(t1 - t0), again: Math.round(t2 - t1) };
+    });
+    log("mix time (ms)", JSON.stringify(t));
+  }
+  if (args.includes("--mix")) {
+    // The soundtrack as the page mixes it, as a 16-bit WAV.
+    const b64 = await page.evaluate(async () => {
+      const { buf } = await window.__mimic.soundtrack();
+      const [l, r] = [buf.getChannelData(0), buf.getChannelData(1)];
+      const n = buf.length;
+      const view = new DataView(new ArrayBuffer(44 + n * 4));
+      const str = (o, x) => [...x].forEach((c, i) => view.setUint8(o + i, c.charCodeAt(0)));
+      str(0, "RIFF");
+      view.setUint32(4, 36 + n * 4, true);
+      str(8, "WAVEfmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 2, true);
+      view.setUint32(24, buf.sampleRate, true);
+      view.setUint32(28, buf.sampleRate * 4, true);
+      view.setUint16(32, 4, true);
+      view.setUint16(34, 16, true);
+      str(36, "data");
+      view.setUint32(40, n * 4, true);
+      for (let i = 0; i < n; i++) {
+        view.setInt16(44 + i * 4, Math.max(-1, Math.min(1, l[i])) * 32767, true);
+        view.setInt16(46 + i * 4, Math.max(-1, Math.min(1, r[i])) * 32767, true);
+      }
+      const bytes = new Uint8Array(view.buffer);
+      let s = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      return btoa(s);
+    });
+    writeFileSync(resolve(outDir, "mix.wav"), Buffer.from(b64, "base64"));
+    log("mix", "mix.wav");
+  }
   const stills = opt("--stills");
   if (stills) {
     const times = stills.split(",").map(Number);

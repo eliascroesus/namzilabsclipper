@@ -313,6 +313,49 @@ const pct = (v: number[], p: number, d = 0) => {
   return s[Math.min(s.length - 1, Math.max(0, Math.round((s.length - 1) * p)))];
 };
 
+/** Two readings of a caption's first line that start alike (spaces and a misread letter aside). */
+function startsAlike(a: string, b: string): boolean {
+  const fold = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+  const x = fold(a);
+  const y = fold(b);
+  const n = Math.min(x.length, y.length);
+  if (!n) return false;
+  let k = 0;
+  while (k < n && x[k] === y[k]) k++;
+  return k >= Math.max(2, Math.ceil(0.6 * n));
+}
+
+/**
+ * What the reference says, caption by caption: the caption band's lines frame by frame (not
+ * the small text of a picture laid over it), grouped into captions as they come on (a
+ * caption's first line keeps its start while words are added), each with its fullest reading.
+ */
+export function captionScript(samples: CaptionSample[], H: number, band: [number, number]): { start: number; end: number; text: string }[] {
+  const out: { start: number; end: number; text: string }[] = [];
+  let cur: { start: number; end: number; first: string; text: string } | null = null;
+  const close = () => cur && out.push({ start: Math.round(cur.start * 100) / 100, end: Math.round((cur.end + 1 / 3) * 100) / 100, text: cur.text });
+  for (const s of [...samples].sort((a, b) => a.t - b.t)) {
+    const lines = s.lines
+      .filter((l) => l.ink && (l.conf ?? 0) >= 0.6 && letters(l.text ?? "") > 0 && lineSize(l.ink, l.text ?? "") / H >= 0.022)
+      .filter((l) => (l.y0 + l.y1) / 2 / H >= band[0] && (l.y0 + l.y1) / 2 / H <= band[1])
+      .sort((a, b) => a.y0 - b.y0);
+    if (!lines.length) continue;
+    const first = (lines[0].text ?? "").trim();
+    const text = lines.map((l) => (l.text ?? "").trim()).join(" ");
+    const same = cur && s.t - cur.end < 0.8 && startsAlike(cur.first, first);
+    if (cur && same) {
+      cur.end = s.t;
+      if (first.length > cur.first.length) cur.first = first;
+      if (text.length >= cur.text.length) cur.text = text;
+    } else {
+      close();
+      cur = { start: s.t, end: s.t, first, text };
+    }
+  }
+  close();
+  return out;
+}
+
 /** Is `b` what `a` becomes with words added (the same start, longer)? */
 function grows(a: string, b: string): boolean {
   const x = a.replace(/\s/g, "").toLowerCase();

@@ -6,15 +6,16 @@
  * any music and sounds mixed under it, at the level Instagram and TikTok play.
  */
 import { AudioBufferSource, BufferTarget, CanvasSource, Mp4OutputFormat, Output, VideoSampleSink, WebMOutputFormat, type VideoSample } from "mediabunny";
-import { decodeAudioBuffer, decodeMono, type Source } from "../engine/media/sources";
+import { decodeMono, type Source } from "../engine/media/sources";
 import { bitrateFor, pickCodecs } from "../engine/render/export";
 import { audioDelay, shiftAudio } from "../engine/render/avsync";
 import { loadFonts } from "../engine/render/fonts";
 import { integratedLoudness, limit, MIX_RATE } from "../engine/render/mix";
 import { drawPage, layoutPage, type LaidLine } from "./captions";
-import { zoomAt } from "./plan";
-import { makeSfx } from "./sfx";
-import type { CaptionPage, MimicPlan, Motion, PlanCard } from "./types";
+import { decodeStereo } from "./audio";
+import { lineAt, zoomAt } from "./plan";
+import { isMadeSound, makeSfx, type Sfx } from "./sfx";
+import type { CaptionPage, MimicPlan, Motion, PlanCard, SfxCue } from "./types";
 
 type Ctx = OffscreenCanvasRenderingContext2D;
 
@@ -213,63 +214,123 @@ export class MimicPainter {
   }
 }
 
-/** The soundtrack: the footage's voice piece by piece, the music under it at the reference's level, the sounds on their events. */
-export async function mixMimic(plan: MimicPlan, sources: Map<string, Source>, rawId: string): Promise<AudioBuffer> {
+/** What a mix needs besides the plan: the user's own sounds (by id), and the voice decoded last time. */
+export interface MixExtras {
+  sounds?: Map<string, Sfx>;
+  voice?: { key: string; data: Float32Array; loud: number } | null;
+  /** the music decoded last time, and its loudness */
+  music?: { key: string; ch: [Float32Array, Float32Array]; loud: number } | null;
+}
+
+/** Sound effects sit this far under the voice (dB, their loudness against its talking), before their own level. */
+export const SFX_UNDER = -8;
+
+/** The voice's loudness: the RMS of the 10 ms blocks where it's talking (within 30 dB of its loudest). */
+export function talkRms(y: Float32Array, rate: number): number {
+  const block = Math.max(1, Math.round(0.01 * rate));
+  const ms: number[] = [];
+  for (let i = 0; i < y.length; i += block) {
+    let s = 0;
+    const n = Math.min(block, y.length - i);
+    for (let k = 0; k < n; k++) s += y[i + k] ** 2;
+    ms.push(s / n);
+  }
+  const top = ms.reduce((a, v) => Math.max(a, v), 0);
+  const talk = ms.filter((v) => v > top / 1000);
+  return talk.length ? Math.sqrt(talk.reduce((a, v) => a + v, 0) / talk.length) : 0;
+}
+
+const made = new Map<string, Sfx>();
+const madeSound = (id: string) => {
+  let fx = made.get(id);
+  if (!fx && isMadeSound(id)) made.set(id, (fx = makeSfx(id, MIX_RATE)));
+  return fx ?? null;
+};
+
+/**
+ * Sound effects into a stereo mix: each lined up on its moment by its loudest part, as loud
+ * against the voice as its level says, and moving across from one side to the other as the
+ * card it's on does (an equal-power pan, the middle at full level in both channels).
+ */
+export function addSfx(och: [Float32Array, Float32Array], rate: number, cues: SfxCue[], gainDb: number, voiceRms: number, sound: (id: string) => Sfx | null) {
+  const len = och[0].length;
+  for (const c of cues) {
+    const fx = sound(c.sound);
+    if (!fx || fx.rms <= 0) continue;
+    const g = (Math.max(voiceRms, 0.01) * Math.pow(10, (SFX_UNDER + c.db + gainDb) / 20)) / fx.rms;
+    const at = Math.round((c.t - fx.peak) * rate);
+    const n = fx.data.length;
+    for (let i = 0; i < n; i++) {
+      const k = at + i;
+      if (k < 0 || k >= len) continue;
+      const p = c.pan ? c.pan[0] + ((c.pan[1] - c.pan[0]) * i) / n : 0;
+      const a = ((p + 1) * Math.PI) / 4;
+      const v = fx.data[i] * g * Math.SQRT2;
+      och[0][k] += v * Math.cos(a);
+      och[1][k] += v * Math.sin(a);
+    }
+  }
+}
+
+/** The footage's voice on the edit's clock, piece by piece, each faded over 6 ms so a jump cut doesn't click. */
+async function voiceTrack(plan: MimicPlan, sources: Map<string, Source>, rawId: string, extra: MixExtras): Promise<Float32Array> {
   const length = Math.ceil(plan.duration * MIX_RATE);
+  const key = JSON.stringify([rawId, length, plan.segments.map((s) => [s.from, s.to, s.start])]);
+  if (extra.voice?.key === key) return extra.voice.data;
+  const data = new Float32Array(length);
   const raw = sources.get(rawId);
-  const out = new OfflineAudioContext(2, length, MIX_RATE).createBuffer(2, length, MIX_RATE);
-  const och = [out.getChannelData(0), out.getChannelData(1)];
-  // The voice, piece by piece, decoded straight to the mix rate (a voice needs one channel),
-  // each piece faded in and out over 6 ms so a jump cut doesn't click.
   if (raw?.info.hasAudio) {
     const fade = Math.round(0.006 * MIX_RATE);
     for (const s of plan.segments) {
       const y = await decodeMono(raw, MIX_RATE, s.from, s.to);
       const at = Math.round(s.start * MIX_RATE);
       const n = Math.min(y.length, length - at);
-      for (let i = 0; i < n; i++) {
-        const v = y[i] * Math.min(1, (i + 1) / fade, (n - i) / fade);
-        och[0][at + i] += v;
-        och[1][at + i] += v;
-      }
+      for (let i = 0; i < n; i++) data[at + i] += y[i] * Math.min(1, (i + 1) / fade, (n - i) / fade);
     }
   }
-  const voiceLoud = integratedLoudness(och);
-  // Music, as far under the voice as the reference's bed was.
+  extra.voice = { key, data, loud: integratedLoudness([data, data]) };
+  return data;
+}
+
+/** The soundtrack: the footage's voice, the music under it (at the reference's level, then the user's volume line), the sound effects on their moments. */
+export async function mixMimic(plan: MimicPlan, sources: Map<string, Source>, rawId: string, extra: MixExtras = {}): Promise<AudioBuffer> {
+  const length = Math.ceil(plan.duration * MIX_RATE);
+  const out = new OfflineAudioContext(2, length, MIX_RATE).createBuffer(2, length, MIX_RATE);
+  const och: [Float32Array, Float32Array] = [out.getChannelData(0), out.getChannelData(1)];
+  const voice = await voiceTrack(plan, sources, rawId, extra);
+  och[0].set(voice.subarray(0, length));
+  och[1].set(voice.subarray(0, length));
+  const voiceLoud = extra.voice?.data === voice ? extra.voice.loud : integratedLoudness(och);
+  // Music, as far under the voice as the reference's bed was, along the user's volume line.
   const m = plan.music;
   const song = m ? sources.get(m.source) : undefined;
   if (m && song) {
     const span = plan.duration - m.start;
-    const buf = await decodeAudioBuffer(song, m.from, m.from + span, MIX_RATE);
-    if (buf) {
-      const mch = [buf.getChannelData(0), buf.getChannelData(Math.min(1, buf.numberOfChannels - 1))];
-      const musicLoud = integratedLoudness(mch);
+    const key = JSON.stringify([m.source, m.from, Math.round(span * 100)]);
+    if (extra.music?.key !== key) {
+      const ch = await decodeStereo(song, MIX_RATE, m.from, m.from + span);
+      extra.music = ch ? { key, ch, loud: integratedLoudness(ch) } : null;
+    }
+    if (extra.music) {
+      const mch = extra.music.ch;
+      const musicLoud = extra.music.loud;
       const gain = voiceLoud > -69 && musicLoud > -69 ? Math.pow(10, (voiceLoud + m.gain - musicLoud) / 20) : 0.1;
       const at = Math.round(m.start * MIX_RATE);
       const fadeIn = Math.round(0.4 * MIX_RATE);
       const fadeOut = Math.round(m.fadeOut * MIX_RATE);
       const n = Math.min(mch[0].length, length - at);
-      for (let i = 0; i < n; i++) {
-        const env = Math.min(1, i / fadeIn, (n - i) / Math.max(1, fadeOut));
-        for (let c = 0; c < 2; c++) och[c][at + i] += mch[c][i] * gain * env;
+      const BLOCK = 256;
+      for (let b = 0; b < n; b += BLOCK) {
+        const line = Math.pow(10, lineAt(m.line, (at + b) / MIX_RATE) / 20);
+        for (let i = b; i < Math.min(n, b + BLOCK); i++) {
+          const env = Math.min(1, i / fadeIn, (n - i) / Math.max(1, fadeOut)) * line * gain;
+          och[0][at + i] += mch[0][i] * env;
+          och[1][at + i] += mch[1][i] * env;
+        }
       }
     }
   }
-  // Sounds on their events, peaking on the moment.
-  const made = new Map<string, ReturnType<typeof makeSfx>>();
-  const ref = voiceLoud > -69 ? Math.pow(10, (voiceLoud + 14) / 20) : 1;
-  for (const s of plan.sfx) {
-    let fx = made.get(s.kind);
-    if (!fx) made.set(s.kind, (fx = makeSfx(s.kind, MIX_RATE)));
-    const at = Math.round((s.t - fx.peak) * MIX_RATE);
-    for (let i = 0; i < fx.data.length; i++) {
-      const k = at + i;
-      if (k < 0 || k >= length) continue;
-      const v = fx.data[i] * s.gain * 0.35 * ref;
-      och[0][k] += v;
-      och[1][k] += v;
-    }
-  }
+  addSfx(och, MIX_RATE, plan.sfx, plan.sfxGain ?? 0, talkRms(voice, MIX_RATE), (id) => extra.sounds?.get(id) ?? madeSound(id));
   const loud = integratedLoudness(och);
   if (loud > -69) {
     const g = Math.pow(10, (-14 - loud) / 20);
@@ -287,7 +348,7 @@ export interface MimicRender {
 }
 
 /** Render the whole edit to a file. */
-export async function renderMimic(plan: MimicPlan, sources: Map<string, Source>, rawId: string, opts: { onProgress?: (p: number, stage: string) => void; signal?: AbortSignal } = {}): Promise<MimicRender> {
+export async function renderMimic(plan: MimicPlan, sources: Map<string, Source>, rawId: string, opts: { onProgress?: (p: number, stage: string) => void; signal?: AbortSignal; extra?: MixExtras } = {}): Promise<MimicRender> {
   const t0 = performance.now();
   const { width: W, height: H, fps } = plan;
   await loadFonts();
@@ -297,7 +358,7 @@ export async function renderMimic(plan: MimicPlan, sources: Map<string, Source>,
   };
   opts.onProgress?.(0, "Mixing the sound");
   const delay = await audioDelay(codecs.container, codecs.audio, 0);
-  const audio = shiftAudio(await mixMimic(plan, sources, rawId), delay);
+  const audio = shiftAudio(await mixMimic(plan, sources, rawId, opts.extra), delay);
   cancelled();
   const target = new BufferTarget();
   const output = new Output({ format: codecs.container === "mp4" ? new Mp4OutputFormat({ fastStart: "in-memory" }) : new WebMOutputFormat(), target });
