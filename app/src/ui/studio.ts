@@ -12,7 +12,8 @@ import { scanImage, scanVideo, scoreInterest, type Scan } from "../engine/media/
 import { decodeMono, openSource, type Source } from "../engine/media/sources";
 import { planMeme, planTwist } from "../engine/plan/formats";
 import { planStory } from "../engine/plan/story";
-import { detectSpeech, type Run } from "../engine/audio/speech";
+import { detectSpeech, talkingRuns, type Run } from "../engine/audio/speech";
+import { hearSounds } from "../engine/audio/sounds";
 import { pickModel } from "../engine/ai/gemini";
 import { KINDS } from "../engine/media/scan";
 import { skipSegments, youtubeId } from "../engine/ai/sponsorblock";
@@ -181,6 +182,8 @@ export interface State {
   cardVersion: number;
   story: StoryState;
   geminiKey: string;
+  /** the clip a talking edit opens on, when the user picks it (a footage id; "" finds one) */
+  talkClip: string;
 }
 
 const DEFAULT_SHOT = `${import.meta.env.BASE_URL}demo-dashboard.jpg`;
@@ -286,7 +289,8 @@ class Studio {
   private abort: AbortController | null = null;
   private readonly speech = new Map<string, Run[]>();
   /** where someone talks in each clip the picture model saw talking (its first ten minutes) */
-  private readonly talking = new Map<string, Run[]>();
+  /** per clip: where a voice is heard (speech.ts), and where that's someone talking, not a song (sounds.ts) */
+  private readonly talking = new Map<string, { voice: Run[]; talking: Run[] }>();
   /** batches in flight (making edits, finding moments) that may still read the files */
   private inFlight = 0;
   /** files taken out while a batch was using them, closed once it's done */
@@ -319,6 +323,7 @@ class Studio {
       cardVersion: 0,
       story: { status: "idle", stage: "", progress: 0, moments: [], clipLength: "medium" },
       geminiKey: loadKey(),
+      talkClip: "",
     };
     void this.init();
   }
@@ -900,11 +905,18 @@ class Studio {
 
   // ── making edits ──
 
+  /** Pick the clip a talking edit opens on ("" to let the page find one). */
+  setTalkClip(id: string) {
+    this.set({ talkClip: id });
+  }
+
   /**
-   * The clips someone may be talking in: videos with sound that the picture model saw
-   * someone talking in for two seconds or more.
+   * The clips someone may be talking in: the one the user picked, or else videos with
+   * sound that the picture model saw someone talking in for two seconds or more.
    */
   private talkingClips(ready: Footage[]): string[] {
+    const picked = ready.find((f) => f.id === this.state.talkClip && f.kind === "video" && this.sources.get(f.id)?.info.hasAudio);
+    if (picked) return [picked.id];
     const TALKING = KINDS.indexOf("talking");
     return ready
       .filter((f) => {
@@ -919,18 +931,33 @@ class Studio {
       .map((f) => f.id);
   }
 
-  /** Where the voice is in each of those clips (heard once, then remembered). */
+  /**
+   * Where someone is talking in each of those clips (heard once, then remembered): the
+   * voice the speech finder hears, less where the sound model hears a song or singing
+   * (a clip's music isn't someone talking). A clip the user picked keeps all its voice
+   * when the model hears too little talking in it.
+   */
   private async talkersFor(ids: string[], signal: AbortSignal): Promise<Talker[]> {
     const out: Talker[] = [];
     for (const id of ids) {
-      let runs = this.talking.get(id);
+      let heard = this.talking.get(id);
       const src = this.sources.get(id);
-      if (!runs && src) {
+      if (!heard && src) {
         const y = await decodeMono(src, 16000, 0, 600, undefined, signal);
-        runs = detectSpeech(y, 16000);
-        this.talking.set(id, runs);
+        const voice = detectSpeech(y, 16000);
+        let talking = voice;
+        try {
+          talking = talkingRuns(voice, await hearSounds(y, 16000, signal));
+        } catch (e) {
+          if (e instanceof DOMException && e.name === "AbortError") throw e;
+          // (Without the sound model, the speech finder's word for it.)
+        }
+        heard = { voice, talking };
+        this.talking.set(id, heard);
       }
-      if (runs && talks(runs)) out.push({ id, runs });
+      if (!heard) continue;
+      const runs = talks(heard.talking) ? heard.talking : id === this.state.talkClip && talks(heard.voice) ? heard.voice : null;
+      if (runs) out.push({ id, runs });
     }
     return out;
   }

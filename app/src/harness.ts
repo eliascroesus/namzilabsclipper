@@ -11,7 +11,8 @@ import { KINDS, scanImage, scanVideo, scoreInterest, type Scan } from "./engine/
 import { planMontage, usedRanges, type Ranges } from "./engine/plan/montage";
 import type { Pace } from "./engine/plan/rhythm";
 import { mixOrder, styleFor, talks, type EditStyle, type Talker } from "./engine/plan/styles";
-import { detectSpeech } from "./engine/audio/speech";
+import { detectSpeech, talkingRuns } from "./engine/audio/speech";
+import { hearSounds } from "./engine/audio/sounds";
 import { planMeme, planTwist } from "./engine/plan/formats";
 import type { Aspect, CardSpec } from "./engine/plan/types";
 import { blobToBase64Parts, renderPlan, renderStills } from "./engine/render/export";
@@ -102,6 +103,37 @@ const harness = {
       accents: song.accents.length,
       section: pickSection(song, length, false),
     };
+  },
+
+  /** What the sound model hears in a clip, window by window (sounds.ts), and the voice the speech finder hears that it keeps as talking. */
+  async sounds(url: string, seconds = 60) {
+    const src = await load(url);
+    const y = await decodeMono(src, 16000, 0, seconds);
+    const t0 = performance.now();
+    const heard = await hearSounds(y, 16000);
+    const ms = Math.round(performance.now() - t0);
+    const voice = detectSpeech(y, 16000);
+    const kept = talkingRuns(voice, heard);
+    const sum = (rs: { start: number; end: number }[]) => round(rs.reduce((a, r) => a + r.end - r.start, 0), 1);
+    return { ms, heard: heard.map((h) => [round(h.t, 2), round(h.speech, 2), round(h.music, 2)]), voice: sum(voice), talking: sum(kept) };
+  },
+
+  /** The voice in a clip's sound, second by second: where speech is heard (speech.ts) and the voice's share of the sound there (vocals.ts), dB. */
+  async voice(url: string, seconds = 60) {
+    const src = await load(url);
+    const y = await decodeMono(src, SR, 0, seconds);
+    const runs = detectSpeech(y, SR);
+    const v = await findVocals(y);
+    const fps = SR / 512;
+    const out: { t: number; voiced: number; share: number; level: number }[] = [];
+    for (let s = 0; s + 1 <= y.length / SR; s++) {
+      const voiced = runs.reduce((a, r) => a + Math.max(0, Math.min(r.end, s + 1) - Math.max(r.start, s)), 0);
+      const fr = Array.from(v.ratio.subarray(Math.floor(s * fps), Math.floor((s + 1) * fps))).sort((a, b) => a - b);
+      let e = 0;
+      for (let i = s * SR; i < (s + 1) * SR; i++) e += y[i] * y[i];
+      out.push({ t: s, voiced: round(voiced, 2), share: round(fr[Math.floor(fr.length / 2)] ?? -99, 1), level: round(10 * Math.log10(e / SR + 1e-12), 1) });
+    }
+    return { duration: src.info.duration, runs: runs.length, out };
   },
 
   /** Scan videos and rate their frames with the in-page picture model (no key); per sample: interest, kind, flex. */
@@ -297,7 +329,8 @@ async function montage(run: MontageRun) {
       let secs = 0;
       for (let i = 0; i < sc.stats.t.length; i++) if (sc.look.kind[i] === TALKING) secs += Math.min(2, (sc.stats.t[i + 1] ?? sc.duration) - sc.stats.t[i]);
       if (secs < 2) continue;
-      const runs = detectSpeech(await decodeMono(src, 16000, 0, 600), 16000);
+      const y = await decodeMono(src, 16000, 0, 600);
+      const runs = talkingRuns(detectSpeech(y, 16000), await hearSounds(y, 16000));
       if (talks(runs)) talkers.push({ id: sc.id, runs });
     }
     lap("talking");

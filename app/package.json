@@ -13,6 +13,7 @@
   "dependencies": {
     "@mediabunny/aac-encoder": "^1.60.0",
     "@mediabunny/mp3-encoder": "^1.60.0",
+    "@mediapipe/tasks-audio": "^1.0.1",
     "lucide-react": "^1.48.0",
     "mediabunny": "^1.60.0",
     "onnxruntime-web": "^1.30.0",

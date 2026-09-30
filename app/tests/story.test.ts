@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { analyzeSong } from "../src/engine/audio/song";
-import { detectSpeech, keepSpeech, snapToSpeech, type Run } from "../src/engine/audio/speech";
+import { detectSpeech, keepSpeech, snapToSpeech, talkingRuns, type Run } from "../src/engine/audio/speech";
 import { PROFILE_BINS, type Scan } from "../src/engine/media/scan";
 import { mulberry32 } from "../src/engine/plan/montage";
 import { planStory } from "../src/engine/plan/story";
@@ -44,6 +44,28 @@ describe("speech detection", () => {
     const kept = keepSpeech(runs, 0.5, 9.5);
     expect(kept.length).toBe(3);
     expect(snapToSpeech(runs, 3.3, "start")).toBeCloseTo(3.6, 1);
+  });
+
+  it("keeps only the runs where the sound model hears someone talking, not a song or singing", () => {
+    // A clip: talking 0 to 4 s, a song 4 to 9 s (the speech finder hears a voice in it all
+    // the same), talking over a quiet bed 9 to 12 s, then someone singing 12 to 14 s.
+    const runs: Run[] = [
+      { start: 0.2, end: 1.8 },
+      { start: 2.1, end: 3.9 },
+      { start: 4.1, end: 8.8 },
+      { start: 9.1, end: 11.7 },
+      { start: 12.1, end: 13.9 },
+    ];
+    const heard = Array.from({ length: 15 }, (_, k) => {
+      const t = k * 0.975;
+      if (t < 4) return { t, speech: 0.9, music: 0 };
+      if (t < 9) return { t, speech: 0, music: 0.95 };
+      if (t < 11.7) return { t, speech: 0.6, music: 0.2 };
+      return { t, speech: 0.1, music: 0.7 };
+    });
+    expect(talkingRuns(runs, heard)).toEqual([runs[0], runs[1], runs[3]]);
+    // Without the model, the runs as they were.
+    expect(talkingRuns(runs, [])).toEqual(runs);
   });
 
   it("splits long audio into chunks at pauses", () => {

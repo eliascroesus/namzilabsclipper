@@ -434,6 +434,30 @@ function CuttingField({ st }: { st: Style }) {
   );
 }
 
+/**
+ * The clip a talking edit opens on: one the page finds (someone the picture model sees
+ * talking, the talking told apart from any song in the clip), or one picked here.
+ */
+function TalkClipField({ s }: { s: State }) {
+  const clips = s.footage.filter((f) => f.kind === "video" && f.status === "ready");
+  if (!clips.length) return null;
+  const picked = clips.some((f) => f.id === s.talkClip) ? s.talkClip : "";
+  return (
+    <div className="field">
+      <label htmlFor="talk-clip">Talking clip</label>
+      <select id="talk-clip" className="select" value={picked} onChange={(e) => studio.setTalkClip(e.target.value)}>
+        <option value="">Find someone talking</option>
+        {clips.map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.name}
+          </option>
+        ))}
+      </select>
+      <span className="hint">{picked ? "Talk, then the drop opens on this clip, where someone talks in it (not where a song plays)." : "The page finds a clip with someone talking, and leaves out any stretch where a song or singing plays."}</span>
+    </div>
+  );
+}
+
 export function StylePanel({ s }: { s: State }) {
   const st = s.style;
   const hold = cardHoldOf(s.kit);
@@ -465,6 +489,7 @@ export function StylePanel({ s }: { s: State }) {
           </div>
         </div>
       )}
+      {st.format === "montage" && (st.edit === "talk" || st.edit === "mix") && <TalkClipField s={s} />}
       {st.format === "montage" && <CuttingField st={st} />}
       <div className="field" style={st.format === "montage" ? undefined : { marginTop: 0 }}>
         <span className="label">Frame</span>

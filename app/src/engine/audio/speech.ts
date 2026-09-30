@@ -4,6 +4,7 @@
  * packed small enough to send for transcription.
  */
 import { AudioSample, AudioSampleSource, BufferTarget, canEncodeAudio, Mp3OutputFormat, Output } from "mediabunny";
+import type { Heard } from "./sounds";
 
 export interface Run {
   start: number;
@@ -65,6 +66,30 @@ export function detectSpeech(y: Float32Array, rate: number): Run[] {
     else merged.push({ ...r });
   }
   return merged.filter((r) => r.end - r.start >= 0.1);
+}
+
+/**
+ * The runs where someone is talking, not a song playing or someone singing: the sound
+ * model's windows over a run (sounds.ts), each as much as it covers of it, hear speech
+ * more than music, and no song under it (music under 0.4). With nothing heard (the
+ * model didn't load), the runs as they are.
+ */
+export function talkingRuns(runs: Run[], heard: Heard[], window = 0.975): Run[] {
+  if (!heard.length) return runs;
+  return runs.filter((r) => {
+    let speech = 0;
+    let music = 0;
+    let w = 0;
+    for (const h of heard) {
+      const o = Math.min(r.end, h.t + window) - Math.max(r.start, h.t);
+      if (o <= 0) continue;
+      speech += o * h.speech;
+      music += o * h.music;
+      w += o;
+    }
+    if (!w) return false;
+    return speech / w >= 0.2 && music / w < 0.4 && speech > music;
+  });
 }
 
 /**
