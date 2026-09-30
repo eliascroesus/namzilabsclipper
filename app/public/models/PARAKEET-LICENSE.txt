@@ -1,0 +1,10 @@
+models/parakeet-v3/ (encoder.int8.onnx, decoder.int8.onnx, joiner.int8.onnx, tokens.txt)
+
+NVIDIA Parakeet TDT 0.6B v3 (https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3), speech
+recognition for 25 European languages, exported to ONNX with int8 weights by the sherpa-onnx
+project (https://github.com/k2-fsa/sherpa-onnx, release "asr-models",
+sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8). The deploy fetches it from there; it isn't in
+this repository.
+
+The model is NVIDIA's, released under the Creative Commons Attribution 4.0 International
+licence (CC BY 4.0): https://creativecommons.org/licenses/by/4.0/

@@ -14,6 +14,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(import.meta.dirname, "index.html"),
+        // The second page: an edit copied from a reference video.
+        mimic: resolve(import.meta.dirname, "mimic.html"),
         // A bare page the browser tests drive; it ships but nothing links to it.
         harness: resolve(import.meta.dirname, "harness.html"),
       },

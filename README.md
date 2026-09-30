@@ -2,7 +2,7 @@
 
 A clipping machine that runs in the browser. Drop in footage and a sound, and it makes finished short-form edits cut to the music, each ending on a demo card for the product it promotes. Nothing to install: the video work runs inside Chrome on the Mac's own video engine and GPU, two small AI models run in the page (one sees what's in the footage, one hears where the singing is), and Google's free Gemini API, if you add a key, sharpens the picks and listens to long videos for Story.
 
-**Open it:** https://eliascroesus.github.io/namzilabsclipper/ (see [Publishing](#publishing) for the one-time switch that turns this on)
+**Open it:** https://eliascroesus.github.io/namzilabsclipper/ (see [Publishing](#publishing) for the one-time switch that turns this on). A second page, **[Mimic](https://eliascroesus.github.io/namzilabsclipper/mimic.html)**, edits raw talking footage the way a reference ad is edited (below).
 
 ## What it makes
 
@@ -16,6 +16,18 @@ A clipping machine that runs in the browser. Drop in footage and a sound, and it
 Every edit ends on **the demo card**: black, a laptop showing your product (or a phone, for an app), the call to action above, the address below, and the hand-drawn arrow between them, slowly pulling out, exactly as the nio.trade Reels do it. Set the lines, the screenshot and the arrow colour once; they're remembered. Or end on **your own video** (a motion design, a logo sting): pick **Your video** under End card and drop it in. It plays whole at the end of every edit (up to 15 seconds of it), as it was made (no grade, its own sound off, the song under it), filling the frame when it's the edit's shape and sitting inside it when not.
 
 Each result comes as an MP4 **with the song** and a copy **without it**, plus a post note. When the sound came from a Reel, the edit starts at that Reel's 0:00, so tapping the sound in Instagram and choosing **Use audio** lines every cut up with the beat. Drag the box on the song's timeline to start somewhere else; the post note then says where to start the sound. Drag the box's right edge to make the edits longer or shorter, from a few seconds to a minute (or set **Length** under Style). The card comes in on a bar line, and the music fades out over its last moment.
+
+## Mimic: copy an ad's edit
+
+The second page (**Mimic** in the header). Drop the ad or video you want yours to look like, your raw footage, and optionally extras (pictures and clips) and music. The page studies the reference on your computer and edits your footage the same way:
+
+- **Captions** in its place, size, colour and style, coming on word by word as your words are said (or however the reference brings them on), from a speech model that runs in the page (25 European languages, Danish included; the words can be fixed by hand or by Gemini, each keeping its time).
+- **Cards** with your pictures in them, cropped to the reference's shapes and sliding or cutting on and off as its cards do, at the same point of your talk (the hook's to the second); **cutaways** with your clips.
+- **Zooms** stepping in and out as the reference's do, and a jump at every cut in your footage so it reads as a punch-in.
+- **Sound and ending**: your music from where the reference's comes in, as far under the voice; its sounds on the same events; its black ending.
+- A switch: **also clip the footage** (cut its pauses down to the reference's), or keep your cut as it is.
+
+What it measured on the example ad, and how each part works: [docs/mimic.md](docs/mimic.md).
 
 ## How it picks and frames
 
@@ -53,8 +65,9 @@ Your videos never leave the computer. Without a key nothing does: both models ru
 | [`docs/build-plan.md`](docs/build-plan.md) | How the machine works, the free stack, what's done and what's next |
 | [`docs/namzilabs-context.md`](docs/namzilabs-context.md) | Namzilabs as a product: the app, its look, the content rules |
 | [`reference-edits/`](reference-edits/) | Example Reels to learn from |
-| [`rawvidneededited/`](rawvidneededited/) | Raw videos that need editing, for a page to come |
-| [`inspirationedit/`](inspirationedit/) | Edits to take after, for a page to come |
+| [`docs/mimic.md`](docs/mimic.md) | The Mimic page: the example ad measured, how a reference is studied and copied |
+| [`rawvidneededited/`](rawvidneededited/) | Raw footage to edit (the Mimic page's example) |
+| [`inspirationedit/`](inspirationedit/) | An ad to copy (the Mimic page's example) |
 | [`templates/endcard/laptop.html`](templates/endcard/laptop.html) | The original HTML version of the demo card |
 | [`tools/`](tools/) | The lab bench: `analyze_edit.py` measures any edit (cuts, beats, sync, motion), `render_html.py` renders HTML motion templates |
 | [`screenshots/`](screenshots/) | Real screens of the Namzilabs app |

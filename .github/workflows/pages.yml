@@ -34,6 +34,21 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npx vite build
+      # The mimic page's speech model (NVIDIA Parakeet TDT 0.6B v3, int8, CC BY 4.0), from
+      # sherpa-onnx's release: served by this site so the page can fetch it (about 670 MB,
+      # downloaded once per browser). Kept in the Actions cache between deploys.
+      - uses: actions/cache@v4
+        id: asr
+        with:
+          path: app/.asr
+          key: parakeet-tdt-0.6b-v3-int8
+      - if: steps.asr.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .asr && cd .asr
+          curl -sSfL -o m.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2
+          tar xjf m.tar.bz2 --strip-components=1 --wildcards '*/encoder.int8.onnx' '*/decoder.int8.onnx' '*/joiner.int8.onnx' '*/tokens.txt'
+          rm m.tar.bz2
+      - run: mkdir -p dist/models/parakeet-v3 && cp .asr/encoder.int8.onnx .asr/decoder.int8.onnx .asr/joiner.int8.onnx .asr/tokens.txt dist/models/parakeet-v3/
       - uses: actions/upload-pages-artifact@v4
         with:
           path: app/dist

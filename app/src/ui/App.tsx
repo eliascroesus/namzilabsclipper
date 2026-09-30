@@ -23,7 +23,12 @@ export function App() {
           <Mark />
           <span>Namzilabs</span>
           <span className="sep" />
-          <span className="product">Clipper</span>
+          <nav className="pages">
+            <a href="./" aria-current="page">
+              Clipper
+            </a>
+            <a href="./mimic.html">Mimic</a>
+          </nav>
         </div>
         <div className="topnote">
           <span className="dot" />

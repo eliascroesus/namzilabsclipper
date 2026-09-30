@@ -68,6 +68,11 @@ button { cursor: pointer; }
 .brand svg { display: block; }
 .brand .sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
 .brand .product { font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+/* The pages: the clipper and the mimic. */
+.pages { display: flex; gap: 2px; padding: 2px; background: var(--control); border: 1px solid var(--line); border-radius: var(--radius); }
+.pages a { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; letter-spacing: 0; padding: 3px 10px; border-radius: 6px; }
+.pages a:hover { color: var(--text); }
+.pages a[aria-current="page"] { background: var(--hover); color: var(--text); }
 .topnote { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
 @media (max-width: 640px) { .topnote span.long { display: none; } }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.15); }

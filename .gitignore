@@ -14,6 +14,8 @@ app/tests/fixtures/
 # the web app's dependencies, builds and test output
 node_modules/
 app/dist/
+# the speech model the deploy fetches (see .github/workflows/pages.yml)
+app/.asr/
 app/e2e-out/
 # scratch tests written while investigating a bug, never committed
 app/tests/zz-*

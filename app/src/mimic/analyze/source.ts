@@ -1,0 +1,93 @@
+/**
+ * A video file as the analyzer reads it, in the browser: its frames decoded in
+ * order and shrunk on a canvas, pictures at chosen times, its sound at 16 kHz,
+ * and small pictures of parts of it for the page.
+ */
+import { VideoSampleSink } from "mediabunny";
+import { decodeMono, type Source } from "../../engine/media/sources";
+import { FaceFinder } from "../../engine/vision/faces";
+import type { Gray } from "./cards";
+import type { Picture } from "./ocr";
+import type { FrameSource } from "./reference";
+
+export function frameSource(src: Source): FrameSource {
+  const video = src.video;
+  if (!video) throw new Error(`${src.info.name} has no picture.`);
+  const first = video.getFirstTimestamp().catch(() => 0);
+  const canvasFor = (w: number, h: number) => {
+    const c = new OffscreenCanvas(w, h);
+    return c.getContext("2d", { willReadFrequently: true, alpha: false })!;
+  };
+  return {
+    name: src.info.name,
+    duration: src.info.duration,
+    width: src.info.width,
+    height: src.info.height,
+    fps: src.info.fps || 30,
+    async frames(w, h, each, signal) {
+      const ctx = canvasFor(w, h);
+      const t0 = await first;
+      for await (const sample of new VideoSampleSink(video).samples()) {
+        try {
+          if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+          sample.drawWithFit(ctx, { fit: "fill" });
+          const px = ctx.getImageData(0, 0, w, h).data;
+          const g = new Uint8Array(w * h);
+          for (let i = 0; i < w * h; i++) g[i] = (px[i * 4] * 299 + px[i * 4 + 1] * 587 + px[i * 4 + 2] * 114) / 1000;
+          each(sample.timestamp - t0, { data: g, width: w, height: h } satisfies Gray);
+        } finally {
+          sample.close();
+        }
+      }
+    },
+    async pictures(times, w, h, each, signal) {
+      const ctx = canvasFor(w, h);
+      const t0 = await first;
+      let i = 0;
+      for await (const sample of new VideoSampleSink(video).samplesAtTimestamps(times.map((t) => t + t0))) {
+        const t = times[i++];
+        if (!sample) continue;
+        try {
+          if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+          sample.drawWithFit(ctx, { fit: "fill" });
+          await each(t, { data: ctx.getImageData(0, 0, w, h).data, width: w, height: h } satisfies Picture);
+        } finally {
+          sample.close();
+        }
+      }
+    },
+    audio: () => (src.info.hasAudio ? decodeMono(src, 16000) : Promise.resolve(new Float32Array(Math.round(src.info.duration * 16000)))),
+    async thumb(t, rect) {
+      const t0 = await first;
+      const sink = new VideoSampleSink(video);
+      const sample = await sink.getSample(t + t0);
+      if (!sample) return undefined;
+      try {
+        const W = src.info.width;
+        const H = src.info.height;
+        const [x, y, w, h] = rect ?? [0, 0, 1, 1];
+        const k = 200 / Math.max(w * W, h * H);
+        const c = new OffscreenCanvas(Math.max(8, Math.round(w * W * k)), Math.max(8, Math.round(h * H * k)));
+        const ctx = c.getContext("2d")!;
+        sample.draw(ctx, x * W, y * H, w * W, h * H, 0, 0, c.width, c.height);
+        const blob = await c.convertToBlob({ type: "image/jpeg", quality: 0.8 });
+        return await new Promise<string>((resolve) => {
+          const r = new FileReader();
+          r.onload = () => resolve(String(r.result));
+          r.readAsDataURL(blob);
+        });
+      } finally {
+        sample.close();
+      }
+    },
+  };
+}
+
+/** Faces in an analysis picture (centre and size as shares of it), with the page's face finder. */
+export async function facesIn(p: Picture): Promise<{ x: number; y: number; w: number; h: number }[]> {
+  const finder = await FaceFinder.get();
+  const img = new ImageData(Uint8ClampedArray.from(p.data), p.width, p.height);
+  const c = new OffscreenCanvas(p.width, p.height);
+  c.getContext("2d")!.putImageData(img, 0, 0);
+  return finder.find((ctx) => ctx.drawImage(c, 0, 0, ctx.canvas.width, ctx.canvas.height), p.width / p.height);
+}

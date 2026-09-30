@@ -44,6 +44,25 @@ drop sound ─► audio/song       librosa's onset envelope, tempo and beat trac
                                → MP4 via Mediabunny; the soundtrack mixed and mastered to -14 LUFS
 ```
 
+The Mimic page (`mimic.html`, `src/mimic/`) is its own flow:
+
+```
+reference ─► analyze/source     the video's frames (every one, small and gray), pictures at chosen times, its sound
+            ─► analyze/cards     rectangles of straight edges followed frame by frame: cards, their runs and motions
+            ─► analyze/shots     cuts (most of the frame changing at once), talking footage and cutaways
+            ─► analyze/zoom      each frame against the last, scaled: punch-ins and pull-outs
+            ─► analyze/ocr       PP-OCRv4 (detector and recogniser) on ONNX Runtime Web
+            ─► analyze/captions  the caption band, then its lines' letters: size, fit, colour, outline or
+                                 shadow, lines, how they come on
+            ─► analyze/sound     voice, a bed under it, sounds on events
+            ─► analyze/reference all of it as a template (types.ts)
+footage   ─► asr/*               Parakeet TDT v3 in a worker (fbank, encoder, token-and-duration search),
+                                 words fixed by hand or Gemini keeping their times (align, gemini)
+            ─► plan              the template applied: segments, captions (captions.ts), cards, cutaways,
+                                 zooms, framing, sounds (sfx.ts), music, ending
+            ─► render            per frame on a canvas, encoded with WebCodecs; the mix at -14 LUFS
+```
+
 Story adds a listening step first: `audio/speech` finds where people talk and packs the sound as MP3, `ai/gemini` + `story/story` transcribe it and pick the moments, and `plan/story` builds the clip.
 
 ## The code
@@ -57,6 +76,7 @@ Story adds a listening step first: `audio/speech` finds where people talk and pa
 | `src/engine/render/` | `gl` (the WebGL2 compositor and its shaders: crop, grade, flash, burn, shake, zoom blur), `card` (the demo card), `captions` (six styles), `mix` (soundtrack, loudness, limiter), `export` (FramePainter, punch-ins, stills, the encode loop) |
 | `src/engine/ai/`, `src/engine/story/` | The Gemini client and SponsorBlock; transcription and moment picking |
 | `src/ui/` | `studio` (state and actions), `App` and `components/` (panels, results), `kit` (brand kit storage), `styles.css` |
+| `src/mimic/` | The Mimic page: `analyze/` (studying a reference), `asr/` (the speech model and its worker, fixing words), `captions`, `plan`, `render`, `sfx`, `types`, `ui/` (`store`, `MimicApp`, `mimic.css`), `main.tsx` |
 | `src/harness.ts`, `harness.html` | A bare page the browser tests drive |
 
 ## Tests
@@ -65,8 +85,10 @@ Story adds a listening step first: `audio/speech` finds where people talk and pa
 - `node e2e/run.mjs montage '<json>' --out DIR` renders edits through the harness in headless Chromium (plan, stills, or full renders; `"faces": true` follows faces; the picture and vocal models and the check for the footage's own cuts run as in the app, `"sense": false`, `"vocals": false` and `"settle": false` skip them; `"dump": true` saves the analysed song and footage as JSON with the contact sheets, to tune the planner outside the browser). `node e2e/run.mjs faces '["<video>", [times]]'` runs the face detector on frames. Set `CHROMIUM_PATH` if Chromium isn't at `/opt/pw-browsers/chromium`, and `E2E_DIST=<a vite build>` to run against a built copy (an edit to the sources then can't reload a long run halfway; `ui`, `smart` and `manage` take it too).
 - `node e2e/ui.mjs`, `node e2e/story.mjs`, `node e2e/smart.mjs` and `node e2e/manage.mjs` use the real UI like a person would and screenshot each step; the story and smart picks tests answer Gemini's calls with a stand-in, so no key is needed, and the manage test drives the song timeline (moving the stretch, stepping it a bar, back to automatic, dragging its right edge to set the length) and deletes edits (waiting, being made, finished).
 
+- The Mimic page's tests: `mimic-asr` (the speech features against kaldi-native-fbank, the token-and-duration search on a scripted model, words from tokens, and the real model on the example footage when a copy is in `tests/fixtures/parakeet-v3`), `mimic-ocr` (text boxes from the detector's map, CTC reading, and the example ad's caption lines where RapidOCR finds them), `mimic-cards` (a card sliding in, swapping twice and sliding out; the example ad's ten cards), `mimic-zoom`, `mimic-captions` (the caption look from word-by-word samples, fitted and not; the example ad's), `mimic-plan` (captions from words, fixing words, zoom keys, a card's motion, the plan). `E2E_DIST=<a vite build> node e2e/mimic.mjs --ref <video> --raw <video> [--extra <file>...] [--music <file>] [--clip] --out DIR` uses the page like a person would (with the speech model at `<build>/models/parakeet-v3`) and saves the template, the plan, screenshots and the finished edit.
+
 The librosa fixtures and the test footage are other creators' media, so they stay out of git (`tests/fixtures/`, `test-media/`). To rebuild the fixtures, decode a song to 22,050 Hz mono float32 and save librosa's `onset_strength`, `feature.tempo`, `beat.beat_track`, `onset.onset_detect` and `feature.rms` output next to it (see `tests/audio.test.ts` for the fields).
 
 ## Browsers
 
-Built for Chrome (desktop), which has WebCodecs, WebGL2, and on a Mac hardware H.264 and AAC encoding. Where a browser can't encode AAC, a small WASM encoder loads on demand; where it can't encode H.264, edits come out as WebM (VP9 + Opus) with a notice. The models run on ONNX Runtime's WebAssembly build (about 14 MB, once, cached by the browser) from `public/models`: YuNet for faces (230 KB), TinyCLIP's 8M image encoder with 8-bit weights for the picture model (9 MB, with its text side precomputed in `tinyclip-text.json`) and Spleeter's vocal network (20 MB), all MIT (see the `*-LICENSE.txt` files there). Safari and Firefox are untested.
+Built for Chrome (desktop), which has WebCodecs, WebGL2, and on a Mac hardware H.264 and AAC encoding. Where a browser can't encode AAC, a small WASM encoder loads on demand; where it can't encode H.264, edits come out as WebM (VP9 + Opus) with a notice. The models run on ONNX Runtime's WebAssembly build (about 14 MB, once, cached by the browser) from `public/models`: YuNet for faces (230 KB), TinyCLIP's 8M image encoder with 8-bit weights for the picture model (9 MB, with its text side precomputed in `tinyclip-text.json`) and Spleeter's vocal network (20 MB), all MIT (see the `*-LICENSE.txt` files there). The Mimic page adds PP-OCRv4's text detector and recogniser (15.6 MB, Apache 2.0) and, for hearing the footage, NVIDIA's Parakeet TDT 0.6B v3 (670 MB, CC BY 4.0), which the deploy fetches from sherpa-onnx's release and serves from `models/parakeet-v3/` (the browser keeps it after the first time). Safari and Firefox are untested.
