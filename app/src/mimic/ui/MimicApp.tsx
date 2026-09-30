@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ClipboardPaste, Download, Film, Image as ImageIcon, Music, Play, Sparkles, Square, Volume2, X } from "lucide-react";
 import { Drop, fmtBytes, fmtTime, Mark, Section, Segmented, Switch } from "../../ui/components/bits";
+import { naturalWordGap } from "../analyze/captions";
 import { aboutOf, sentences, type Sentence } from "../match";
 import { SOUNDS } from "../sfx";
 import type { CaptionLook, CardSlot, MimicPlan, MimicTemplate } from "../types";
@@ -559,6 +560,9 @@ function Pictures({ s, plan }: { s: State; plan: MimicPlan | null }) {
 function LookControls({ s }: { s: State }) {
   const l = s.look;
   const set = (p: Partial<CaptionLook>) => mimic.setLook(p);
+  // Word spacing against a normal space (the face's own: 100%); unset, the face's own.
+  const normal = naturalWordGap(l);
+  const gap = l.wordGap ?? normal;
   return (
     <div className="look">
       <label>
@@ -569,6 +573,12 @@ function LookControls({ s }: { s: State }) {
       </label>
       <label>
         Width <input type="range" min={0.2} max={0.95} step={0.005} value={l.width} onChange={(e) => set({ width: Number(e.target.value) })} /> <span className="num">{Math.round(l.width * 100)}%</span>
+      </label>
+      <label title="The space between words: 100% is a normal space">
+        Word spacing <input type="range" min={0} max={3 * normal} step={normal / 50} value={gap} onChange={(e) => set({ wordGap: Number(e.target.value) })} /> <span className="num">{Math.round((gap / normal) * 100)}%</span>
+      </label>
+      <label title="The space between letters: 0 is the face's own">
+        Letter spacing <input type="range" min={-0.06} max={0.2} step={0.005} value={l.tracking} onChange={(e) => set({ tracking: Number(e.target.value) })} /> <span className="num">{l.tracking > 0 ? "+" : ""}{Math.round(l.tracking * 100)}</span>
       </label>
       <label>
         Weight

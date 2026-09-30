@@ -10,6 +10,7 @@ import { findCuts as exactCuts } from "../../engine/media/cuts";
 import { grabThumb } from "../../engine/media/scan";
 import { decodeMono, openSource, type Source } from "../../engine/media/sources";
 import { FaceFinder } from "../../engine/vision/faces";
+import { naturalWordGap } from "../analyze/captions";
 import { TextReader } from "../analyze/ocr";
 import { analyzeReference } from "../analyze/reference";
 import { facesIn, frameSource } from "../analyze/source";
@@ -153,6 +154,18 @@ let nextId = 1;
 const newId = (p: string) => `${p}${nextId++}`;
 const idle: Job = { stage: "idle", progress: 0, label: "" };
 
+
+/**
+ * The captions as the reference sets them, their words no closer than four fifths of a
+ * normal space: a tight gap measured off a reference reads as no space at all on a
+ * phone (the word spacing slider goes either way from there).
+ */
+function readable(look: CaptionLook | null | undefined): CaptionLook {
+  if (!look) return DEFAULT_LOOK;
+  const floor = 0.8 * naturalWordGap(look);
+  return look.wordGap !== undefined && look.wordGap < floor ? { ...look, wordGap: Math.round(floor * 1000) / 1000 } : look;
+}
+
 class Mimic {
   private state: State;
   private readonly listeners = new Set<() => void>();
@@ -277,13 +290,13 @@ class Mimic {
       const kept = fresh ? null : await recall<MimicTemplate>(key);
       if (ctl.signal.aborted) return;
       if (kept?.version === 1) {
-        this.set((s) => ({ template: kept, look: kept.captions ?? DEFAULT_LOOK, study: { stage: "ready", progress: 1, label: "" }, assign: {}, remembered: { ...s.remembered, reference: true } }));
+        this.set((s) => ({ template: kept, look: readable(kept.captions), study: { stage: "ready", progress: 1, label: "" }, assign: {}, remembered: { ...s.remembered, reference: true } }));
         return;
       }
       const reader = await TextReader.get();
       const template = await analyzeReference(frameSource(src), { reader, faces: facesIn }, (p, label) => this.set({ study: { stage: "working", progress: p, label } }), ctl.signal);
       if (ctl.signal.aborted) return;
-      this.set({ template, look: template.captions ?? DEFAULT_LOOK, study: { stage: "ready", progress: 1, label: "" }, assign: {} });
+      this.set({ template, look: readable(template.captions), study: { stage: "ready", progress: 1, label: "" }, assign: {} });
       void remember(key, template);
     } catch (e) {
       if (ctl.signal.aborted) return;

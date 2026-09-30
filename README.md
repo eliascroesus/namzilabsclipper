@@ -46,7 +46,7 @@ The second page (**Mimic** in the header). Drop the ad or video you want yours t
 - **Zooms** stepping in and out as the reference's do, and a jump at every cut in your footage so it reads as a punch-in.
 - **Sound effects** made in the page (whoosh, swipe, pop, click, boom, riser, ding, cash register) or your own: a whoosh as each card slides in and out and into each cutaway, a swipe as a card's picture changes, and optionally sounds on the script (a cash register where money is said, or the moments Gemini picks). Each can be heard, dragged along the timeline, changed or taken out.
 - **Music and ending**: your music from where the reference's comes in (or the top), as far under the voice, louder or quieter as a whole, and shaped stretch by stretch with a volume line on the Sound timeline (points to drag, as in CapCut); listen to the whole mix from any moment before making it; its black ending.
-- **Captions previewed live**: one of your captions drawn over your footage in the look as it's set, redrawn as you change it.
+- **Captions previewed live**: one of your captions drawn over your footage in the look as it's set, redrawn as you change it. Word spacing and letter spacing have their own sliders (100% word spacing is a normal space); the page starts no tighter than four fifths of one, however tight the reference.
 - A switch: **also clip the footage** (cut its pauses down to the reference's), or keep your cut as it is.
 
 What it measured on the example ad, and how each part works: [docs/mimic.md](docs/mimic.md).

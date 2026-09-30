@@ -83,7 +83,10 @@ Python tools in `tools/`):
    word) and, when it's laid out whole, the space between words: each new word starts one
    gap past where its line ended (the reader can't tell, as it runs tight words together).
    The example keeps 3 to 4 px between words whatever the letters (a t's bar to the next
-   t's too), so the gap is kept as ink, not as a narrower space.
+   t's too), so the gap is kept as ink, not as a narrower space. On a phone that reads as
+   no space at all (0.15 of the letters' size, 57% of a normal space), so the page starts
+   the captions at four fifths of a normal space at least, and two sliders set it: word
+   spacing (100% is a normal space) and letter spacing.
    Each caption's last frame is the whole caption: letters per line, alignment, and
    whether lines are fitted to one width (their widths stay put while their letters vary)
    or all one size (their widths grow with their letters).

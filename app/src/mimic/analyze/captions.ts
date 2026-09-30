@@ -294,6 +294,9 @@ export function lineSize(ink: LineInk, text: string): number {
 /** The ink between two words of Inter over its size (the median over word pairs), with the look's tracking (-0.02), by weight. */
 const interWordGap = (weight: number) => 0.264 - 0.00017 * (weight - 600);
 
+/** About how much ink a face's own space leaves between two words, in font sizes: what "a normal space" is for a look. */
+export const naturalWordGap = (look: Pick<CaptionLook, "font" | "weight">) => (look.font === "sans" ? interWordGap(look.weight) : 0.25);
+
 export interface CaptionSample {
   t: number;
   /** the lines read on this frame (all of them; the band is found from all samples) */

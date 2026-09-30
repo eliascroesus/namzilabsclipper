@@ -141,17 +141,20 @@ describe("the space between words", () => {
       }
     }
     const ctx = new Stand() as unknown as OffscreenCanvasRenderingContext2D;
-    const look = { ...DEFAULT_LOOK, fit: false, maxSize: 0.04, width: 0.9, wordGap: 0.15 };
-    const words = ["overladet", "til", "dig", "at"].map((text, i) => ({ text, start: i, end: i + 0.5 }));
-    const [line] = layoutPage(ctx, look, { start: 0, end: 4, lines: [words] }, 1080, 1920);
-    const px = line.size;
-    const edges = line.words.map((w) => {
-      const m = ctx.measureText(w.text);
-      return [w.x - m.actualBoundingBoxLeft, w.x + m.actualBoundingBoxRight];
-    });
-    for (let i = 1; i < edges.length; i++) expect(edges[i][0] - edges[i - 1][1]).toBeCloseTo(0.15 * px, 6);
-    // Centred by its ink.
-    expect((edges[0][0] + edges[edges.length - 1][1]) / 2).toBeCloseTo(540, 6);
+    // The reference's tight gap, and one widened with the word spacing slider.
+    for (const wordGap of [0.15, 0.4]) {
+      const look = { ...DEFAULT_LOOK, fit: false, maxSize: 0.04, width: 0.9, wordGap };
+      const words = ["overladet", "til", "dig", "at"].map((text, i) => ({ text, start: i, end: i + 0.5 }));
+      const [line] = layoutPage(ctx, look, { start: 0, end: 4, lines: [words] }, 1080, 1920);
+      const px = line.size;
+      const edges = line.words.map((w) => {
+        const m = ctx.measureText(w.text);
+        return [w.x - m.actualBoundingBoxLeft, w.x + m.actualBoundingBoxRight];
+      });
+      for (let i = 1; i < edges.length; i++) expect(edges[i][0] - edges[i - 1][1]).toBeCloseTo(wordGap * px, 6);
+      // Centred by its ink.
+      expect((edges[0][0] + edges[edges.length - 1][1]) / 2).toBeCloseTo(540, 6);
+    }
   });
 });
 
