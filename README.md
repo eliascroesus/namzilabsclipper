@@ -22,7 +22,7 @@ Each result comes as an MP4 **with the song** and a copy **without it**, plus a 
 The second page (**Mimic** in the header). Drop the ad or video you want yours to look like, your raw footage, and optionally extras (pictures and clips) and music. The page studies the reference on your computer and edits your footage the same way:
 
 - **Captions** in its place, size, colour and style, coming on word by word as your words are said (or however the reference brings them on), from a speech model that runs in the page (25 European languages, Danish included; the words can be fixed by hand or by Gemini, each keeping its time).
-- **Cards** with your pictures in them, cropped to the reference's shapes and sliding or cutting on and off as its cards do, at the same point of your talk (the hook's to the second); **cutaways** with your clips.
+- **Cards** with your pictures in them, cropped to the reference's shapes and sliding or cutting on and off as its cards do, at the same point of your talk (the hook's to the second); **cutaways** with your clips. Pictures don't need downloading: copy one in any tab (right-click, Copy image) and press Ctrl+V (⌘V) on the page, or paste it straight into one of the reference's cards with the card's own paste button.
 - **Zooms** stepping in and out as the reference's do, and a jump at every cut in your footage so it reads as a punch-in.
 - **Sound and ending**: your music from where the reference's comes in, as far under the voice; its sounds on the same events; its black ending.
 - A switch: **also clip the footage** (cut its pauses down to the reference's), or keep your cut as it is.

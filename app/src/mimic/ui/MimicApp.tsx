@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, Download, Film, Image as ImageIcon, Music, Sparkles, Square, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ClipboardPaste, Download, Film, Image as ImageIcon, Music, Sparkles, Square, X } from "lucide-react";
 import { Drop, fmtBytes, fmtTime, Mark, Section, Segmented, Switch } from "../../ui/components/bits";
 import type { CaptionLook, CardSlot, MimicTemplate } from "../types";
+import { fromPaste, PASTE_KEY } from "./paste";
 import { mimic, useMimic, type Item, type Job, type State } from "./store";
 
 function Bar({ job }: { job: Job }) {
@@ -102,12 +103,29 @@ function FootagePanel({ s }: { s: State }) {
   );
 }
 
+function PasteNote({ s, where }: { s: State; where: "extras" | "slots" }) {
+  return s.pasted?.where === where ? (
+    <div className={`paste-note${s.pasted.bad ? " bad" : ""}`} role="status">
+      {s.pasted.text}
+    </div>
+  ) : null;
+}
+
 function ExtrasPanel({ s }: { s: State }) {
   return (
     <Section title="3 · Extras" right={s.extras.length ? `${s.extras.length}` : undefined}>
       <Drop accept="image/*,video/*" multiple onFiles={(f) => void mimic.addExtras(f)}>
-        <ImageIcon size={16} /> <strong>Drop pictures and clips</strong>
+        <ImageIcon size={16} /> <strong>Drop or paste pictures and clips</strong>
       </Drop>
+      <div className="paste-row">
+        <button type="button" className="btn" onClick={() => void mimic.pasteFromClipboard()}>
+          <ClipboardPaste size={14} /> Paste
+        </button>
+        <span className="hint">
+          or press <kbd>{PASTE_KEY}</kbd> anywhere on this page after copying a picture (right-click it in any tab, Copy image).
+        </span>
+      </div>
+      <PasteNote s={s} where="extras" />
       <span className="hint">They go in the reference's cards and cutaways, in this order (or pick for each slot on the right), cropped to the same shapes.</span>
       {s.extras.length > 0 && (
         <div className="thumbs">
@@ -168,13 +186,28 @@ const motionText = (c: CardSlot) => {
 
 function SlotRow({ s, id, label, detail, thumb, want }: { s: State; id: string; label: string; detail: string; thumb?: string; want: string }) {
   const value = id in s.assign ? (s.assign[id] ?? "none") : "auto";
+  const waiting = s.pasteSlot === id;
   return (
-    <div className="slot">
+    <div className={`slot${waiting ? " waiting" : ""}`}>
       {thumb ? <img src={thumb} alt="" /> : <span className="glyph" />}
       <div className="slot-text">
         <strong>{label}</strong>
-        <span className="hint">{detail}</span>
+        <span className="hint">
+          {waiting ? (
+            <>
+              Press <kbd>{PASTE_KEY}</kbd> to paste a copied picture here.{" "}
+              <button type="button" className="link" onClick={() => mimic.cancelPaste()}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            detail
+          )}
+        </span>
       </div>
+      <button type="button" className="btn icon" title={`Paste a copied picture into ${label}`} aria-label={`Paste a copied picture into ${label}`} onClick={() => void mimic.pasteFromClipboard(id)}>
+        <ClipboardPaste size={14} />
+      </button>
       <select className="select" aria-label={`What goes in ${label}`} value={value} onChange={(e) => mimic.assignSlot(id, e.target.value === "auto" ? undefined : e.target.value === "none" ? null : e.target.value)}>
         <option value="auto">Next extra ({want})</option>
         <option value="none">Leave out</option>
@@ -353,8 +386,9 @@ function Outputs({ s }: { s: State }) {
           <section className="card">
             <div className="section-head">
               <span className="caps">Cards and cutaways</span>
-              <span className="right">placed at the same point of your talk</span>
+              <span className="right">placed at the same point of your talk; copy a picture and paste it straight into one</span>
             </div>
+            <PasteNote s={s} where="slots" />
             <Slots s={s} t={t} />
           </section>
         </>
@@ -363,9 +397,27 @@ function Outputs({ s }: { s: State }) {
   );
 }
 
+/** A picture copied anywhere and pasted on the page goes into the extras (or the card waiting for it). */
+function usePaste() {
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (!e.clipboardData) return;
+      const p = fromPaste(e.clipboardData, mimic.nextPaste());
+      const typing = e.target instanceof Element && !!e.target.closest("textarea, input, select, [contenteditable]");
+      // Text pasted where it's typed stays text; a picture always comes here.
+      if (!p.files.length && (typing || !p.link)) return;
+      e.preventDefault();
+      void mimic.paste(p);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
+}
+
 export function MimicApp() {
   const s = useMimic();
   const why = mimic.why();
+  usePaste();
   return (
     <div className="app">
       <header className="topbar">

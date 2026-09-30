@@ -20,6 +20,7 @@ import { DEFAULT_LOOK } from "../captions";
 import { planMimic } from "../plan";
 import { mimicStills, renderMimic } from "../render";
 import type { CaptionLook, Extra, MimicPlan, MimicTemplate } from "../types";
+import { fetchPicture, fingerprint, PASTE_KEY, PasteError, readClipboard, type Pasted } from "./paste";
 
 export type Stage = "idle" | "working" | "ready" | "error";
 
@@ -66,6 +67,10 @@ export interface State {
   make: Job;
   result: { url: string; name: string; bytes: number; ms: number; duration: number } | null;
   stills: string[];
+  /** what the last paste did, shown by the extras or by the cards (a paste into one) */
+  pasted: { text: string; bad: boolean; where: "extras" | "slots" } | null;
+  /** a card or cutaway waiting for the next paste (when the clipboard can't be read on a click) */
+  pasteSlot: string | null;
 }
 
 const KEY_STORE = "clipper.gemini.v1";
@@ -93,6 +98,10 @@ class Mimic {
   private hearAbort: AbortController | null = null;
   private makeAbort: AbortController | null = null;
   private model: string | null = null;
+  /** pictures pasted so far (for their names), and each one's fingerprint → its extra */
+  private pastes = 0;
+  private readonly prints = new Map<string, string>();
+  private noteTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
     const key = loadKey();
@@ -116,6 +125,8 @@ class Mimic {
       make: idle,
       result: null,
       stills: [],
+      pasted: null,
+      pasteSlot: null,
     };
   }
 
@@ -307,19 +318,95 @@ class Mimic {
 
   // Extras and music.
 
-  async addExtras(files: File[]) {
-    for (const file of files) {
-      const temp: Item = { id: newId("x"), name: file.name, kind: "image", duration: 0, width: 0, height: 0, status: "reading" };
-      this.set((s) => ({ extras: [...s.extras, temp] }));
+  /** Adds pictures and clips to the extras; each one's id once read (null where it couldn't be). */
+  async addExtras(files: File[]): Promise<(string | null)[]> {
+    const temps: Item[] = files.map((file) => ({ id: newId("x"), name: file.name, kind: "image", duration: 0, width: 0, height: 0, status: "reading" }));
+    this.set((s) => ({ extras: [...s.extras, ...temps] }));
+    const ids: (string | null)[] = [];
+    for (const [i, file] of files.entries()) {
+      const temp = temps[i];
       try {
         const { src, item } = await this.open(file);
         if (item.kind === "audio") throw new Error(`${file.name} is a sound. Drop music under Sound.`);
         item.focus = await this.focusOf(src);
         this.set((s) => ({ extras: s.extras.map((e) => (e.id === temp.id ? item : e)) }));
+        ids.push(item.id);
       } catch (e) {
         this.set((s) => ({ extras: s.extras.map((x) => (x.id === temp.id ? { ...x, status: "error", error: e instanceof Error ? e.message : String(e) } : x)) }));
+        ids.push(null);
       }
     }
+    return ids;
+  }
+
+  /** A card's or cutaway's name on the page ("Card 4", "Cutaway 1"). */
+  private slotName(id: string): string {
+    const t = this.state.template;
+    const c = t?.cards.findIndex((x) => x.id === id) ?? -1;
+    if (c >= 0) return `Card ${c + 1}`;
+    const b = t?.broll.findIndex((x) => x.id === id) ?? -1;
+    return b >= 0 ? `Cutaway ${b + 1}` : "the slot";
+  }
+
+  private note(text: string, bad = false, where: "extras" | "slots" = "extras") {
+    clearTimeout(this.noteTimer);
+    this.set({ pasted: { text, bad, where } });
+    this.noteTimer = setTimeout(() => this.set({ pasted: null }), bad ? 9000 : 5000);
+  }
+
+  /** The number the next pasted picture is named with. */
+  nextPaste = () => this.pastes + 1;
+
+  /**
+   * Pictures pasted: added to the extras (one already there isn't added twice), and put in
+   * a card or cutaway when one was picked (or is waiting for this paste).
+   */
+  async paste(p: Pasted, slot: string | null = this.state.pasteSlot) {
+    this.set({ pasteSlot: null });
+    const where = slot ? "slots" : "extras";
+    let files = p.files;
+    try {
+      if (!files.length && p.link) files = [await fetchPicture(p.link.url, this.nextPaste(), p.link.alt)];
+    } catch (e) {
+      return this.note(e instanceof Error ? e.message : String(e), true, where);
+    }
+    if (!files.length) return this.note("There's no picture on the clipboard. Right-click a picture, pick Copy image, and paste again.", true, where);
+    this.pastes += files.length;
+    const fresh: { file: File; print: string }[] = [];
+    let known: string | null = null;
+    for (const file of files) {
+      const print = await fingerprint(file);
+      const had = this.prints.get(print);
+      if (had && this.state.extras.some((e) => e.id === had && e.status === "ready")) known ??= had;
+      else fresh.push({ file, print });
+    }
+    const ids = await this.addExtras(fresh.map((f) => f.file));
+    ids.forEach((id, i) => id && this.prints.set(fresh[i].print, id));
+    // (One taken out again while it was being read doesn't count.)
+    const added = ids.filter((id): id is string => !!id && this.state.extras.some((e) => e.id === id));
+    const first = added[0] ?? known;
+    const into = slot && first ? ` into ${this.slotName(slot)}` : "";
+    if (slot && first) this.assignSlot(slot, first);
+    const names = (id: string) => this.state.extras.find((e) => e.id === id)?.name ?? "";
+    if (added.length) this.note(`Pasted ${added.length > 1 ? `${added.length} pictures` : names(added[0])}${into}.`, false, where);
+    else if (known) this.note(`That picture is already in your extras${into ? `; it's now in ${this.slotName(slot!)}` : ""}.`, false, where);
+    else this.note("That couldn't be read as a picture.", true, where);
+  }
+
+  /** The clipboard, read on a click; if the browser won't, the slot waits for the keyboard's paste. */
+  async pasteFromClipboard(slot: string | null = null) {
+    try {
+      await this.paste(await readClipboard(this.nextPaste()), slot);
+    } catch (e) {
+      if (!(e instanceof PasteError)) throw e;
+      this.set({ pasteSlot: slot });
+      this.note(slot ? `Press ${PASTE_KEY} to paste into ${this.slotName(slot)}.` : e.message, !slot, slot ? "slots" : "extras");
+    }
+  }
+
+  /** Stop waiting for a paste into a slot. */
+  cancelPaste() {
+    this.set({ pasteSlot: null });
   }
 
   /** Where a picture's subject is: the biggest face, else the middle. */

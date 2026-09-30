@@ -11,6 +11,13 @@ your footage is also clipped (its pauses cut to the reference's) or kept as it i
 Nothing is uploaded unless you choose Gemini for the words (then the sound goes to Google).
 Everything else (the analysis, the speech model, the render) runs in the browser.
 
+Extras can be pasted instead of dropped (`app/src/mimic/ui/paste.ts`): copy a picture in any
+tab (right-click, Copy image) and press Ctrl+V (⌘V on a Mac) anywhere on the page, or use the
+Paste button; each of the reference's cards and cutaways has its own paste button, which
+puts the picture straight in it. A picture comes named by its alt text when the page it was
+copied from gave it one, and one pasted twice isn't added twice. A copied link to a picture
+is fetched when its site allows it (most don't; a copied picture always works).
+
 ## What the example showed
 
 The example pair in `inspirationedit/` and `rawvidneededited/`:
