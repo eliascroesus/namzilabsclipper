@@ -483,6 +483,8 @@ interface Segment {
   /** the source samples at its in-point and out-point (for how the cuts either side of it look) */
   head?: number;
   tail?: number;
+  /** seconds of footage it has, when shorter than the slot's (a short clip played slower to fill it) */
+  len?: number;
 }
 
 /** The crop for a stretch of a source: where its interest sits, inside any black bars (see framing.ts). */
@@ -593,9 +595,22 @@ export type Purpose = "flex" | "real";
 
 /** What the picture model calls filler: in a flex edit only once the flex runs out. */
 const FILLER = new Set((["talking", "text", "work", "other", "people"] as const).map((k) => KINDS.indexOf(k)));
+/** Filler whoever picked the clip: someone talking to the camera, a screen of text. */
+const NEVER = new Set((["talking", "text"] as const).map((k) => KINDS.indexOf(k)));
+
+/**
+ * The clips the user picked one by one (short clips and pictures, when there are several):
+ * each was chosen for the edit, so each gets a turn, and what the picture model calls
+ * filler in them (people, a laptop at dinner, a hotel room) is the life too. A long video
+ * is footage to pick from: the flex in it is found and the rest left out.
+ */
+export function handPicked(scans: Scan[]): Set<string> {
+  const picked = scans.filter((s) => s.kind === "image" || s.duration <= 90);
+  return new Set(picked.length >= 2 ? picked.map((s) => s.id) : []);
+}
 
 /** Every usable stretch of every source for a slot `d` seconds long. */
-function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts = false, purpose: Purpose = "flex"): Segment[] {
+function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts = false, purpose: Purpose = "flex", hand: Set<string> = new Set()): Segment[] {
   const out: Segment[] = [];
   for (const scan of scans) {
     const st = scan.stats;
@@ -668,8 +683,10 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
           flex = n ? f / n : look.flex[Math.max(0, mid)];
           wow = n ? w / n : look.wow[Math.max(0, mid)];
         }
-        // (Or anything it rates as showing nothing off, whatever it calls it: someone standing in a kitchen.)
-        const filler = look ? FILLER.has(look.kind[Math.max(0, mid)]) || (flex ?? 1) < 0.33 : undefined;
+        // (Or anything it rates as showing nothing off, whatever it calls it: someone standing in
+        // a kitchen. In a clip the user picked, only talking and text.)
+        const kind = look?.kind[Math.max(0, mid)];
+        const filler = look ? (hand.has(scan.id) ? NEVER.has(kind!) : FILLER.has(kind!) || (flex ?? 1) < 0.33) : undefined;
         out.push({ scan, start, score: sum / c, peak, motion: clamp(motion / c / motionScale, 0, 1.5), rgb: [rgb[0] / c, rgb[1] / c, rgb[2] / c], luma: luma / c, enter: clamp(st.motion[first] / motionScale, 0, 1.5), emb, flex, wow, filler, scene: acrossCuts ? -1 : s, head: first, tail: last });
       }
     }
@@ -821,20 +838,20 @@ function selectsOf(moments: Map<string, Moment>, k: number, spreadBy = 0.08): Se
  * failing that, the longest there are (played slower); failing that, stretches
  * running across the source's own cuts.
  */
-function candidatesFor(scans: Scan[], d: number, motionScale: number, purpose: Purpose = "flex"): { segs: Segment[]; len: number } {
-  let segs = segmentsFor(scans, d, motionScale, false, purpose);
+function candidatesFor(scans: Scan[], d: number, motionScale: number, purpose: Purpose = "flex", hand: Set<string> = new Set()): { segs: Segment[]; len: number } {
+  let segs = segmentsFor(scans, d, motionScale, false, purpose, hand);
   if (segs.length) return { segs, len: d };
   const inShot = Math.max(...scans.map((s) => longestStretch(s)));
   if (inShot >= d * 0.5) {
     const len = Math.max(MIN_SHOT, Math.min(d, inShot));
-    segs = segmentsFor(scans, len, motionScale, false, purpose);
+    segs = segmentsFor(scans, len, motionScale, false, purpose, hand);
     if (segs.length) return { segs, len };
   }
-  segs = segmentsFor(scans, d, motionScale, true, purpose);
+  segs = segmentsFor(scans, d, motionScale, true, purpose, hand);
   if (segs.length) return { segs, len: d };
   const whole = Math.max(...scans.map((s) => longestStretch(s, true)));
   const len = Math.max(0.1, Math.min(d, whole));
-  segs = segmentsFor(scans, len, motionScale, true, purpose);
+  segs = segmentsFor(scans, len, motionScale, true, purpose, hand);
   if (segs.length) return { segs, len };
   // Clips too short for even that: each one from its start, whatever its length.
   return {
@@ -899,9 +916,10 @@ function nearestSample(scan: Scan, t: number): number {
  * striking of them, match energy in the footage to energy in the music, and keep
  * the edit varied by what the shots show rather than by which file they came from
  * (eight scenes of one Reel are eight shots; four clips of one car from one side
- * are one). Across a batch, each edit keeps away from the moments the earlier ones
- * used, and never opens on or drops into a moment they opened on, dropped into or
- * closed on, or one that looks like it.
+ * are one). Clips the user picked one by one each get a turn: none comes back while one
+ * of them hasn't been in yet (see handPicked). Across a batch, each edit keeps away from
+ * the moments the earlier ones used, and never opens on or drops into a moment they opened
+ * on, dropped into or closed on, or one that looks like it.
  */
 export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): ShotEvent[] {
   if (!scans.length) throw new Error("No footage to fill the edit");
@@ -919,6 +937,7 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
   const newSection = (cut: number) => !!ctx.song?.structure?.sections.some((sec) => Math.abs(sec.t - ctx.songStart - CUT_LEAD - cut) < 0.1);
   const order = slots.map((_, i) => i).sort((a, b) => importance[slots[a].role] - importance[slots[b].role] || a - b);
   const fairShare = Math.ceil(slots.length / scans.length) + (scans.length < 4 ? 2 : 1);
+  const hand = handPicked(scans);
   const used: Ranges = ctx.used ?? new Map();
   const uses = new Map<string, number>();
   const momentUses = new Map<string, number>();
@@ -944,7 +963,7 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
   // (slot by slot, below) from the three best still fresh. Any good stretch of a
   // select will do, so the edits in a batch can share a great scene without
   // repeating each other's shots.
-  const halfSeconds = segmentsFor(scans, 0.5, motionScale, false, ctx.purpose);
+  const halfSeconds = segmentsFor(scans, 0.5, motionScale, false, ctx.purpose, hand);
   const moments = momentScores(halfSeconds);
   // Each edit draws its selects first from the good moments (four fifths as good as
   // the footage's best, or better) no earlier edit in the batch used, in any role:
@@ -964,6 +983,26 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
     return out;
   };
   const pool = { closer: topUp(5 + v), rest: topUp(Math.ceil(1.75 * slots.length)) };
+  // The clips the user picked, scene by scene (a phone clip is one scene, a compilation
+  // Reel eight), that are worth a turn: anything but a talking head, a screen of text or
+  // footage too dark or dull to use. Each one's best moment is a select, and a scene comes
+  // back only once all of them are in (a turn costs more the more there are to share it
+  // with); one the picture model sees as weak (under three fifths of the best) gets just the
+  // one turn, so the second round goes to the flex.
+  const turnOf = (g: Pick<Segment, "scan" | "start" | "scene">) => (g.scan.kind === "image" ? g.scan.id : `${g.scan.id}|${g.scene >= 0 ? g.scene : momentOf(g.scan, g.start).split("|")[1]}`);
+  const turns = new Map<string, { score: number; moment: string }>();
+  for (const g of halfSeconds) {
+    if (!hand.has(g.scan.id) || g.filler) continue;
+    const cur = turns.get(turnOf(g));
+    if (!cur || g.score > cur.score) turns.set(turnOf(g), { score: g.score, moment: momentOf(g.scan, g.start, g.scene) });
+  }
+  for (const [k, t] of turns) if (t.score < 0.3 * bestMoment) turns.delete(k);
+  for (const t of turns.values()) pool.rest.add(t.moment);
+  const turnCost = 0.2 + 0.05 * Math.min(3, turns.size - 1);
+  const turnUses = new Map<string, number>();
+  const fewestTurns = () => Math.min(...[...turns.keys()].map((k) => turnUses.get(k) ?? 0));
+  const turnPenalty = (turn: string, fewest: number) => turnCost * Math.max(0, (turnUses.get(turn) ?? 0) - fewest);
+  const hadItsTurn = (turn: string) => !!turnUses.get(turn) && turns.get(turn)!.score < 0.6 * bestMoment;
   // Fresh for a hook or a drop: not a moment an earlier edit opened on, dropped into
   // or closed on, not footage any earlier edit showed (from its first frames), and not
   // a moment this edit has used. (One that only looks like theirs is let in, and marked
@@ -1006,18 +1045,34 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
     const need = slot.pieces ? d + (slot.pieces.length - 1) * RECUT_JUMP : ctx.velocity && d >= RAMP_MIN ? d * RAMP_FOOTAGE : d;
     const key = Math.round(need * FPS);
     if (!cache.has(key)) {
-      const c = candidatesFor(scans, need, motionScale, ctx.purpose);
+      const c = candidatesFor(scans, need, motionScale, ctx.purpose, hand);
       cache.set(key, { ...c, best: momentScores(c.segs) });
     }
-    const { segs, len, best: bestOf } = cache.get(key)!;
+    const { segs: fit, len, best: bestOf } = cache.get(key)!;
+    // A clip the user picked that's too short for the slot still gets its turn, played
+    // slower to fill it (down to three fifths of its speed): better than a clip seen already.
+    let segs = fit;
+    if (turns.size && slot.role !== "hook" && slot.role !== "drop") {
+      const short = scans.filter((sc) => sc.kind === "video" && hand.has(sc.id) && !fit.some((g) => g.scan === sc));
+      for (const sc of short) {
+        const L = longestStretch(sc);
+        if (L < Math.max(MIN_SHOT, 0.6 * len) || L >= len) continue;
+        const more = segmentsFor([sc], L, motionScale, false, ctx.purpose, hand).map((g) => ({ ...g, len: L }));
+        if (more.length) segs = [...segs, ...more];
+      }
+    }
     const energy = ctx.song ? driveOver(ctx.song, ctx.songStart, slot.start, slot.end, dropStart) : 0.5;
     const r = slot.role;
     const hero = r === "hook" || r === "drop";
     let top = 0;
     for (const seg of segs) top = Math.max(top, seg.score);
     // (The first of those whose best is nearly as good as any fresh moment: an unused
-    // moment isn't worth a dull hook.)
-    const bestIn = (ok: (m: Segment) => boolean) => segs.reduce((b, g) => (ok(g) ? Math.max(b, g.score) : b), -Infinity);
+    // moment isn't worth a dull hook. Judged on pictures unlike what the earlier edits
+    // opened on, dropped into and closed on, while there are any: one like theirs is
+    // marked down below, and shouldn't decide where the rest come from.)
+    const likeAHero = (g: Segment) => !!g.emb && heroLooks.some((e) => dot(g.emb!, e) > 0.9);
+    const unlike = hero && segs.some((g) => fresh(g) && !likeAHero(g));
+    const bestIn = (ok: (m: Segment) => boolean) => segs.reduce((b, g) => (ok(g) && !(unlike && likeAHero(g)) ? Math.max(b, g.score) : b), -Infinity);
     const bar = 0.85 * bestIn(fresh);
     const tier = heroTiers.find((ok) => bestIn(ok) >= bar) ?? fresh;
     const heroPool = segs.filter(tier);
@@ -1025,6 +1080,7 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
     const allowed = hero ? selectsOf(momentScores(heroPool), 3) : r === "closer" ? pool.closer : pool.rest;
     // Filler stays out of a flex edit while anything else fits the slot.
     const flexLeft = ctx.purpose !== "real" && segs.some((g) => g.filler === false && !(g.scan.kind === "video" && overlaps(used.get(g.scan.id), g.start - 0.05, g.start + len + 0.05)));
+    const fewest = turns.size ? fewestTurns() : 0;
     let best: Segment | undefined;
     let bestScore = -Infinity;
     // A stretch of one of the selects nearly as good as the moment's best, or else
@@ -1039,17 +1095,21 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
         const id = seg.scan.id;
         const video = seg.scan.kind === "video";
         const a = seg.start;
-        const b = seg.start + len;
+        const b = seg.start + (seg.len ?? len);
         let offList = 0;
+        const turn = turns.has(turnOf(seg)) ? turnOf(seg) : null;
+        // (Never the same picture twice in a row: that's the same shot again, not a cut.)
+        const twice = !video && [i - 1, i + 1].some((nb) => chosen[nb]?.scan.id === id);
         if (!relax) {
-          if ((video && overlaps(used.get(id), a - 0.05, b + 0.05)) || seg.score < top * 0.45 || (flexLeft && seg.filler)) continue;
+          if ((video && overlaps(used.get(id), a - 0.05, b + 0.05)) || seg.score < top * (turn ? 0.25 : 0.45) || (flexLeft && seg.filler) || (turn && hadItsTurn(turn)) || twice) continue;
           const moment = momentOf(seg.scan, a, seg.scene);
           if (!allowed.has(moment) || seg.score < 0.8 * (bestOf.get(moment)?.score ?? 0)) {
             if (hero || seg.filler) continue;
             offList = 0.3 + 3 * Math.max(0, top * 0.6 - seg.score);
           }
         }
-        let s = seg.score - offList;
+        // Played slower to fill the slot: a little less welcome the slower it goes.
+        let s = seg.score - offList - (seg.len ? 0.1 + 0.3 * (1 - seg.len / len) : 0);
         // The hook and the drop: the most striking picture of the most flex, moving.
         if (hero) s += 0.3 * seg.peak + 0.15 * Math.min(1, seg.motion) + 0.25 * (seg.flex ?? 0) + 0.25 * (seg.wow ?? 0);
         // The first frame has to read at a glance on a phone: not a dark club.
@@ -1125,11 +1185,12 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
         }
         const u = uses.get(id) ?? 0;
         // Spread over the clips a little, never at the cost of the flex: the picture
-        // model's variety (above) keeps a clip's best moments from all looking alike.
+        // model's variety (above) keeps a clip's best moments from all looking alike. A clip
+        // the user picked, though, waits for the others' turns before it comes back.
         // The same moment twice in one edit is a repeat, whatever it shows (though with
         // too little footage to go round, a third or fourth time costs less than a jump cut).
         const again = momentUses.get(momentOf(seg.scan, a, seg.scene)) ?? 0;
-        s -= 0.04 * u + (u >= 2 * fairShare ? 0.3 : 0) + (again ? 0.45 + 0.1 * (again - 1) : 0);
+        s -= (turn ? turnPenalty(turn, fewest) : 0.04 * u + (u >= 2 * fairShare ? 0.3 : 0)) + (again ? 0.45 + 0.1 * (again - 1) : 0);
         if (video) {
           // Earlier edits in the batch: never the same moment, rarely one next to it, and
           // never an opening (or a drop) near one of their openings, drops or closers.
@@ -1159,15 +1220,16 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
       if (best) break;
     }
     if (!best) throw new Error("No footage to fill the edit");
-    chosen[i] = { ...best, d, len };
+    chosen[i] = { ...best, d, len: best.len ?? len };
     // The drop shouldn't look like the hook either.
     if (hero && best.emb) heroLooks.push(best.emb);
     const id = best.scan.id;
     if (!used.has(id)) used.set(id, []);
-    used.get(id)!.push([best.start, best.start + len]);
+    used.get(id)!.push([best.start, best.start + (best.len ?? len)]);
     uses.set(id, (uses.get(id) ?? 0) + 1);
     const moment = momentOf(best.scan, best.start, best.scene);
     momentUses.set(moment, (momentUses.get(moment) ?? 0) + 1);
+    turnUses.set(turnOf(best), (turnUses.get(turnOf(best)) ?? 0) + 1);
   }
 
   let kb = ctx.variant;

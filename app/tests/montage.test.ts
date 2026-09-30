@@ -324,6 +324,7 @@ describe("planners on a synthetic song (runs everywhere)", () => {
   it("picks like an editor: the flex over the filler, variety from what the shots show", () => {
     // A Reel of eight different flex scenes, four phone clips of one car from one side,
     // a friend laughing in a van (sharp and lively, but nothing to show off) and talking.
+    // (All of them picked by hand: the van gets its one turn; the talking never does.)
     const flexy: Kind[] = ["car", "jet", "yacht", "home", "view", "watch", "city", "travel"];
     const footage = [
       lookedAt("reel", flexy.map((kind, k) => ({ len: 1.6, kind, flex: 0.8 + 0.02 * k, wow: 0.7, look: k })), 1),
@@ -339,8 +340,10 @@ describe("planners on a synthetic song (runs everywhere)", () => {
       const plan = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans: footage, aspect: "9x16", length: 12, card: null, caption: null, variant: v, avoid });
       usedRanges(plan, avoid);
       const from = (id: string) => clips(plan.shots).filter((s) => s.source === id);
-      // No filler while there's flex to show.
-      expect(from("van").length + from("talk").length).toBe(0);
+      // No talking, and the van only once, in the body: never what the edit opens on, drops into or ends on.
+      expect(from("talk").length).toBe(0);
+      expect(from("van").length).toBeLessThanOrEqual(1);
+      expect(from("van").every((s) => s.role === "body" || s.role === "build")).toBe(true);
       // The Reel's scenes are the best and all different: the edit leans on them rather
       // than sharing itself out evenly between the clips.
       const reel = from("reel");
@@ -356,6 +359,48 @@ describe("planners on a synthetic song (runs everywhere)", () => {
         if (s.source === "reel") expect(heroes.has(key)).toBe(false);
         heroes.add(key);
       }
+    }
+  });
+
+  it("uses every clip the user picked, not the same few again and again", () => {
+    // Fifteen phone clips of a trip, all of them the life (a user's upload): the picture
+    // model rates a few as flex (the views, the yacht, the clubs) and the rest as people,
+    // food, a laptop at dinner, a hotel room; one talking head among them.
+    type C = [string, number, Kind, number, number, number?];
+    const trip: C[] = [
+      ["bar", 5, "party", 0.55, 0.5], ["dinner", 7.5, "work", 0.35, 0.4], ["beach", 20, "people", 0.45, 0.55], ["lights", 3.8, "party", 0.6, 0.6, 0.2],
+      ["selfie", 14, "people", 0.35, 0.4, 0.2], ["curtains", 5.7, "party", 0.5, 0.5, 0.2], ["yacht", 11, "yacht", 0.85, 0.7], ["food", 5.2, "food", 0.4, 0.45],
+      ["terrace", 14, "view", 0.8, 0.65], ["guys", 4.1, "people", 0.4, 0.4], ["pool", 3.2, "view", 0.7, 0.5], ["sofa", 7, "view", 0.8, 0.6],
+      ["purple", 2.9, "party", 0.5, 0.6, 0.2], ["couple", 10, "people", 0.35, 0.45, 0.25], ["hotel", 16, "other", 0.5, 0.5],
+    ];
+    const footage = trip.map(([id, len, kind, flex, wow, luma], k) => {
+      const sc = lookedAt(id, [{ len, kind, flex, wow, look: k }], 60 + k);
+      if (luma) sc.stats.luma.fill(luma);
+      return sc;
+    });
+    footage.push(lookedAt("talk", [{ len: 6, kind: "talking", flex: 0.1, wow: 0.2, look: 15 }], 90));
+    scoreInterest(footage);
+    const avoid: Ranges = new Map();
+    for (let v = 0; v < 3; v++) {
+      const plan = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans: footage, aspect: "9x16", length: 12.6, card: null, caption: null, variant: v, avoid });
+      usedRanges(plan, avoid);
+      const shots = clips(plan.shots);
+      const count = new Map<string, number>();
+      for (const s of shots) count.set(s.source, (count.get(s.source) ?? 0) + 1);
+      // Every clip gets a turn before any comes back (as many as the edit has shots for),
+      // none shows the same footage twice, and a long clip gives a few different moments at most.
+      expect(count.size, JSON.stringify([...count])).toBeGreaterThanOrEqual(Math.min(15, shots.length));
+      expect(Math.max(...count.values()), JSON.stringify([...count])).toBeLessThanOrEqual(3);
+      for (const [id] of count) {
+        const spans = shots.filter((s) => s.source === id).map((s) => [s.srcStart, s.srcStart + (s.end - s.start) * s.speed]).sort((x, y) => x[0] - y[0]);
+        for (let k = 1; k < spans.length; k++) expect(spans[k][0], `${id} twice`).toBeGreaterThanOrEqual(spans[k - 1][1] - 0.05);
+      }
+      // The talking head stays out.
+      expect(count.has("talk")).toBe(false);
+      // The flex still opens the edit (each edit on its own: once the views and the yacht
+      // have opened earlier edits, the clubs and the bar).
+      if (v < 2) expect(["yacht", "terrace", "sofa", "pool"]).toContain(plan.shots[0].source);
+      expect(["dinner", "selfie", "guys", "couple", "food", "talk"]).not.toContain(plan.shots[0].source);
     }
   });
 
