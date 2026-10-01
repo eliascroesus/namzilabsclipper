@@ -110,3 +110,18 @@ kbd { font: 600 11px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; padd
 .pic-row .glyph { height: 56px; }
 .pic-row .select { font-size: 12px; min-width: 0; }
 @media (max-width: 700px) { .pic-row { grid-template-columns: 56px 1fr; } .pic-row select { grid-column: 1 / -1; } }
+
+/* The richer captions' editor (DesignEditor.tsx). */
+.design, .design-off { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.design .caps { margin-top: 6px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.tabs [role="tab"] { border: 1px solid var(--line); background: var(--control); color: var(--muted); border-radius: var(--radius); padding: 4px 10px; font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.tabs [role="tab"].on, .tabs [role="tab"][aria-selected="true"] { border-color: var(--brand); color: var(--text); background: var(--hover); }
+.tab-font { font-size: 16px; line-height: 1; }
+.style-panel { display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); }
+.look label.wide { grid-column: span 2; }
+.fill-editor { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.fill-editor input[type="color"] { width: 40px; height: 26px; border: 1px solid var(--line); background: var(--control); border-radius: 6px; padding: 2px; }
+.fill-editor .angle { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px; }
+.fill-editor .angle input { flex: 1; min-width: 0; accent-color: var(--brand); }
+.swatch { width: 44px; height: 22px; border-radius: 5px; border: 1px solid var(--line); display: inline-block; }

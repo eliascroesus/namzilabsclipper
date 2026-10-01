@@ -1,12 +1,17 @@
 /**
  * The captions as they'll look, drawn live: a frame of the footage (framed as the edit
  * frames it) with one of the captions on it in the look as it's set now. It redraws as the
- * look changes, steps through the captions, and plays one coming on word by word.
+ * look changes, steps through the captions, and plays one coming on word by word. With a
+ * text design, a caption set behind the speaker is drawn behind them (the person cut out
+ * of the frame, as the export does), and dragging the caption moves its place.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { loadFonts } from "../../engine/render/fonts";
+import { loadFontsFor } from "../../engine/text/library";
+import { PersonMasker } from "../../engine/vision/person";
 import { drawPage, layoutPage } from "../captions";
+import { designPages, drawDesign, layoutDesign } from "../design";
 import type { CaptionLook, CaptionPage, MimicPlan } from "../types";
 import { mimic } from "./store";
 
@@ -33,7 +38,9 @@ const sourceAt = (plan: MimicPlan, t: number) => {
 };
 
 export function CaptionPreview({ look, plan }: { look: CaptionLook; plan: MimicPlan | null }) {
-  const pages = plan?.captions?.pages ?? [];
+  const design = look.design;
+  // (A sample in the design's own way when there's no plan yet.)
+  const pages = plan?.captions?.pages ?? (design ? designPages(SAMPLE.lines.flat(), design) : []);
   const [i, setI] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [fonts, setFonts] = useState(false);
@@ -43,9 +50,28 @@ export function CaptionPreview({ look, plan }: { look: CaptionLook; plan: MimicP
   const W = plan?.width ?? 1080;
   const H = plan?.height ?? 1920;
 
+  const fontKey = design ? design.styles.map((x) => x.font).join(",") : "";
   useEffect(() => {
-    void loadFonts().then(() => setFonts(true));
-  }, []);
+    let live = true;
+    setFonts(false);
+    void Promise.all([loadFonts(), loadFontsFor(fontKey ? fontKey.split(",") : [])]).then(() => live && setFonts(true));
+    return () => {
+      live = false;
+    };
+  }, [fontKey]);
+  // The person cut out, for a caption set behind them (loaded the first time one is).
+  const [masker, setMasker] = useState<PersonMasker | null>(null);
+  const wantsMask = !!design && pages.some((p) => p.behind);
+  useEffect(() => {
+    if (!wantsMask || masker) return;
+    let live = true;
+    void PersonMasker.get()
+      .then((m) => live && setMasker(m))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [wantsMask, masker]);
 
   // A frame of the footage where this caption is said.
   const at = plan && pages.length ? sourceAt(plan, (page.start + page.end) / 2) : -1;
@@ -67,8 +93,8 @@ export function CaptionPreview({ look, plan }: { look: CaptionLook; plan: MimicP
   const laid = useMemo(() => {
     if (!fonts) return null;
     const ctx = new OffscreenCanvas(8, 8).getContext("2d")!;
-    return layoutPage(ctx, look, page, W, H);
-  }, [fonts, look, page, W, H]);
+    return design ? { design: layoutDesign(ctx, design, page, W, H) } : { plain: layoutPage(ctx, look, page, W, H) };
+  }, [fonts, look, design, page, W, H]);
 
   // Draw (and while playing, keep drawing the caption coming on).
   useEffect(() => {
@@ -96,7 +122,21 @@ export function CaptionPreview({ look, plan }: { look: CaptionLook; plan: MimicP
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, W, H);
       }
-      drawPage(ctx as unknown as OffscreenCanvasRenderingContext2D, look, laid, page, t);
+      const octx = ctx as unknown as OffscreenCanvasRenderingContext2D;
+      if (laid.design && design) {
+        const cv = c;
+        if (page.behind && masker && bmp) {
+          // The speaker cut out of the frame and laid back over the caption.
+          const m = masker.mask((c, w, h) => c.drawImage(cv, 0, 0, w, h), W, H, -1);
+          const person = new OffscreenCanvas(W, H);
+          const pc = person.getContext("2d")!;
+          pc.drawImage(cv, 0, 0);
+          pc.globalCompositeOperation = "destination-in";
+          pc.drawImage(m, 0, 0, W, H);
+          drawDesign(octx, design, laid.design, page, t);
+          ctx.drawImage(person, 0, 0);
+        } else drawDesign(octx, design, laid.design, page, t);
+      } else if (laid.plain) drawPage(octx, look, laid.plain, page, t);
     };
     if (!playing) {
       draw(page.end - 0.001);
@@ -112,11 +152,40 @@ export function CaptionPreview({ look, plan }: { look: CaptionLook; plan: MimicP
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [laid, look, page, playing, frame, at, plan, W, H]);
+  }, [laid, look, design, masker, page, playing, frame, at, plan, W, H]);
+
+  // Dragging the caption moves its place (a design's), as in CapCut.
+  const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  const placeIdx = page.place ?? 0;
+  const onDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    const p = design?.places[placeIdx];
+    if (!p) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { x: e.clientX, y: e.clientY, px: p.x, py: p.y };
+  };
+  const onMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    const g = drag.current;
+    if (!g) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const clamp = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 1000) / 1000;
+    mimic.patchPlace(placeIdx, { x: clamp(g.px + (e.clientX - g.x) / r.width), y: clamp(g.py + (e.clientY - g.y) / r.height) });
+  };
+  const onUp = () => (drag.current = null);
 
   return (
     <div className="cap-preview">
-      <canvas ref={canvas} width={W} height={H} style={{ aspectRatio: `${W} / ${H}` }} aria-label="How the captions look" />
+      <canvas
+        ref={canvas}
+        width={W}
+        height={H}
+        style={{ aspectRatio: `${W} / ${H}`, cursor: design ? "grab" : undefined, touchAction: design ? "none" : undefined }}
+        aria-label={design ? "How the captions look: drag a caption to move its place" : "How the captions look"}
+        onPointerDown={onDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onPointerCancel={onUp}
+      />
+      {design && <span className="hint">Place {placeIdx + 1}{page.behind ? ", behind you" : ""}. Drag the caption to move it.</span>}
       <div className="row between">
         <button type="button" className="btn icon" aria-label="The caption before" disabled={i <= 0} onClick={() => setI((v) => Math.max(0, v - 1))}>
           <ChevronLeft size={14} />

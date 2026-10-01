@@ -25,7 +25,10 @@ import { fold, placeByContent, sentences, soundsByWords, type Place } from "../m
 import { planMimic, type PlanInput } from "../plan";
 import { mimicStills, mixMimic, renderMimic, type MixExtras } from "../render";
 import { finish, isMadeSound, makeSfx, SOUNDS } from "../sfx";
-import type { CaptionLook, Extra, MimicPlan, MimicTemplate, VolumeLine } from "../types";
+import type { CaptionLook, CaptionPlace, Extra, MimicPlan, MimicTemplate, StylePick, TextDesign, VolumeLine } from "../types";
+import type { TextStyle } from "../../engine/text/style";
+import { loadFontsFor } from "../../engine/text/library";
+import { presetById } from "../presets";
 import { MIX_RATE } from "../../engine/render/mix";
 import { recall, remember } from "../../ui/kit";
 import { fetchPicture, fingerprint, PASTE_KEY, PasteError, readClipboard, type Pasted } from "./paste";
@@ -325,6 +328,78 @@ class Mimic {
 
   setLook(patch: Partial<CaptionLook>) {
     this.set((s) => ({ look: { ...s.look, ...patch } }));
+  }
+
+  // The richer captions (a text design): its styles, picks, places and moves.
+
+  /** Turn the design on (from a preset, or the one given) or off. */
+  setDesign(d: TextDesign | null) {
+    this.set((s) => {
+      const look = { ...s.look };
+      if (d) look.design = structuredClone(d);
+      else delete look.design;
+      return { look };
+    });
+    if (d) void loadFontsFor(d.styles.map((x) => x.font));
+  }
+
+  /** A ready-made design by its id (presets.ts). */
+  usePreset(id: string) {
+    const p = presetById(id);
+    if (p) this.setDesign(p.design);
+  }
+
+  patchDesign(patch: Partial<TextDesign>) {
+    this.set((s) => (s.look.design ? { look: { ...s.look, design: { ...s.look.design, ...patch } } } : {}));
+  }
+
+  patchStyle(id: string, patch: Partial<TextStyle>) {
+    const d = this.state.look.design;
+    if (!d) return;
+    this.patchDesign({ styles: d.styles.map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+    if (patch.font) void loadFontsFor([patch.font]);
+  }
+
+  /** Another style, a copy of the base, picked for each caption's key word (once a caption by default). */
+  addStyle() {
+    const d = this.state.look.design;
+    if (!d) return;
+    const n = d.styles.length;
+    const id = `style${Date.now().toString(36)}`;
+    const base = d.styles[0];
+    this.patchDesign({ styles: [...d.styles, { ...base, id, name: `Style ${n + 1}`, size: base.size * 1.6 }], picks: [...d.picks, { style: id, rule: "keyword", share: 0.5 }] });
+  }
+
+  removeStyle(id: string) {
+    const d = this.state.look.design;
+    if (!d || d.styles[0]?.id === id) return;
+    this.patchDesign({ styles: d.styles.filter((x) => x.id !== id), picks: d.picks.filter((p) => p.style !== id), behind: d.behind.style === id ? { share: d.behind.share } : d.behind });
+  }
+
+  patchPick(style: string, patch: Partial<StylePick>) {
+    const d = this.state.look.design;
+    if (!d) return;
+    const has = d.picks.some((p) => p.style === style);
+    this.patchDesign({ picks: has ? d.picks.map((p) => (p.style === style ? { ...p, ...patch } : p)) : [...d.picks, { style, rule: "keyword", share: 0.5, ...patch }] });
+  }
+
+  patchPlace(i: number, patch: Partial<CaptionPlace>) {
+    const d = this.state.look.design;
+    if (!d || !d.places[i]) return;
+    this.patchDesign({ places: d.places.map((p, k) => (k === i ? { ...p, ...patch } : p)) });
+  }
+
+  addPlace() {
+    const d = this.state.look.design;
+    if (!d) return;
+    const last = d.places[d.places.length - 1];
+    this.patchDesign({ places: [...d.places, last ? { ...last, x: 1 - last.x, align: last.align === "left" ? "right" : last.align === "right" ? "left" : "center", behind: false } : { x: 0.5, y: 0.62, align: "center", valign: "middle", width: 0.8 }] });
+  }
+
+  removePlace(i: number) {
+    const d = this.state.look.design;
+    if (!d || d.places.length <= 1) return;
+    this.patchDesign({ places: d.places.filter((_, k) => k !== i) });
   }
 
   // The footage.

@@ -32,6 +32,8 @@ export interface Word {
   conf: number;
   /** a break typed after it in the words: a new line of the caption, or (an empty line) a new caption */
   br?: "line" | "page";
+  /** typed between asterisks: a design can set it in another style */
+  mark?: boolean;
 }
 
 export interface DecoderState {

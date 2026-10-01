@@ -9,6 +9,7 @@
  */
 import { keepSpeech, type Run } from "../engine/audio/speech";
 import { paginate, DEFAULT_LOOK } from "./captions";
+import { designPages } from "./design";
 import type { CardSlot, Edge, Extra, MimicPlan, MimicTemplate, PlanBroll, PlanCard, PlanWord, Segment, SfxCue, VolumeLine } from "./types";
 import type { Word } from "./asr/parakeet";
 
@@ -177,9 +178,9 @@ export function planMimic(inp: PlanInput): MimicPlan {
     const s = clock.toOut(w.start);
     const e = clock.toOut(Math.max(w.start, w.end - 0.01));
     if (s === null) continue;
-    words.push({ text: w.text, start: s, end: e ?? s + Math.max(0.05, w.end - w.start), ...(w.br ? { br: w.br } : {}) });
+    words.push({ text: w.text, start: s, end: e ?? s + Math.max(0.05, w.end - w.start), ...(w.br ? { br: w.br } : {}), ...(w.mark ? { mark: true } : {}) });
   }
-  const pages = paginate(words, look);
+  const pages = look.design ? designPages(words, look.design) : paginate(words, look);
   const pageStarts = new Set(pages.map((p) => p.start));
 
   // Where in the edit a moment of the reference falls: the same share of the talk through.

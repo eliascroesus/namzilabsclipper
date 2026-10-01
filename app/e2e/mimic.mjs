@@ -1,12 +1,12 @@
 // Drives the mimic page in headless Chromium, as a user would:
 //   node e2e/mimic.mjs --ref ad.mp4 --raw raw.mp4 [--extra a.jpg ...] [--music m.mp3] [--clip]
 //                      [--placement auto|reference] [--fake-gemini] [--sfx none|moves|script] [--mix]
-//                      [--stills 1,2.5,20] [--again] [--no-render] [--out DIR]
+//                      [--stills 1,2.5,20] [--design stacked | --design-json d.json] [--again] [--no-render] [--out DIR]
 // Serves a built copy (E2E_DIST, with the speech model at dist/models/parakeet-v3),
 // saves screenshots of the page, the template, the plan and the finished video in --out.
 import { chromium } from "playwright";
 import { preview } from "vite";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const args = process.argv.slice(2);
@@ -110,6 +110,10 @@ try {
   writeFileSync(resolve(outDir, "placed.json"), JSON.stringify(placed, null, 1));
   for (const p of placed) log("placed", JSON.stringify({ name: p.name, label: p.label, look: p.look, slot: p.slot, at: p.at, why: p.place?.why, by: p.place?.by, said: p.place?.said?.slice(0, 80) }));
   if (opt("--sfx")) await page.evaluate((v) => window.__mimic.setSfx({ sfxMode: v }), opt("--sfx"));
+  // A text design: a ready-made one by id, or one from a JSON file.
+  if (opt("--design")) await page.evaluate((id) => window.__mimic.usePreset(id), opt("--design"));
+  if (opt("--design-json")) await page.evaluate((d) => window.__mimic.setDesign(d), JSON.parse(readFileSync(resolve(opt("--design-json")), "utf8")));
+  if (opt("--design") || opt("--design-json")) log("design", JSON.stringify(await page.evaluate(() => (window.__mimic.plan()?.captions?.pages ?? []).slice(0, 8).map((p) => ({ t: Math.round(p.start * 100) / 100, text: p.lines.map((l) => l.map((w) => (w.style ? `${w.text}[${w.style}]` : w.text)).join(" ")).join(" / "), place: p.place, behind: !!p.behind })))));
   await page.waitForTimeout(1500);
   await page.screenshot({ path: resolve(outDir, "page-ready.png"), fullPage: false });
   // The whole page, tall enough for every card on the right.

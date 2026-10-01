@@ -6,6 +6,7 @@ import { aboutOf, sentences, type Sentence } from "../match";
 import { SOUNDS } from "../sfx";
 import type { CaptionLook, CardSlot, MimicPlan, MimicTemplate } from "../types";
 import { CaptionPreview } from "./CaptionPreview";
+import { DesignEditor } from "./DesignEditor";
 import { MusicStrip } from "./MusicStrip";
 import { SoundCard } from "./SoundCard";
 import { fromPaste, PASTE_KEY } from "./paste";
@@ -720,7 +721,8 @@ function Outputs({ s }: { s: State }) {
             <div className="cap-layout">
               <CaptionPreview look={s.look} plan={plan} />
               <div>
-                <LookControls s={s} />
+                {!s.look.design && <LookControls s={s} />}
+                <DesignEditor s={s} />
                 <Preview />
               </div>
             </div>

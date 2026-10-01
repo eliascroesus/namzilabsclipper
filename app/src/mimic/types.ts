@@ -3,8 +3,66 @@
  * edit it makes from the user's footage by it (a MimicPlan). Sizes and places
  * are shares of the frame (0 to 1), times are seconds.
  */
+import type { TextMotion } from "../engine/text/motion";
+import type { TextStyle } from "../engine/text/style";
 
 export type FontFamily = "sans" | "condensed" | "tall" | "serif";
+
+/** Where a caption block sits: its anchor point, how its lines line up on it, how wide it may run. */
+export interface CaptionPlace {
+  /** the anchor, 0 to 1 of the frame */
+  x: number;
+  y: number;
+  /** the lines line up on the anchor by their left edge, middle or right edge */
+  align: "left" | "center" | "right";
+  /** the anchor is the block's top, middle or bottom */
+  valign: "top" | "middle" | "bottom";
+  /** the widest a line may run, a share of the frame's width */
+  width: number;
+  /** the reference sets its captions here behind the speaker */
+  behind?: boolean;
+}
+
+/** A rule for which words take another style than the base. */
+export interface StylePick {
+  style: string;
+  /**
+   * which words: the caption's key word (the longest, least common one), its last word,
+   * its first, a number, or the words the user marked
+   */
+  rule: "keyword" | "last" | "first" | "number" | "marked";
+  /** at most this share of captions get one (0 to 1) */
+  share: number;
+}
+
+/**
+ * The richer captions (jiia's and Mochi's promo edits): several text styles (a base, an
+ * emphasis word in another face, size or gradient, a serif accent), words picked out for
+ * them, each caption a block of lines of different sizes set beside the speaker in the
+ * places the reference uses, some behind the speaker, coming on and going off as the
+ * reference's do.
+ */
+export interface TextDesign {
+  /** the styles, the first the base every other word is in */
+  styles: TextStyle[];
+  picks: StylePick[];
+  /** each line one size (the base's), or each word its own style's size, lines stacked as a block */
+  layout: "lines" | "stack";
+  /** baseline to baseline, in font sizes (of the bigger line) */
+  leading: number;
+  /** most words on a line, and lines in a caption */
+  words: number;
+  lines: number;
+  /** the places the reference sets its captions in, used in turn */
+  places: CaptionPlace[];
+  /** the share of captions set behind the speaker (0: none; 1: all); with `style`, only captions with a word in it */
+  behind: { share: number; style?: string };
+  /** how the words come on, and go off (null: they cut off) */
+  enter: TextMotion;
+  exit: TextMotion | null;
+  /** how a word in another style than the base comes on (as `enter` when unset) */
+  accentEnter?: TextMotion;
+}
 
 export interface CaptionLook {
   /** vertical centre of the first line, 0 top to 1 bottom */
@@ -41,6 +99,8 @@ export interface CaptionLook {
   box: { color: string; pad: number; radius: number } | null;
   /** seconds a caption stays after its last word (unless the next one starts first) */
   hold: number;
+  /** the richer captions: several styles, stacked, beside or behind the speaker (when set, the fields above are only a fallback) */
+  design?: TextDesign;
 }
 
 export type Edge = "left" | "right" | "top" | "bottom";
@@ -168,12 +228,19 @@ export interface PlanWord {
   end: number;
   /** a break the user typed after it: a new line of the caption, or a new caption */
   br?: "line" | "page";
+  /** the design's style it's in (the base when unset) */
+  style?: string;
+  /** the user marked it (for a style picked by marks) */
+  mark?: boolean;
 }
 
 export interface CaptionPage {
   start: number;
   end: number;
   lines: PlanWord[][];
+  /** with a design: which of its places it sits in, and whether it's behind the speaker */
+  place?: number;
+  behind?: boolean;
 }
 
 export interface PlanCard {

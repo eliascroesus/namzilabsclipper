@@ -1,0 +1,22 @@
+selfie-segmenter.tflite
+
+MediaPipe's selfie segmenter (the square 256 x 256 model, float16), which tells
+a person from the background in a picture
+(https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite;
+model card: https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Selfie%20Segmentation.pdf).
+It runs in the page on MediaPipe's vision task runtime (@mediapipe/tasks-vision, Apache 2.0),
+to set captions behind the person talking.
+
+Copyright 2023 The MediaPipe Authors. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

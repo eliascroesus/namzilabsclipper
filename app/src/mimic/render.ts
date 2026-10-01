@@ -10,8 +10,11 @@ import { decodeMono, type Source } from "../engine/media/sources";
 import { bitrateFor, pickCodecs } from "../engine/render/export";
 import { audioDelay, shiftAudio } from "../engine/render/avsync";
 import { loadFonts } from "../engine/render/fonts";
+import { loadFontsFor } from "../engine/text/library";
+import { PersonMasker } from "../engine/vision/person";
 import { integratedLoudness, limit, MIX_RATE } from "../engine/render/mix";
 import { drawPage, layoutPage, type LaidLine } from "./captions";
+import { drawDesign, layoutDesign, type LaidDesign } from "./design";
 import { decodeStereo } from "./audio";
 import { lineAt, zoomAt } from "./plan";
 import { isMadeSound, makeSfx, type Sfx } from "./sfx";
@@ -90,6 +93,10 @@ export class MimicPainter {
   private readonly sinks = new Map<string, VideoSampleSink>();
   private readonly readers = new Map<string, ClipReader>();
   private readonly laid = new Map<CaptionPage, LaidLine[]>();
+  private readonly laidDesign = new Map<CaptionPage, LaidDesign>();
+  /** the speaker cut out of the frame, for captions set behind them */
+  private person: OffscreenCanvas | null = null;
+  private masker: PersonMasker | null | "none" = null;
   private lastT = -Infinity;
 
   constructor(
@@ -174,6 +181,15 @@ export class MimicPainter {
       await this.drawCover(this.rawId, `seg:${segIdx}`, s.from, s.to, srcT, [0, 0, W, H], fr.cx, fr.cy, z);
     }
 
+    // A caption set behind the speaker goes on now, the speaker cut out of the frame and laid back over it.
+    const cap = plan.captions;
+    const page = cap?.pages.find((p) => t >= p.start - 1e-6 && t < p.end - 1e-6);
+    let captioned = false;
+    if (cap && page && cap.look.design && page.behind && !cut && segIdx >= 0) {
+      await this.behindSpeaker(t, () => this.drawCaption(page, t));
+      captioned = true;
+    }
+
     // Cards.
     for (let i = 0; i < plan.cards.length; i++) {
       const c = plan.cards[i];
@@ -198,15 +214,48 @@ export class MimicPainter {
     }
 
     // The caption.
-    const cap = plan.captions;
-    if (cap) {
-      const page = cap.pages.find((p) => t >= p.start - 1e-6 && t < p.end - 1e-6);
-      if (page) {
-        let laid = this.laid.get(page);
-        if (!laid) this.laid.set(page, (laid = layoutPage(ctx, cap.look, page, W, H)));
-        drawPage(ctx, cap.look, laid, page, t);
-      }
+    if (page && !captioned) this.drawCaption(page, t);
+  }
+
+  /** A caption at t: the design's (several styles, stacked, animated), or the plain look's. */
+  private drawCaption(page: CaptionPage, t: number) {
+    const { plan, ctx } = this;
+    const cap = plan.captions!;
+    const { width: W, height: H } = plan;
+    const d = cap.look.design;
+    if (d) {
+      let laid = this.laidDesign.get(page);
+      if (!laid) this.laidDesign.set(page, (laid = layoutDesign(ctx, d, page, W, H)));
+      drawDesign(ctx, d, laid, page, t);
+      return;
     }
+    let laid = this.laid.get(page);
+    if (!laid) this.laid.set(page, (laid = layoutPage(ctx, cap.look, page, W, H)));
+    drawPage(ctx, cap.look, laid, page, t);
+  }
+
+  /**
+   * Text behind the speaker: the frame as drawn so far is cut to the person in it (the
+   * segmenter's mask, steadied frame to frame), the caption drawn over the frame, and the
+   * cut-out laid back on top. Without the segmenter (it failed to load), the caption simply
+   * goes on top.
+   */
+  private async behindSpeaker(t: number, draw: () => void) {
+    const { width: W, height: H } = this.plan;
+    if (this.masker === null) this.masker = await PersonMasker.get().catch(() => "none" as const);
+    if (this.masker === "none") return draw();
+    const mask = this.masker.mask((c, w, h) => c.drawImage(this.canvas, 0, 0, w, h), W, H, t);
+    if (!this.person) this.person = new OffscreenCanvas(W, H);
+    const pc = this.person.getContext("2d")!;
+    pc.globalCompositeOperation = "copy";
+    pc.drawImage(this.canvas, 0, 0);
+    pc.globalCompositeOperation = "destination-in";
+    pc.imageSmoothingEnabled = true;
+    pc.imageSmoothingQuality = "high";
+    pc.drawImage(mask, 0, 0, W, H);
+    pc.globalCompositeOperation = "source-over";
+    draw();
+    this.ctx.drawImage(this.person, 0, 0);
   }
 
   async close() {
@@ -347,11 +396,15 @@ export interface MimicRender {
   ms: number;
 }
 
+/** The fonts a plan's text design uses, loaded. */
+export const designFonts = (plan: MimicPlan) => loadFontsFor(plan.captions?.look.design?.styles.map((s) => s.font) ?? []);
+
 /** Render the whole edit to a file. */
 export async function renderMimic(plan: MimicPlan, sources: Map<string, Source>, rawId: string, opts: { onProgress?: (p: number, stage: string) => void; signal?: AbortSignal; extra?: MixExtras } = {}): Promise<MimicRender> {
   const t0 = performance.now();
   const { width: W, height: H, fps } = plan;
   await loadFonts();
+  await designFonts(plan);
   const codecs = await pickCodecs(W, H);
   const cancelled = () => {
     if (opts.signal?.aborted) throw new DOMException("Render cancelled", "AbortError");
@@ -394,6 +447,7 @@ export async function renderMimic(plan: MimicPlan, sources: Map<string, Source>,
 /** Single frames, for previews and checks. */
 export async function mimicStills(plan: MimicPlan, sources: Map<string, Source>, rawId: string, times: number[]): Promise<Blob[]> {
   await loadFonts();
+  await designFonts(plan);
   const painter = new MimicPainter(plan, sources, rawId);
   const out: Blob[] = [];
   try {

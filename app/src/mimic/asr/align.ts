@@ -39,11 +39,13 @@ function alike(a: string, b: string): number {
 export function retime(timed: Word[], text: string): Word[] {
   const tokens = [...text.matchAll(/(\S+)(\s*)/g)].map((m) => {
     const lines = (m[2].match(/\n/g) ?? []).length;
-    return { text: m[1], br: lines >= 2 ? ("page" as const) : lines === 1 ? ("line" as const) : undefined };
+    // A word between asterisks (*like this*) is marked: a design can set it in another style.
+    const marked = /^\*.+\*[.,!?;:]*$/.test(m[1]);
+    return { text: marked ? m[1].replace(/^\*/, "").replace(/\*([.,!?;:]*)$/, "$1") : m[1], br: lines >= 2 ? ("page" as const) : lines === 1 ? ("line" as const) : undefined, mark: marked };
   });
   return align(timed, tokens.map((t) => t.text)).map((w, j) => {
-    const { br: _old, ...word } = w;
-    return tokens[j].br ? { ...word, br: tokens[j].br } : word;
+    const { br: _old, mark: _was, ...word } = w;
+    return { ...word, ...(tokens[j].br ? { br: tokens[j].br } : {}), ...(tokens[j].mark ? { mark: true } : {}) };
   });
 }
 
