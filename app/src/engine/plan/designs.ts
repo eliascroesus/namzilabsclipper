@@ -102,14 +102,16 @@ export function darkness(scans: Scan[]): number {
 /**
  * The designs a batch set to mix goes through, in order, for this song and footage:
  * the ones that suit it first. A hard, fast song leads with the flashes, glitches and
- * velocity; a calm one with cinematic, clean and the tape, and leaves those three out;
- * night footage brings the dark ones (cinematic, noir, flash) forward.
+ * velocity; a calm one with cinematic and the tape, and leaves those three out; night
+ * footage brings the dark ones (cinematic, noir, flash) forward. The clean one, the
+ * references' own look, comes after the first few, so a batch always opens on
+ * something new.
  */
 export function designOrder(song: SongAnalysis | null | undefined, scans: Scan[]): Design[] {
   const heat = song ? heatOf(song) : 0.4;
   const hot: Design[] = ["flash", "glitch", "velocity", "zoom", "whip", "noir", "split", "clean", "cinematic", "vhs"];
-  const mid: Design[] = ["clean", "zoom", "whip", "cinematic", "split", "flash", "vhs", "velocity", "noir", "glitch"];
-  const calm: Design[] = ["cinematic", "clean", "vhs", "noir", "split", "whip", "zoom"];
+  const mid: Design[] = ["zoom", "whip", "cinematic", "clean", "split", "flash", "vhs", "velocity", "noir", "glitch"];
+  const calm: Design[] = ["cinematic", "vhs", "noir", "clean", "split", "whip", "zoom"];
   const base = heat >= 0.62 ? hot : heat >= 0.4 ? mid : calm;
   if (darkness(scans) < 0.7) return base;
   const dark = new Set<Design>(["cinematic", "noir", "flash"]);

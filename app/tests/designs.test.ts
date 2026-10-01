@@ -225,6 +225,9 @@ describe("a batch's designs, suited to the song", () => {
     expect(designOrder(hot, scans).slice(0, 2)).toEqual(["flash", "glitch"]);
     const soft = designOrder(calm, scans);
     expect(soft[0]).toBe("cinematic");
+    // (A batch always opens on something new: the references' clean look is never first.)
+    const night = scans.map((sc) => ({ ...sc, stats: { ...sc.stats, luma: new Float32Array(sc.stats.luma.length).fill(0.12) } }));
+    for (const sg of [hot, calm, song, track(110, 20, 6)]) for (const sc of [scans, night]) expect(designOrder(sg, sc).slice(0, 3)).not.toContain("clean");
     expect(soft).not.toContain("flash");
     expect(soft).not.toContain("glitch");
   });
