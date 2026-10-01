@@ -9,6 +9,7 @@ import { detectSpeech, type Run } from "../../engine/audio/speech";
 import { findCuts as exactCuts } from "../../engine/media/cuts";
 import { grabThumb } from "../../engine/media/scan";
 import { decodeMono, openSource, type Source } from "../../engine/media/sources";
+import { analyzeSong, loudnessBars, SR } from "../../engine/audio/song";
 import { FaceFinder } from "../../engine/vision/faces";
 import { naturalWordGap } from "../analyze/captions";
 import { TextReader } from "../analyze/ocr";
@@ -118,8 +119,15 @@ export interface State {
   musicDb: number;
   /** seconds into the song it starts from */
   musicFrom: number;
-  musicAt: "bed" | "start";
+  /** where in the edit it comes in: where the reference's music does, from the top, or where the user put it (seconds) */
+  musicAt: "bed" | "start" | number;
+  /** where in the edit it stops (seconds), when before the end */
+  musicEnd: number | null;
   musicLine: VolumeLine;
+  /** the song read, to pick its part from: its loudness strip, bar lines, drops (strongest first) and tempo */
+  musicSong: { bars: number[]; downbeats: number[]; drops: number[]; bpm: number } | null;
+  /** the song playing on its own (picking its part): from where in it, since when (performance.now()) */
+  songPlaying: { from: number; since: number } | null;
   /** the soundtrack playing: from where in the edit, since when (performance.now()) */
   playing: { from: number; since: number } | null;
   mixing: boolean;
@@ -187,6 +195,9 @@ class Mimic {
   private mixed: { key: string; buf: AudioBuffer } | null = null;
   private audio: AudioContext | null = null;
   private player: AudioBufferSourceNode | null = null;
+  /** the music's file, to play the song on its own while its part is picked */
+  private songUrl: string | null = null;
+  private song: HTMLAudioElement | null = null;
   /** where the script reading put each slot last time the edit was planned */
   lastPlaces: Record<string, { t: number; said: string; by: "words" | "gemini" | "you" }> = {};
   /** where each picture went last time the edit was planned (placed by the footage's words), and why */
@@ -239,7 +250,10 @@ class Mimic {
       musicDb: 0,
       musicFrom: 0,
       musicAt: "bed",
+      musicEnd: null,
       musicLine: [],
+      musicSong: null,
+      songPlaying: null,
       playing: null,
       mixing: false,
     };
@@ -642,13 +656,53 @@ class Mimic {
   }
 
   async setMusic(file: File | null) {
-    if (!file) return this.set({ music: null });
+    this.stopSong();
+    if (this.songUrl) URL.revokeObjectURL(this.songUrl);
+    this.songUrl = null;
+    // (A new song starts from its top, where the reference's music comes in, at its level, with no volume line.)
+    const fresh = { musicFrom: 0, musicAt: "bed" as const, musicEnd: null, musicLine: [], musicSong: null };
+    if (!file) return this.set({ music: null, ...fresh });
     try {
-      const { item } = await this.open(file, true);
-      this.set({ music: { ...item, kind: "audio" } });
+      const { src, item } = await this.open(file, true);
+      this.songUrl = URL.createObjectURL(file);
+      this.set({ music: { ...item, kind: "audio" }, ...fresh });
+      // Read it for the strip to pick its part from (its loudness, bar lines and drops).
+      const y = await decodeMono(src, SR, 0, Infinity);
+      await new Promise((r) => setTimeout(r, 0));
+      if (this.state.music?.id !== item.id || !y.length) return;
+      const song = analyzeSong(y);
+      if (this.state.music?.id !== item.id) return;
+      const drops = [...song.drops].sort((a, b) => b.strength - a.strength).map((d) => d.t);
+      this.set({ musicSong: { bars: loudnessBars(song), downbeats: song.downbeats, drops, bpm: song.bpm } });
     } catch (e) {
-      this.set({ music: { id: "", name: file.name, kind: "audio", duration: 0, width: 0, height: 0, status: "error", error: e instanceof Error ? e.message : String(e) } });
+      this.set({ music: { id: "", name: file.name, kind: "audio", duration: 0, width: 0, height: 0, status: "error", error: e instanceof Error ? e.message : String(e) }, ...fresh });
     }
+  }
+
+  /** The song on its own from `from` seconds in (picking its part), for `seconds` at most. */
+  hearSong(from: number, seconds = 20) {
+    this.stopListening();
+    this.stopSong();
+    if (!this.songUrl) return;
+    const a = new Audio(this.songUrl);
+    a.currentTime = Math.max(0, from);
+    const stop = from + seconds;
+    a.ontimeupdate = () => {
+      if (a.currentTime >= stop) this.stopSong();
+    };
+    a.onended = () => this.stopSong();
+    this.song = a;
+    void a.play().then(
+      () => this.song === a && this.set({ songPlaying: { from: a.currentTime, since: performance.now() } }),
+      () => this.stopSong(),
+    );
+  }
+
+  stopSong() {
+    const a = this.song;
+    this.song = null;
+    a?.pause();
+    if (this.state.songPlaying) this.set({ songPlaying: null });
   }
 
   assignSlot(slot: string, extra: string | null | undefined) {
@@ -705,7 +759,7 @@ class Mimic {
       assign: s.assign,
       clip: s.clip,
       tail: s.tail,
-      music: s.music && s.music.status === "ready" ? { id: s.music.id, duration: s.music.duration, db: s.musicDb, from: s.musicFrom, at: s.musicAt, line: s.musicLine } : null,
+      music: s.music && s.music.status === "ready" ? { id: s.music.id, duration: s.music.duration, db: s.musicDb, from: s.musicFrom, at: s.musicAt, ...(s.musicEnd !== null ? { end: s.musicEnd } : {}), line: s.musicLine } : null,
       look: s.look,
       sfx: {
         mode: s.sfxMode,
@@ -727,6 +781,16 @@ class Mimic {
   }
 
   plan(): MimicPlan | null {
+    // (Planned once per state: the page asks from more than one place.)
+    if (this.planned?.state === this.state) return this.planned.plan;
+    const plan = this.planNow();
+    this.planned = { state: this.state, plan };
+    return plan;
+  }
+
+  private planned: { state: State; plan: MimicPlan | null } | null = null;
+
+  private planNow(): MimicPlan | null {
     const s = this.state;
     const base = this.planInput();
     if (!base) return null;
@@ -955,7 +1019,7 @@ class Mimic {
 
   // Music.
 
-  setMusicOption(patch: Partial<Pick<State, "musicDb" | "musicFrom" | "musicAt" | "musicLine">>) {
+  setMusicOption(patch: Partial<Pick<State, "musicDb" | "musicFrom" | "musicAt" | "musicEnd" | "musicLine">>) {
     this.set(patch);
   }
 
@@ -999,6 +1063,7 @@ class Mimic {
   /** The edit's sound (voice, music, sound effects), from `from` seconds in. */
   async listen(from = 0) {
     this.stopListening();
+    this.stopSong();
     const mix = await this.soundtrack();
     if (!mix) return;
     const { plan } = mix;

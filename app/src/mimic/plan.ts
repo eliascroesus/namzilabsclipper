@@ -47,8 +47,8 @@ export interface PlanInput {
   sfx?: SfxOptions;
   /** cut the footage's pauses down to the reference's */
   clip: boolean;
-  /** music: its level against the reference's (dB), where in the song it starts, where in the edit (with the reference's music, or from the top), and the user's volume line */
-  music?: { id: string; duration: number; db?: number; from?: number; at?: "bed" | "start"; line?: VolumeLine } | null;
+  /** music: its level against the reference's (dB), where in the song it starts, where in the edit (with the reference's music, from the top, or at a time of the user's), where it stops (the end when unset), and the user's volume line */
+  music?: { id: string; duration: number; db?: number; from?: number; at?: "bed" | "start" | number; end?: number; line?: VolumeLine } | null;
   width?: number;
   height?: number;
   fps?: number;
@@ -517,7 +517,13 @@ export function planMimic(inp: PlanInput): MimicPlan {
   // the voice, then the user's level and volume line.
   const tail = inp.tail === false ? 0 : Math.min(4, tpl.tail);
   const m = inp.music;
-  const music = m ? { source: m.id, start: m.at === "start" || !tpl.sound.bed ? 0 : place(tpl.sound.bed.start), from: Math.max(0, m.from ?? 0), gain: (tpl.sound.bed ? tpl.sound.bed.level : -18) + (m.db ?? 0), fadeOut: Math.max(0.5, tail), ...(m.line?.length ? { line: m.line } : {}) } : null;
+  const total = body + tail;
+  const musicStart = !m ? 0 : typeof m.at === "number" ? Math.max(0, Math.min(m.at, total - 0.5)) : m.at === "start" || !tpl.sound.bed ? 0 : place(tpl.sound.bed.start);
+  // (Stopping before the end: half a second's fade out there.)
+  const musicEnd = m?.end !== undefined && m.end > musicStart + 0.5 && m.end < total - 0.05 ? m.end : undefined;
+  const music = m
+    ? { source: m.id, start: musicStart, ...(musicEnd !== undefined ? { end: musicEnd } : {}), from: Math.max(0, m.from ?? 0), gain: (tpl.sound.bed ? tpl.sound.bed.level : -18) + (m.db ?? 0), fadeOut: musicEnd !== undefined ? 0.5 : Math.max(0.5, tail), ...(m.line?.length ? { line: m.line } : {}) }
+    : null;
 
   return { width: W, height: H, fps, duration: body + tail, segments, zoom, frame, frames, broll, cards: cards.sort((a, b) => a.start - b.start), captions: { look, pages }, sfx, sfxGain: so.db, music, tail, ...(Object.keys(left).length ? { left } : {}) };
 }
@@ -534,6 +540,69 @@ export function lineAt(line: VolumeLine | undefined, t: number): number {
     }
   }
   return line[line.length - 1][1];
+}
+
+/** A volume line with no key closer than 0.05 s to another, in time order, inside the edit. */
+function tidy(line: VolumeLine, dur: number): VolumeLine {
+  const out: VolumeLine = [];
+  for (const [t, db] of [...line].sort((a, b) => a[0] - b[0])) {
+    const tt = Math.max(0, Math.min(dur, t));
+    const last = out[out.length - 1];
+    if (last && tt - last[0] < 0.05) last[1] = db;
+    else out.push([Math.round(tt * 100) / 100, Math.round(db * 10) / 10]);
+  }
+  return out;
+}
+
+/**
+ * The volume line with a stretch of the edit (a to b) set to `db`: ramps of a quarter
+ * second at most into and out of it, the line before and after as it was.
+ */
+export function withStretch(line: VolumeLine, a: number, b: number, db: number, dur: number): VolumeLine {
+  const lo = Math.max(0, Math.min(a, b));
+  const hi = Math.min(dur, Math.max(a, b));
+  if (hi - lo < 0.1) return line;
+  const ramp = Math.min(0.25, (hi - lo) / 4);
+  const before = lineAt(line, lo - ramp);
+  const after = lineAt(line, hi + ramp);
+  const kept = line.filter(([t]) => t < lo - ramp - 1e-3 || t > hi + ramp + 1e-3);
+  // (The line flat at what it was everywhere else: with no keys yet, that's 0 dB.)
+  const ends: VolumeLine = line.length ? [] : [[0, 0], [dur, 0]];
+  const keys: VolumeLine = [...kept, ...ends, [hi, db], [lo, db]];
+  if (lo - ramp > 0) keys.push([lo - ramp, before]);
+  if (hi + ramp < dur) keys.push([hi + ramp, after]);
+  return tidy(keys, dur);
+}
+
+/** The music's quick shapes: down under the talking and back up in the gaps, in from silence, out to it, louder for the ending. */
+export type MusicShape = "duck" | "fadein" | "fadeout" | "ending";
+
+export function shapeLine(line: VolumeLine, shape: MusicShape, plan: Pick<MimicPlan, "duration" | "tail" | "captions" | "music">): VolumeLine {
+  const dur = plan.duration;
+  const start = plan.music?.start ?? 0;
+  const end = plan.music?.end ?? dur;
+  if (shape === "fadein") {
+    const to = Math.min(end, start + 2);
+    return tidy([...line.filter(([t]) => t < start - 1e-3 || t > to + 1e-3), [start, -30], [to, lineAt(line, to)]], dur);
+  }
+  if (shape === "fadeout") {
+    const from = Math.max(start, end - 2);
+    return tidy([...line.filter(([t]) => t < from - 1e-3 || t > end + 1e-3), [from, lineAt(line, from)], [end, -30]], dur);
+  }
+  if (shape === "ending") {
+    const from = Math.max(start, dur - Math.max(2.5, plan.tail));
+    return withStretch(line, from, dur, 6, dur);
+  }
+  // Under the talking: 6 dB down while each line is said (lines less than 0.8 s apart run together), back up between.
+  const runs: [number, number][] = [];
+  for (const p of plan.captions?.pages ?? []) {
+    const last = runs[runs.length - 1];
+    if (last && p.start - last[1] < 0.8) last[1] = Math.max(last[1], p.end);
+    else runs.push([p.start, p.end]);
+  }
+  let out = line;
+  for (const [a, b] of runs) if (b > start && a < end) out = withStretch(out, Math.max(a, start), Math.min(b, end), lineAt(line, (a + b) / 2) - 6, dur);
+  return out;
 }
 
 /** The level of the footage's zoom at t, from the plan's keyframes (a jump is two keys at one time). */

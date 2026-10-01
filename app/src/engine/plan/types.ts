@@ -179,7 +179,10 @@ export function outputAt(shot: Pick<ShotEvent, "start" | "end" | "speed" | "ramp
  * - vhs: a videotape's picture (soft, its colour bleeding late, its lines wobbling, a
  *   torn band at the bottom), on over its span
  */
-export type FxKind = "flash" | "burn" | "dip" | "fadein" | "punch" | "shake" | "zoomblur" | "split" | "mono" | "zoomin" | "whip" | "spin" | "swing" | "blur" | "glitch" | "invert" | "strobe" | "leak" | "bars" | "fade" | "vhs";
+export type FxKind = "flash" | "burn" | "dip" | "fadein" | "punch" | "shake" | "zoomblur" | "split" | "mono" | "zoomin" | "whip" | "spin" | "swing" | "blur" | "glitch" | "invert" | "strobe" | "leak" | "bars" | "fade" | "vhs" | "dissolve" | "push" | "slide" | "freeze" | "glow";
+
+/** The transitions that show two shots at once (the one going out and the one coming in): a crossfade, the two pushed along together, the next sliding in over the last. */
+export const TWO_SHOT: ReadonlySet<FxKind> = new Set<FxKind>(["dissolve", "push", "slide"]);
 
 export interface FxEvent {
   kind: FxKind;
@@ -195,17 +198,65 @@ export interface FxEvent {
 
 export type CaptionStyle = "doc" | "pov" | "shout" | "lyric" | "mood" | "meme" | "impact" | "film" | "glitch" | "osd";
 
+/** How a caption of the user's own design mixes with the picture under it. */
+export type Blend = "normal" | "multiply" | "screen" | "overlay" | "darken" | "lighten" | "difference" | "exclusion" | "soft-light" | "color-dodge";
+
+/** The faces a caption of the user's own design can be set in. */
+export type Face = "inter" | "montserrat" | "poppins" | "anton" | "bebas" | "gothic" | "oswald" | "serif" | "playfair" | "mono";
+
+/** A caption of the user's own design (the caption editor, as in CapCut): it takes the place of the caption style's look. */
+export interface TextLook {
+  font: Face;
+  /** for the faces that come in more than one weight (Inter, Montserrat, Playfair) */
+  weight: number;
+  /** the letters' size, a share of the frame's short side */
+  size: number;
+  color: string;
+  /** an outline round the letters, its width a share of their size (0: none) */
+  stroke: number;
+  strokeColor: string;
+  /** a soft shadow under them, 0 to 1 (in a light colour, a glow) */
+  shadow: number;
+  shadowColor: string;
+  /** a box behind each line */
+  box: boolean;
+  boxColor: string;
+  boxOpacity: number;
+  /** how the caption mixes with the picture under it */
+  blend: Blend;
+  /** where it sits: the middle of the block, 0 to 1 across and down the frame */
+  x: number;
+  y: number;
+  align: "left" | "center" | "right";
+  case: "typed" | "upper" | "lower";
+  /** space between the letters, in ems */
+  spacing: number;
+  /** the widest a line gets before it wraps, a share of the frame's width */
+  width: number;
+  /** turned this many degrees clockwise */
+  rotate: number;
+  opacity: number;
+  /** how it comes on: as the edit's design has it, held, popping in, fading in, typed out, or a word on each beat */
+  animate: "design" | "none" | "pop" | "fade" | "type" | "words";
+}
+
 export interface CaptionEvent {
   style: CaptionStyle;
   text: string;
   start: number;
   end: number;
+  /** the user's own design for it, in place of the style's look */
+  look?: TextLook;
+  /** fading in over its first quarter second, or typed out letter by letter */
+  anim?: "fade" | "type";
   /** vertical centre, 0 (top) to 1 (bottom); the style's default when absent */
   y?: number;
   /** where it sits across, 0 (left) to 1 (right): its centre, or its edge in a style set left or right; the style's default when absent */
   x?: number;
   /** pops in: small, a little too big, then settling, over its first five frames */
   pop?: boolean;
+  /** a subtitle: timed to the words said, so it stays as it is (no design restyling it, no word on each beat) */
+  spoken?: boolean;
 }
 
 export interface CardSpec {

@@ -26,10 +26,11 @@ import { CUT_LEAD, driveOver, gridTime, hitsHard } from "./montage";
 import type { EditStyle } from "./styles";
 import { FPS, WARM_GRADE, type Aspect, type CaptionEvent, type CaptionStyle, type EditPlan, type FxEvent, type Grade, type OverlayEvent, type ShotEvent } from "./types";
 
-export type Design = "clean" | "flash" | "zoom" | "velocity" | "cinematic" | "noir" | "glitch" | "whip" | "split" | "vhs";
+export type Design = "clean" | "flow" | "flash" | "zoom" | "velocity" | "cinematic" | "noir" | "glitch" | "whip" | "split" | "vhs" | "phonk" | "ice";
 
 export const DESIGNS: { value: Design; name: string; desc: string }[] = [
   { value: "clean", name: "Clean", desc: "Hard cuts in warm film colour, a punch-in on the big hits (nio.trade, mico)." },
+  { value: "flow", name: "Crossfade", desc: "nio.trade's flex burst: crossfades into the drop a beat apart, nothing on the drop, then a picture a beat, each crossfading in and whole on the kick." },
   { value: "flash", name: "Flash & shake", desc: "A cold edit: drained and dark, white flashes on the claps, shakes on the kicks, a strobe into the drop." },
   { value: "zoom", name: "Zoom", desc: "Every cut rushes in and lands zoomed, the picture bumping on the beats between." },
   { value: "velocity", name: "Velocity", desc: "Slow motion on each hit, then a rush into the next cut, with zoom blurs and shakes." },
@@ -39,6 +40,8 @@ export const DESIGNS: { value: Design; name: string; desc: string }[] = [
   { value: "whip", name: "Whip", desc: "Whip pans between the shots, a spin into the drop, swings on the hits." },
   { value: "split", name: "Split screen", desc: "The build in stacked panels, one changing on each cut, then the drop full frame." },
   { value: "vhs", name: "VHS", desc: "A camcorder tape: soft, bleeding colour, wobbling lines, PLAY and the date on screen." },
+  { value: "phonk", name: "Phonk", desc: "A cold edit, darker: drained with red in the highlights, the picture freezing into the drop, then shakes, glow and the negative on every hit." },
+  { value: "ice", name: "Ice", desc: "A cold edit, cool and glowing: crossfades into the drop, a freeze and a flash on it, then glow pulses and zooms on the hits." },
 ];
 
 export const designName = (d: Design) => DESIGNS.find((x) => x.value === d)!.name;
@@ -46,6 +49,8 @@ export const designName = (d: Design) => DESIGNS.find((x) => x.value === d)!.nam
 /** Each design's colour (the renderer balances every shot first, then this). */
 export const DESIGN_GRADES: Record<Design, Grade> = {
   clean: WARM_GRADE,
+  // nio.trade's footage as it comes, a touch warm and rich: the look of the vlogs it's cut from.
+  flow: { warmth: 0.3, contrast: 0.55, saturation: 1.1, vignette: 0.25, grain: 0.15 },
   // Cold: the colour drained, blue-steel shadows, crushed blacks, hard contrast, a little under.
   flash: { warmth: -0.45, contrast: 0.95, saturation: 0.55, vignette: 0.55, grain: 0.3, shadows: [-0.03, 0, 0.05], highlights: [-0.01, 0.01, 0.03], glow: 0.2, exposure: -0.25 },
   // Bright and rich.
@@ -61,6 +66,10 @@ export const DESIGN_GRADES: Record<Design, Grade> = {
   split: { warmth: 0.2, contrast: 0.6, saturation: 1.12, vignette: 0.2, grain: 0.12 },
   // A tape: lifted blacks, soft contrast, a yellow-green cast, the highlights blooming.
   vhs: { warmth: 0.2, contrast: 0.25, saturation: 0.85, vignette: 0.45, grain: 0.45, fade: 0.35, shadows: [0, 0.015, -0.01], highlights: [0.02, 0.02, -0.03], glow: 0.25 },
+  // Phonk: near black and white, hard, red bleeding into the highlights, a heavy vignette.
+  phonk: { warmth: 0, contrast: 1.05, saturation: 0.3, vignette: 0.7, grain: 0.4, shadows: [0.01, -0.01, 0], highlights: [0.07, -0.015, -0.03], glow: 0.3, exposure: -0.3 },
+  // Ice: cold blue, the highlights glowing, a little lifted.
+  ice: { warmth: -0.65, contrast: 0.7, saturation: 0.65, vignette: 0.4, grain: 0.15, shadows: [-0.02, 0.005, 0.05], highlights: [-0.02, 0.02, 0.06], glow: 0.45, fade: 0.05 },
 };
 
 /**
@@ -69,7 +78,8 @@ export const DESIGN_GRADES: Record<Design, Grade> = {
  * burst of photos (the burst's pictures on someone's head need the overlays too).
  */
 export function fits(d: Design, style: EditStyle): boolean {
-  if (style === "slow") return d === "clean" || d === "cinematic" || d === "noir" || d === "vhs";
+  if (style === "slow") return d === "clean" || d === "cinematic" || d === "noir" || d === "vhs" || d === "ice" || d === "flow";
+  if (d === "phonk") return style !== "mono" && style !== "talk";
   if (d === "noir") return style !== "mono" && style !== "talk";
   if (d === "split") return style !== "talk" && style !== "burst";
   return true;
@@ -109,12 +119,12 @@ export function darkness(scans: Scan[]): number {
  */
 export function designOrder(song: SongAnalysis | null | undefined, scans: Scan[]): Design[] {
   const heat = song ? heatOf(song) : 0.4;
-  const hot: Design[] = ["flash", "glitch", "velocity", "zoom", "whip", "noir", "split", "clean", "cinematic", "vhs"];
-  const mid: Design[] = ["zoom", "whip", "cinematic", "clean", "split", "flash", "vhs", "velocity", "noir", "glitch"];
-  const calm: Design[] = ["cinematic", "vhs", "noir", "clean", "split", "whip", "zoom"];
+  const hot: Design[] = ["flash", "phonk", "glitch", "velocity", "zoom", "whip", "flow", "ice", "noir", "split", "clean", "cinematic", "vhs"];
+  const mid: Design[] = ["zoom", "flow", "ice", "whip", "cinematic", "clean", "split", "flash", "vhs", "phonk", "velocity", "noir", "glitch"];
+  const calm: Design[] = ["cinematic", "flow", "ice", "vhs", "noir", "clean", "split", "whip", "zoom"];
   const base = heat >= 0.62 ? hot : heat >= 0.4 ? mid : calm;
   if (darkness(scans) < 0.7) return base;
-  const dark = new Set<Design>(["cinematic", "noir", "flash"]);
+  const dark = new Set<Design>(["cinematic", "noir", "flash", "phonk"]);
   // (Each dark one two places sooner.)
   const rank = new Map(base.map((d, i) => [d, i - (dark.has(d) ? 2.5 : 0)]));
   return [...base].sort((a, b) => rank.get(a)! - rank.get(b)!);
@@ -133,7 +143,7 @@ export function designFor(n: number, pick: Design | "mix", order: Design[], styl
 
 /** What a design wants of the footage: movement and people (the hard ones), or calm, steady pictures (a film, a tape); the clean edit, the plain picks. */
 export function leanOf(d: Design): "action" | "calm" | undefined {
-  return d === "cinematic" || d === "vhs" ? "calm" : d === "clean" ? undefined : "action";
+  return d === "cinematic" || d === "vhs" || d === "ice" ? "calm" : d === "clean" || d === "flow" ? undefined : "action";
 }
 
 /** A letterbox for the frame: bars that leave a wide picture in a wide frame and about a 4:5 one in a tall frame, each this share of the frame's height. */
@@ -195,6 +205,15 @@ interface Ctx {
   now: Date;
 }
 
+/** The song's beats as they fall in the edit (before the card), those with a hit you hear on them. */
+export function heardBeats(plan: EditPlan, song: SongAnalysis): number[] {
+  const songStart = plan.music?.songStart ?? 0;
+  const end = plan.card?.start ?? plan.duration;
+  return song.beats
+    .map((b) => fr(b - songStart - CUT_LEAD))
+    .filter((t) => t > 0.05 && t < end - 0.2 && song.accents.some((a) => Math.abs(a.t - songStart - CUT_LEAD - t) <= 0.05 && a.s >= 0.05 && (a.ls ?? a.s) >= 0.5));
+}
+
 function contextOf(plan: EditPlan, song: SongAnalysis, scans: Scan[], now: Date): Ctx {
   const songStart = plan.music?.songStart ?? 0;
   const end = plan.card?.start ?? plan.duration;
@@ -208,9 +227,7 @@ function contextOf(plan: EditPlan, song: SongAnalysis, scans: Scan[], now: Date)
     })
     .filter((h) => h.t > 0.1 && h.t < end - 0.25)
     .sort((a, b) => a.t - b.t);
-  const beats = song.beats
-    .map((b) => fr(b - songStart - CUT_LEAD))
-    .filter((t) => t > 0.05 && t < end - 0.2 && song.accents.some((a) => Math.abs(a.t - songStart - CUT_LEAD - t) <= 0.05 && a.s >= 0.05 && (a.ls ?? a.s) >= 0.5));
+  const beats = heardBeats(plan, song);
   // (Not into or out of someone talking, nor inside a burst of photos: those stay hard.)
   const cuts: Cut[] = [];
   for (let i = 1; i < shots.length; i++) {
@@ -278,43 +295,36 @@ function flash(ctx: Ctx) {
   // A strobe into the drop (two black frames), then the flash and the shake.
   if (ctx.drop !== undefined && ctx.drop > 2) push(ctx, { kind: "strobe", start: fr(ctx.drop - 4 * F), end: ctx.drop, strength: 1 });
   dropHit(ctx, 1, 1.3);
-  // A white flash on the claps and snares, and on the cuts that land on a hit, lighter
-  // before the drop; the kicks shake the picture, punch in and split its colour.
+  // The cuts: flashes, shakes on landing, zooms through, strobes, by where they fall.
+  transitions(ctx, PALETTES.flash!);
+  // Inside the shots, a white flash on the claps and snares, lighter before the drop; the
+  // kicks shake the picture, punch in and split its colour.
   const flashes = spaced(
-    [...ctx.cuts.filter((c) => c.hit && !c.drop).map((c) => ({ t: c.t })), ...between(ctx, ctx.hits.filter((h) => h.snap), 0.4)]
-      .filter((x) => offDrop(ctx, x.t) && x.t > 0.4)
-      .sort((a, b) => a.t - b.t),
+    between(ctx, ctx.hits.filter((h) => h.snap), 0.4).filter((x) => offDrop(ctx, x.t) && x.t > 0.4),
     Math.max(0.9 * T, FLASH_GAP),
   );
   for (const x of flashes) {
     const s = afterDrop(ctx, x.t) ? 0.6 : 0.35;
     push(ctx, { kind: "flash", start: x.t, end: x.t + 3 * F, strength: s * (0.6 + 0.4 * ctx.drive(x.t)), at: x.t });
   }
-  const kicks = ctx.hits.filter((h) => h.big && (afterDrop(ctx, h.t) || h.s >= 0.9) && offDrop(ctx, h.t));
+  const kicks = between(ctx, ctx.hits.filter((h) => h.big && (afterDrop(ctx, h.t) || h.s >= 0.9) && offDrop(ctx, h.t)), 0.4);
+  let k = 0;
   for (const h of spaced(kicks, 1.5 * T)) {
     push(ctx, { kind: "shake", start: h.t, end: h.t + 8 * F, strength: 0.8, at: h.t }, { kind: "punch", start: h.t - F, end: h.t + 8 * F, strength: 0.6, at: h.t }, { kind: "split", start: h.t, end: h.t + 4 * F, strength: 0.8, at: h.t });
+    // (Every other one after the drop drains to black and white for three frames.)
+    if (afterDrop(ctx, h.t) && k++ % 2 === 1) push(ctx, { kind: "mono", start: h.t, end: h.t + 3 * F, strength: 1 });
   }
+  // The drop blooms.
+  if (ctx.drop !== undefined) push(ctx, { kind: "glow", start: ctx.drop, end: ctx.drop + 12 * F, strength: 0.7, at: ctx.drop });
 }
 
 function zoom(ctx: Ctx) {
-  const T = ctx.song.period;
-  // The first shot lands zoomed in and settles.
+  // The first shot lands zoomed in and settles; the drop rushes in hardest.
   push(ctx, { kind: "zoomin", start: 0, end: 9 * F, strength: 0.8, at: 0 });
-  // Every cut rushes in and lands zoomed (every fourth pulls out instead), harder on a hit
-  // and hardest on the drop; a re-cut a few frames on stays a hard cut.
-  let k = 0;
-  let last = -Infinity;
-  for (const c of ctx.cuts) {
-    if (c.t - last < 0.8 * T && !c.drop) continue;
-    if (c.shot.again && c.shot.end - c.shot.start < 0.3) continue;
-    const s = c.drop ? 1 : c.hit ? 0.6 : 0.4;
-    const e = across(c, "zoomin", s, 4, c.drop ? 8 : 5, !c.drop && k % 4 === 3 ? -1 : 1);
-    if (e) {
-      push(ctx, e);
-      k++;
-      last = c.t;
-    }
-  }
+  const d = ctx.cuts.find((x) => x.drop);
+  if (d) push(ctx, across(d, "zoomin", 1, 4, 8, 1));
+  // The cuts: zooms in and out, through with a smear, pushes and spins, by where they fall.
+  transitions(ctx, PALETTES.zoom!);
   dropHit(ctx, 0.4, 0);
   // The picture bumps on the beats between the cuts.
   for (const b of ctx.beats) {
@@ -325,17 +335,12 @@ function zoom(ctx: Ctx) {
 }
 
 function velocity(ctx: Ctx) {
-  const T = ctx.song.period;
   push(ctx, { kind: "zoomin", start: 0, end: 8 * F, strength: 0.6, at: 0 }, { kind: "zoomblur", start: 0, end: 6 * F, strength: 0.9, at: 0 });
   dropHit(ctx, 0.7, 1.2);
   const d = ctx.cuts.find((x) => x.drop);
   if (d) push(ctx, across(d, "zoomin", 1, 4, 8));
-  // Each cut on a hit smears out from the middle and knocks the picture, punching in
-  // (after the drop; before it, the cuts that start a phrase).
-  for (const c of spaced(ctx.cuts.filter((c) => !c.drop && ((afterDrop(ctx, c.t) && c.hit) || ctx.phrases.has(c.t))), T)) {
-    push(ctx, { kind: "zoomblur", start: fr(c.t - 4 * F), end: fr(c.t + 4 * F), strength: 0.85, at: c.t });
-    if (afterDrop(ctx, c.t)) push(ctx, { kind: "shake", start: c.t, end: c.t + 8 * F, strength: 0.7, at: c.t }, { kind: "punch", start: c.t - F, end: c.t + 7 * F, strength: 0.7, at: c.t });
-  }
+  // The cuts: smears out from the middle, shakes on landing, zooms and whips, by where they fall.
+  transitions(ctx, PALETTES.velocity!);
 }
 
 function cinematic(ctx: Ctx) {
@@ -347,12 +352,9 @@ function cinematic(ctx: Ctx) {
   // The drop: a leak and a blur-in, no flash.
   const d = ctx.cuts.find((x) => x.drop);
   if (d) push(ctx, { kind: "leak", start: d.t, end: Math.min(d.t + 1.4, ctx.end), strength: 0.85 }, across(d, "blur", 0.8, 2, 10));
-  // A dip to black where a section starts, a blur-in where a phrase does.
-  for (const c of ctx.cuts) {
-    if (c.drop) continue;
-    if (ctx.sections.has(c.t)) push(ctx, across(c, "fade", 0.9, 5, 6));
-    else if (ctx.phrases.has(c.t)) push(ctx, across(c, "blur", 0.6, 2, 8));
-  }
+  // The cuts: a dip to black where a section starts, a blur-in, a crossfade or a slide where
+  // a phrase does, crossfades now and then on the beats.
+  transitions(ctx, PALETTES.cinematic!);
   // Every clip pushes in or pulls out, slowly.
   let k = plan.shots.length;
   for (const s of plan.shots) {
@@ -370,20 +372,26 @@ function noir(ctx: Ctx) {
   const first = ctx.beats.find((b) => b >= 0.25);
   if (first !== undefined && first < 1.2) push(ctx, { kind: "flash", start: first, end: first + 4 * F, strength: 0.7, at: first });
   dropHit(ctx, 1, 1.1);
+  // The cuts: mostly hard, a dip or a zoom through where a section starts, zooms and crossfades on the phrases.
+  transitions(ctx, PALETTES.noir!);
   // Before the drop, a black flicker on the biggest hits (a second apart at least). After
-  // it, the kicks punch in and shake, the claps and snares flip to the negative for a frame.
+  // it, by turns, a kick punches in (every other one shaking too) and a clap or snare
+  // flips to the negative for a frame: one or the other every two beats, not all of them.
   for (const h of spaced(
     ctx.hits.filter((h) => h.big && !afterDrop(ctx, h.t) && offDrop(ctx, h.t) && h.t > 1.2),
     Math.max(1, 1.5 * T),
   )) {
     push(ctx, { kind: "strobe", start: h.t, end: h.t + 4 * F, strength: 0.9 });
   }
+  let k = 0;
   for (const h of spaced(
     ctx.hits.filter((h) => afterDrop(ctx, h.t) && offDrop(ctx, h.t) && (h.big || h.snap)),
-    Math.max(0.9 * T, FLASH_GAP),
+    Math.max(1.8 * T, FLASH_GAP),
   )) {
-    if (h.big) push(ctx, { kind: "punch", start: h.t - F, end: h.t + 8 * F, strength: 0.8, at: h.t }, { kind: "shake", start: h.t, end: h.t + 6 * F, strength: 0.6, at: h.t });
-    else push(ctx, { kind: "invert", start: h.t, end: h.t + F, strength: 1 });
+    if (h.big) {
+      push(ctx, { kind: "punch", start: h.t - F, end: h.t + 8 * F, strength: 0.8, at: h.t });
+      if (k++ % 2 === 0) push(ctx, { kind: "shake", start: h.t, end: h.t + 6 * F, strength: 0.6, at: h.t });
+    } else push(ctx, { kind: "invert", start: h.t, end: h.t + F, strength: 1 });
   }
 }
 
@@ -395,11 +403,9 @@ function glitch(ctx: Ctx) {
     push(ctx, { kind: "glitch", start: fr(d - 2 * F), end: d + 8 * F, strength: 1 }, { kind: "invert", start: d, end: d + F, strength: 1 });
   }
   dropHit(ctx, 0.3, 1, 1);
-  // Every cut tears (before the drop, the cuts on a hit and the phrases'), and the hits
-  // inside a shot flicker.
-  for (const c of spaced(ctx.cuts.filter((c) => !c.drop && (afterDrop(ctx, c.t) || c.hit || ctx.phrases.has(c.t))), 0.45 * T)) {
-    push(ctx, across(c, "glitch", c.hit ? 0.9 : 0.65, 2, 3));
-  }
+  // The cuts: tears with the colour split, smears, whips, zooms and strobes, by where they
+  // fall; the hits inside a shot flicker.
+  transitions(ctx, PALETTES.glitch!);
   for (const h of spaced(between(ctx, ctx.hits.filter((h) => h.s >= 0.6 && afterDrop(ctx, h.t))), 1.5 * T)) {
     push(ctx, { kind: "glitch", start: h.t, end: h.t + 3 * F, strength: 0.55 }, { kind: "split", start: h.t, end: h.t + 4 * F, strength: 0.7, at: h.t });
   }
@@ -443,26 +449,244 @@ export function limitFlashes(fx: FxEvent[]): FxEvent[] {
 /** Whip directions by turns, degrees: right, left, down, right, left, up. */
 const WHIPS = [0, 180, 90, 0, 180, 270];
 
+// ── the transitions ──────────────────────────────────────────────────────────
+
+/** Where a cut falls in the music: on the drop, where a section or a four-bar phrase starts, on a hit, or on a plain beat. */
+type Spot = "drop" | "section" | "phrase" | "hit" | "beat";
+
+/**
+ * The moves a cut can make: a hard cut, or a transition. The one-shot moves (zooms, a
+ * whip, a spin, a blur, a glitch, a smear, a flash, a dip to black, a strobe, a shake on
+ * landing) move the whole picture with a hard cut in the middle; the two-shot ones show
+ * both shots at once: a crossfade (ending on the beat, as nio.trade's do, and coming in
+ * runs), a push (the two along together), a slide (the next over the last).
+ */
+export type Move = "cut" | "dissolve" | "push" | "slide" | "dip" | "flash" | "burn" | "strobe" | "zoomIn" | "zoomOut" | "zoomThrough" | "whip" | "spin" | "blur" | "glitch" | "shake" | "smear";
+
+/** A design's transitions: at each place in the music, the moves it makes there and how often (weights; "cut" is the hard cut). */
+export type Palette = Record<Exclude<Spot, "drop">, Partial<Record<Move, number>>>;
+
+/**
+ * Each design's moves (the drop has its own, in the recipe). Mostly hard cuts on the
+ * plain beats, as every reference edit is (two thirds to half of their cuts are hard);
+ * the bigger moves where a phrase or a section starts; each design its own mix of them.
+ */
+export const PALETTES: Partial<Record<Design, Palette>> = {
+  flash: {
+    section: { flash: 2, strobe: 1.2, zoomThrough: 1, dip: 0.6 },
+    phrase: { flash: 1.2, zoomThrough: 1, shake: 1, glitch: 0.5, cut: 0.6 },
+    hit: { shake: 1.4, flash: 0.9, zoomIn: 0.7, smear: 0.5, cut: 2 },
+    beat: { cut: 5, shake: 0.5, zoomIn: 0.4 },
+  },
+  zoom: {
+    section: { zoomThrough: 2, spin: 1, push: 0.8, dip: 0.4 },
+    phrase: { zoomThrough: 1.4, zoomOut: 1, push: 1, spin: 0.7, cut: 0.4 },
+    hit: { zoomIn: 1.8, zoomOut: 1, smear: 0.6, shake: 0.5, cut: 1.6 },
+    beat: { cut: 3.5, zoomIn: 1, zoomOut: 0.4, dissolve: 0.3 },
+  },
+  velocity: {
+    section: { smear: 1.4, zoomThrough: 1.2, whip: 1, flash: 0.5, burn: 0.5 },
+    phrase: { smear: 1.4, zoomIn: 1, whip: 0.7, push: 0.5, cut: 0.4 },
+    hit: { smear: 1.2, shake: 1, zoomIn: 0.8, cut: 1.6 },
+    beat: { cut: 4, smear: 0.6, zoomIn: 0.3 },
+  },
+  cinematic: {
+    section: { dip: 2, dissolve: 1, blur: 0.6, burn: 0.8 },
+    phrase: { blur: 1.2, dissolve: 1.2, slide: 0.5, burn: 0.5, cut: 0.6 },
+    hit: { cut: 3, dissolve: 0.9, blur: 0.4, push: 0.3 },
+    beat: { cut: 5, dissolve: 0.7 },
+  },
+  noir: {
+    section: { dip: 1.4, zoomThrough: 1, dissolve: 0.6 },
+    phrase: { zoomIn: 1, dissolve: 0.8, zoomOut: 0.6, cut: 1 },
+    hit: { cut: 3, zoomIn: 0.6, shake: 0.4 },
+    beat: { cut: 6, dissolve: 0.4 },
+  },
+  glitch: {
+    section: { glitch: 2, strobe: 0.6, zoomThrough: 0.8, whip: 0.5 },
+    phrase: { glitch: 1.5, smear: 0.6, whip: 0.6, zoomIn: 0.5, cut: 0.4 },
+    hit: { glitch: 1.4, shake: 0.6, zoomIn: 0.5, cut: 1.6 },
+    beat: { cut: 3, glitch: 0.7, smear: 0.3 },
+  },
+  whip: {
+    section: { whip: 1.5, spin: 1.5, push: 0.8, burn: 0.4 },
+    phrase: { whip: 1.5, push: 1, spin: 0.6, slide: 0.4, cut: 0.4 },
+    hit: { whip: 1.2, spin: 0.6, shake: 0.6, push: 0.5, cut: 1.5 },
+    beat: { cut: 3, whip: 0.7, push: 0.3 },
+  },
+  split: {
+    section: { zoomThrough: 1.5, spin: 1, push: 0.8 },
+    phrase: { zoomThrough: 1, push: 1, whip: 0.7, cut: 0.6 },
+    hit: { zoomIn: 1.4, shake: 0.8, whip: 0.5, cut: 1.6 },
+    beat: { cut: 4, zoomIn: 0.6 },
+  },
+  phonk: {
+    section: { flash: 1.5, strobe: 1.2, zoomThrough: 1, spin: 0.6 },
+    phrase: { smear: 1.2, spin: 0.8, flash: 0.8, glitch: 0.6, cut: 0.4 },
+    hit: { shake: 1.5, smear: 0.8, glitch: 0.6, zoomIn: 0.5, cut: 1.5 },
+    beat: { cut: 4, shake: 0.6, smear: 0.4 },
+  },
+  ice: {
+    section: { dissolve: 1.4, zoomThrough: 1, slide: 0.8, flash: 0.5 },
+    phrase: { dissolve: 1.2, zoomOut: 1, push: 0.7, blur: 0.6, cut: 0.6 },
+    hit: { zoomOut: 1, zoomIn: 0.8, dissolve: 0.7, cut: 2 },
+    beat: { cut: 4.5, dissolve: 0.8, zoomOut: 0.3 },
+  },
+  vhs: {
+    section: { dip: 1.2, glitch: 0.8, dissolve: 0.5 },
+    phrase: { glitch: 0.6, dissolve: 0.6, cut: 1.5 },
+    hit: { cut: 4, glitch: 0.3, zoomIn: 0.3 },
+    beat: { cut: 6 },
+  },
+};
+
+/** Frames of room a move needs in the shot before its cut and the one after. */
+const ROOM: Record<Exclude<Move, "cut">, [number, number]> = {
+  dissolve: [4, 1],
+  push: [5, 5],
+  slide: [3, 7],
+  dip: [6, 7],
+  flash: [0, 4],
+  burn: [2, 6],
+  strobe: [5, 1],
+  zoomIn: [5, 6],
+  zoomOut: [5, 7],
+  zoomThrough: [6, 8],
+  whip: [5, 6],
+  spin: [5, 7],
+  blur: [3, 9],
+  glitch: [3, 4],
+  shake: [1, 9],
+  smear: [5, 5],
+};
+
+/** Ways a push or a slide goes, by turns (degrees, as a whip's): left, up, right, down. */
+const PUSHES = [180, 270, 0, 90];
+
+/** A random number from 0 to 1 that's the same for the same plan (so an edit plans the same way twice). */
+function seeded(plan: EditPlan): () => number {
+  let h = 2166136261;
+  for (const s of plan.shots) h = Math.imul(h ^ Math.round(s.start * 1000 + s.srcStart * 77), 16777619);
+  let x = h >>> 0 || 1;
+  return () => {
+    x ^= x << 13;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    return (x >>> 0) / 4294967296;
+  };
+}
+
+function spotOf(ctx: Ctx, c: Cut): Spot {
+  if (c.drop) return "drop";
+  if (ctx.sections.has(c.t)) return "section";
+  if (ctx.phrases.has(c.t)) return "phrase";
+  return c.hit ? "hit" : "beat";
+}
+
+/** The events a move makes across cut `c` (the `k`th move of the edit, for its direction). */
+function moveAt(c: Cut, m: Exclude<Move, "cut">, k: number): (FxEvent | null)[] {
+  const t = c.t;
+  switch (m) {
+    case "dissolve":
+      return [{ kind: "dissolve", start: fr(t - 4 * F), end: t, strength: 1, at: t }];
+    case "push":
+      return [{ kind: "push", start: fr(t - 4 * F), end: fr(t + 4 * F), strength: 1, at: t, dir: PUSHES[k % PUSHES.length] }];
+    case "slide":
+      return [{ kind: "slide", start: fr(t - 2 * F), end: fr(t + 6 * F), strength: 1, at: t, dir: PUSHES[k % PUSHES.length] }];
+    case "dip":
+      return [across(c, "fade", 1, 5, 6)];
+    case "flash":
+      return [{ kind: "flash", start: t, end: t + 3 * F, strength: 0.75, at: t }];
+    case "burn":
+      // (A warm film burn washing over the cut, near opaque on it, fading off the next shot: nio.trade's …8678.)
+      return [{ kind: "burn", start: fr(t - F), end: fr(t + 5 * F), strength: 1, at: t }];
+    case "strobe":
+      return [{ kind: "strobe", start: fr(t - 4 * F), end: t, strength: 1 }];
+    case "zoomIn":
+      return [across(c, "zoomin", c.hit ? 0.6 : 0.45, 4, 5, 1)];
+    case "zoomOut":
+      return [across(c, "zoomin", 0.5, 4, 6, -1)];
+    case "zoomThrough":
+      return [across(c, "zoomin", 0.9, 5, 7, 1), { kind: "zoomblur", start: fr(t - 3 * F), end: fr(t + 3 * F), strength: 0.8, at: t }];
+    case "whip":
+      return [across(c, "whip", 1, 4, 5, WHIPS[k % WHIPS.length])];
+    case "spin":
+      return [across(c, "spin", 0.9, 4, 6, k % 2 ? 1 : -1)];
+    case "blur":
+      return [across(c, "blur", 0.7, 2, 8)];
+    case "glitch":
+      return [across(c, "glitch", c.hit ? 0.9 : 0.7, 2, 3), { kind: "split", start: t, end: t + 4 * F, strength: 0.8, at: t }];
+    case "shake":
+      return [{ kind: "shake", start: t, end: t + 8 * F, strength: 0.8, at: t }, { kind: "punch", start: t - F, end: t + 7 * F, strength: 0.6, at: t }];
+    case "smear":
+      return [{ kind: "zoomblur", start: fr(t - 4 * F), end: fr(t + 4 * F), strength: 0.85, at: t }];
+  }
+}
+
+/**
+ * The cuts' moves, from the design's palette: by where each cut falls in the music, never
+ * the same move twice running (crossfades excepted: they come in runs), one used in the
+ * last three less often, at most one a beat, fewer before the drop than after it; a quick
+ * re-cut of one clip stays a hard cut, and so does a cut with no room for the move. The
+ * drop's own move is the recipe's. Returns the moves made, in order.
+ */
+function transitions(ctx: Ctx, palette: Palette, from = 0): { t: number; move: Move }[] {
+  const T = ctx.song.period;
+  const rand = seeded(ctx.plan);
+  const made: { t: number; move: Move }[] = [];
+  let last = -Infinity;
+  for (const c of ctx.cuts) {
+    if (c.drop || c.t < from - 1e-6) continue;
+    if (ctx.drop !== undefined && Math.abs(c.t - ctx.drop) < 0.9 * T) continue;
+    if (c.shot.again && c.shot.end - c.shot.start < 0.5) continue;
+    if (c.t - last < 0.9 * T) continue;
+    // (A cut the recipe already moved, a crossfade into the drop say, keeps its move.)
+    if (ctx.fx.some((e) => e.at !== undefined && Math.abs(e.at - c.t) < 1e-6 && e.kind !== "punch")) continue;
+    const spot = spotOf(ctx, c) as Exclude<Spot, "drop">;
+    const held = !afterDrop(ctx, c.t) && (spot === "hit" || spot === "beat");
+    const recent = made.slice(-3).map((x) => x.move);
+    const room = (m: Exclude<Move, "cut">) => {
+      const [pre, post] = ROOM[m];
+      const two = m === "dissolve" || m === "push" || m === "slide";
+      const flat = (s: ShotEvent) => !s.crop.inset && !s.crop.tilt && !s.hide && !s.audio;
+      return c.prev.end - c.prev.start >= pre * F - 1e-6 && c.shot.end - c.shot.start >= post * F - 1e-6 && (!two || (flat(c.prev) && flat(c.shot)));
+    };
+    const options = (Object.entries(palette[spot]) as [Move, number][]).map(([m, w]): [Move, number] => {
+      if (m === "cut") return [m, w];
+      let weight = w * (held ? 0.45 : 1);
+      if (recent[recent.length - 1] === m && m !== "dissolve") weight = 0;
+      else if (recent.includes(m)) weight *= 0.5;
+      if (!room(m)) weight = 0;
+      return [m, weight];
+    });
+    const total = options.reduce((a, [, w]) => a + w, 0);
+    if (total <= 0) continue;
+    let r = rand() * total;
+    let move: Move = "cut";
+    for (const [m, w] of options) {
+      if ((r -= w) < 0) {
+        move = m;
+        break;
+      }
+    }
+    if (move === "cut") continue;
+    const evs = moveAt(c, move, made.length).filter((e): e is FxEvent => !!e);
+    if (!evs.length) continue;
+    push(ctx, ...evs);
+    made.push({ t: c.t, move });
+    last = c.t;
+  }
+  return made;
+}
+
 function whip(ctx: Ctx) {
   const T = ctx.song.period;
   // The first shot slides in.
   push(ctx, { kind: "whip", start: 0, end: 5 * F, strength: 1, at: 0, dir: 0 });
-  // A whip pan on every cut with room either side (a shot of 0.4 s or more), a spin into the drop.
-  let k = ctx.plan.shots.length;
-  let last = -Infinity;
-  for (const c of ctx.cuts) {
-    if (c.drop) {
-      push(ctx, across(c, "spin", 1, 4, 6, k % 2 ? 1 : -1));
-      last = c.t;
-      continue;
-    }
-    if (c.t - last < 0.9 * T || c.prev.end - c.prev.start < 0.4 || c.shot.end - c.shot.start < 0.4 || (c.shot.again && c.shot.end - c.shot.start < 0.5)) continue;
-    const e = across(c, "whip", 1, 4, 5, WHIPS[k++ % WHIPS.length]);
-    if (e) {
-      push(ctx, e);
-      last = c.t;
-    }
-  }
+  // A spin into the drop; the other cuts whip pans each way, spins, pushes and slides, by where they fall.
+  const d = ctx.cuts.find((x) => x.drop);
+  if (d) push(ctx, across(d, "spin", 1, 4, 6, ctx.plan.shots.length % 2 ? 1 : -1));
+  transitions(ctx, PALETTES.whip!);
   dropHit(ctx, 0.35, 0);
   // The big hits inside a shot swing it round a few degrees.
   let w = 0;
@@ -536,7 +760,8 @@ function split(ctx: Ctx) {
   const d = ctx.cuts.find((c) => Math.abs(c.t - until) < 1e-6);
   if (d) push(ctx, across(d, "zoomin", 0.9, 0, 8));
   if (ctx.drop !== undefined) dropHit(ctx, 0.5, 0.8);
-  // After it, the beats bump the picture.
+  // After it, the cuts zoom through, push, whip and shake, and the beats bump the picture.
+  transitions(ctx, PALETTES.split!, until + T);
   for (const b of ctx.beats) if (b > until + T && !ctx.cuts.some((c) => Math.abs(c.t - b) < 0.2)) push(ctx, { kind: "punch", start: b - F, end: b + 6 * F, strength: 0.35, at: b });
 }
 
@@ -549,11 +774,11 @@ const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "
  * does.
  */
 function vhs(ctx: Ctx) {
-  const T = ctx.song.period;
   push(ctx, { kind: "vhs", start: 0, end: ctx.end, strength: 1 }, { kind: "glitch", start: 0, end: 4 * F, strength: 0.5 });
   const d = ctx.cuts.find((x) => x.drop);
   if (d) push(ctx, { kind: "glitch", start: d.t, end: d.t + 5 * F, strength: 0.6 }, across(d, "zoomin", 0.6, 0, 12));
-  for (const c of spaced(ctx.cuts.filter((c) => !c.drop && ctx.phrases.has(c.t)), 2 * T)) push(ctx, { kind: "glitch", start: c.t, end: c.t + 3 * F, strength: 0.35 });
+  // The cuts: mostly hard, as a camcorder's are; the tape catching or a dip where a section or a phrase starts.
+  transitions(ctx, PALETTES.vhs!);
   const n = ctx.now;
   const date = `${MONTHS[n.getMonth()]}. ${String(n.getDate()).padStart(2, "0")} ${n.getFullYear()}`;
   const end = ctx.end - 4 * F;
@@ -563,7 +788,91 @@ function vhs(ctx: Ctx) {
 /** The tape's lettering, line `k` down from the top left (as a share of the frame's height). */
 const osdLine = (plan: EditPlan, k: number) => 0.08 + (k * 0.062 * 1.3 * Math.min(plan.width, plan.height)) / plan.height;
 
-const RECIPES: Record<Exclude<Design, "clean">, (ctx: Ctx) => void> = { flash, zoom, velocity, cinematic, noir, glitch, whip, split, vhs };
+/**
+ * nio.trade's own: up from black over half a second; the last cuts into the drop
+ * crossfading a beat apart (4 frames, the next shot whole on the beat: …3659); nothing
+ * on the drop (a hard cut is the moment); then for two bars every cut a linear
+ * crossfade of 6 frames finishing on its kick, a picture a beat (…1290's flex burst),
+ * hard cuts after, and a crossfade again where a phrase starts.
+ */
+function flow(ctx: Ctx) {
+  const T = ctx.song.period;
+  // (Up from black, the first shot pushing in 6% as it comes up.)
+  push(ctx, { kind: "fadein", start: 0, end: 15 * F, strength: 1 });
+  const first = ctx.plan.shots[0];
+  if (first && first.kind === "video" && !first.audio && !first.crop.inset) first.crop.zoom1 = Math.max(first.crop.zoom1, first.crop.zoom0 * 1.06);
+  const fits = (c: Cut, n: number) => c.prev.end - c.prev.start >= (n + 2) * F && !c.prev.audio && !c.shot.audio && !c.prev.crop.inset && !c.shot.crop.inset && !c.prev.crop.tilt && !c.shot.crop.tilt && !c.shot.hide && !c.prev.hide;
+  const fade = (c: Cut, n: number) => push(ctx, { kind: "dissolve", start: fr(c.t - n * F), end: c.t, strength: 1, at: c.t });
+  const drop = ctx.drop;
+  let last = -Infinity;
+  for (const c of ctx.cuts) {
+    if (c.drop || c.t - last < 0.75 * T) continue;
+    const intoDrop = drop !== undefined && c.t < drop - 0.75 * T && c.t > drop - 6.5 * T;
+    const burst = drop !== undefined && c.t > drop + 0.5 * T && c.t <= drop + 8.5 * T;
+    const phrase = drop !== undefined && c.t > drop + 8.5 * T && ctx.phrases.has(c.t);
+    const n = intoDrop ? 4 : 6;
+    if ((intoDrop || burst || phrase) && fits(c, n) && !(c.shot.again && c.shot.end - c.shot.start < 0.5)) {
+      fade(c, n);
+      last = c.t;
+    }
+  }
+}
+
+/**
+ * The beat or two before the drop held on one frame (the build stops dead, the song still
+ * going), pushing in, then the drop hits out of it: a freeze-frame into the drop.
+ */
+function freezeIntoDrop(ctx: Ctx, beats = 1) {
+  const d = ctx.cuts.find((x) => x.drop);
+  if (!d) return;
+  const len = Math.min(beats * ctx.song.period, d.prev.end - d.prev.start - 3 * F);
+  if (len < 6 * F) return;
+  const from = fr(d.t - len);
+  push(ctx, { kind: "freeze", start: from, end: d.t, strength: 1 }, { kind: "punch", start: from, end: d.t, strength: 0.5, at: d.t });
+}
+
+/** Phonk: dark and hard. The build slows on its biggest hits, freezes into the drop; then every kick shakes and glows, the claps flash or flip to the negative by turns. */
+function phonk(ctx: Ctx) {
+  const T = ctx.song.period;
+  push(ctx, { kind: "strobe", start: 0, end: 4 * F, strength: 1 }, { kind: "glow", start: 0, end: 10 * F, strength: 0.5, at: 2 * F });
+  freezeIntoDrop(ctx, 2);
+  dropHit(ctx, 1, 1.4);
+  if (ctx.drop !== undefined) push(ctx, { kind: "glow", start: ctx.drop, end: ctx.drop + 14 * F, strength: 0.8, at: ctx.drop }, { kind: "zoomblur", start: ctx.drop, end: ctx.drop + 5 * F, strength: 0.9, at: ctx.drop });
+  transitions(ctx, PALETTES.phonk!);
+  // Before the drop, a black flicker on the biggest hits; after it, each kick shakes, glows
+  // and punches in, and the claps and snares flash white or flip to the negative, by turns.
+  for (const h of spaced(ctx.hits.filter((h) => h.big && !afterDrop(ctx, h.t) && offDrop(ctx, h.t) && h.t > 1), Math.max(1, 2 * T))) {
+    push(ctx, { kind: "strobe", start: h.t, end: h.t + 4 * F, strength: 0.9 });
+  }
+  let k = 0;
+  for (const h of spaced(between(ctx, ctx.hits.filter((h) => afterDrop(ctx, h.t) && offDrop(ctx, h.t) && (h.big || h.snap)), 0.3), Math.max(0.9 * T, FLASH_GAP))) {
+    if (h.big) push(ctx, { kind: "shake", start: h.t, end: h.t + 8 * F, strength: 0.9, at: h.t }, { kind: "punch", start: h.t - F, end: h.t + 7 * F, strength: 0.7, at: h.t }, { kind: "glow", start: h.t, end: h.t + 8 * F, strength: 0.45, at: h.t });
+    else push(ctx, k++ % 2 ? { kind: "invert", start: h.t, end: h.t + F, strength: 1 } : { kind: "flash", start: h.t, end: h.t + 3 * F, strength: 0.7, at: h.t });
+  }
+}
+
+/** Ice: cool and glowing. Crossfades into the drop a beat apart, a freeze and a white flash on it, then glow pulses, zooms out and in, and crossfades on the phrases. */
+function ice(ctx: Ctx) {
+  const T = ctx.song.period;
+  push(ctx, { kind: "glow", start: 0, end: 14 * F, strength: 0.6, at: 0 }, { kind: "blur", start: 0, end: 12 * F, strength: 0.8, at: 0 });
+  // The last cuts into the drop crossfade (as nio.trade's builds do), a beat apart.
+  const into = ctx.cuts.filter((c) => !c.drop && ctx.drop !== undefined && c.t < ctx.drop - 0.9 * T && c.t > ctx.drop - 6 * T);
+  for (const c of into) if (c.prev.end - c.prev.start >= 6 * F && !c.prev.audio && !c.shot.audio && !c.prev.crop.inset && !c.shot.crop.inset) push(ctx, { kind: "dissolve", start: fr(c.t - 4 * F), end: c.t, strength: 1, at: c.t });
+  freezeIntoDrop(ctx, 1);
+  if (ctx.drop !== undefined) {
+    const d = ctx.drop;
+    push(ctx, { kind: "flash", start: d, end: d + 6 * F, strength: 1, at: d }, { kind: "glow", start: d, end: d + 18 * F, strength: 0.9, at: d });
+    const dc = ctx.cuts.find((x) => x.drop);
+    if (dc) push(ctx, across(dc, "zoomin", 0.8, 0, 8, -1));
+  }
+  transitions(ctx, PALETTES.ice!);
+  // The kicks after the drop glow (no shakes: it stays smooth).
+  for (const h of spaced(between(ctx, ctx.hits.filter((h) => h.big && afterDrop(ctx, h.t) && offDrop(ctx, h.t)), 0.3), 1.8 * T)) {
+    push(ctx, { kind: "glow", start: h.t, end: h.t + 10 * F, strength: 0.5, at: h.t }, { kind: "punch", start: h.t - F, end: h.t + 8 * F, strength: 0.35, at: h.t });
+  }
+}
+
+const RECIPES: Record<Exclude<Design, "clean">, (ctx: Ctx) => void> = { flow, flash, zoom, velocity, cinematic, noir, glitch, whip, split, vhs, phonk, ice };
 
 // ── the caption ──────────────────────────────────────────────────────────────
 
@@ -577,6 +886,8 @@ const CAPTIONS: Partial<Record<Design, { style: CaptionStyle; words: boolean }>>
   glitch: { style: "glitch", words: true },
   cinematic: { style: "film", words: false },
   vhs: { style: "osd", words: false },
+  phonk: { style: "impact", words: true },
+  ice: { style: "film", words: false },
 };
 
 /**
@@ -593,6 +904,35 @@ export function wordByWord(cap: CaptionEvent, style: CaptionStyle, beats: number
   const out: CaptionEvent[] = words.map((w, i) => ({ ...cap, style, text: w, start: at[i], end: at[i + 1], pop: true }));
   out.push({ ...cap, style, start: at[words.length], pop: true });
   return out;
+}
+
+/** How a design brings its caption on, for a caption of the user's own design left to it. */
+const DESIGN_ANIMATES: Partial<Record<Design, NonNullable<CaptionEvent["anim"]> | "words" | "pop">> = { cinematic: "fade", vhs: "type", noir: "fade" };
+
+/**
+ * Captions of the user's own design (the caption editor) come on as they say: as the
+ * edit's design brings its caption on (`design`), a word on each beat (on an even beat
+ * of their own when the song has too few: at most eight words), popping in, fading in,
+ * typed out, or simply there. Where they sit and how they look stay as the user set them.
+ */
+export function ownCaptions(captions: CaptionEvent[], design: Design | undefined, beats: number[]): CaptionEvent[] {
+  return captions.flatMap((c) => {
+    if (!c.look) return [c];
+    // (A subtitle keeps to the words said: popping in where it would have gone word by word.)
+    const asked = c.spoken && (c.look.animate === "words" || c.look.animate === "design") ? "pop" : c.look.animate;
+    const how = asked === "design" ? (design ? (CAPTIONS[design]?.words ? "words" : (DESIGN_ANIMATES[design] ?? "none")) : "pop") : asked;
+    if (how === "words") {
+      const split = wordByWord(c, c.style, beats);
+      if (split.length > 1) return split;
+      // (Too few beats heard: a word every 0.4 s or so, the whole line after.)
+      const n = c.text.split(/\s+/).filter(Boolean).length;
+      const step = n >= 2 && n <= 8 ? Math.min(0.4, (c.end - c.start - 0.5) / n) : 0;
+      return step >= 0.3 ? wordByWord(c, c.style, Array.from({ length: n }, (_, i) => c.start + (i + 1) * step)) : [{ ...c, pop: true }];
+    }
+    if (how === "pop") return [{ ...c, pop: true }];
+    if (how === "fade" || how === "type") return [{ ...c, anim: how }];
+    return [{ ...c, pop: false }];
+  });
 }
 
 // ── applying one ─────────────────────────────────────────────────────────────
@@ -613,6 +953,11 @@ export function applyDesign(plan: EditPlan, design: Design, song: SongAnalysis, 
   plan.grade = DESIGN_GRADES[design];
   plan.design = design;
   plan.checks = { ...plan.checks, design };
+  // (Captions of the user's own design: before the drop, as they asked to come on.)
+  if (plan.captions.some((c) => c.look)) {
+    const drop = plan.shots.find((s) => s.role === "drop")?.start;
+    plan.captions = ownCaptions(plan.captions, design, heardBeats(plan, song).filter((b) => b < (drop ?? Infinity)));
+  }
   if (design === "clean") return plan;
   const ctx = contextOf(plan, song, opts.scans ?? [], opts.now ?? new Date());
   // (What finish added for the plain edit goes: its flash, burn, shake, punches and blurs.
@@ -624,7 +969,7 @@ export function applyDesign(plan: EditPlan, design: Design, song: SongAnalysis, 
   if (cap && plan.captions.length) {
     const beats = ctx.beats.filter((b) => b < (ctx.drop ?? ctx.end));
     plan.captions = plan.captions.flatMap((c) => {
-      if (c.style === "meme") return [c];
+      if (c.style === "meme" || c.look || c.spoken) return [c];
       // (A film title in a wide frame sits in the bottom bar; in a tall one, where the app's
       // own caption covers the bottom, in the middle. A tape's, under the date.)
       const y = cap.style === "film" ? (plan.height > plan.width * 1.2 ? 0.5 : 1 - BARS[plan.aspect] / 2) : cap.style === "osd" ? osdLine(plan, 2) : undefined;

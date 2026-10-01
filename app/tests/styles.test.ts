@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { analyzeSong } from "../src/engine/audio/song";
 import { scoreInterest, type Kind, type Scan } from "../src/engine/media/scan";
+import { speechRanges, subtitlesFor } from "../src/engine/plan/subtitles";
 import { CUT_LEAD, planMontage, usedRanges, type Ranges } from "../src/engine/plan/montage";
 import { mixOrder, styleFor, windows, type Talker } from "../src/engine/plan/styles";
 import { FPS, sourceSpan, type CardSpec, type EditPlan } from "../src/engine/plan/types";
@@ -314,5 +315,76 @@ describe("edit styles", () => {
       starts.push(plan.shots[0].srcStart);
     }
     expect(Math.abs(starts[0] - starts[1])).toBeGreaterThan(2);
+  });
+});
+
+describe("the user's own opening", () => {
+  const scans = footage();
+  scoreInterest(scans);
+  const { scan: talk } = talkingClip();
+  const reel = lookedAt("reel", [{ len: 3, kind: "people", flex: 0.4, wow: 0.5, look: 20 }, { len: 4, kind: "people", flex: 0.4, wow: 0.5, look: 21 }], 500);
+
+  it("plays the clips picked to open with first, as they are with their own sound, then the edit on the drop", () => {
+    const all = [...scans, talk, reel];
+    scoreInterest(all);
+    const plan = planMontage({ ...base, scans: all, card, openers: ["reel", "talk"] });
+    const open = plan.shots.filter((s) => s.audio);
+    // The reel whole (each of its two scenes framed on its own), then the talking clip, up to 20 s in all.
+    expect(open[0].source).toBe("reel");
+    expect(open.filter((s) => s.source === "reel")).toHaveLength(2);
+    expect(open.filter((s) => s.source === "reel").reduce((a, s) => a + s.end - s.start, 0)).toBeCloseTo(7 - 0.04, 1);
+    expect(open[open.length - 1].source).toBe("talk");
+    const end = open[open.length - 1].end;
+    expect(end).toBeLessThanOrEqual(20 + 1e-6);
+    for (let k = 1; k < open.length; k++) expect(open[k].start).toBeCloseTo(open[k - 1].end, 6);
+    // Then the edit, from the drop, none of it the opening's clips.
+    const after = plan.shots.filter((s) => s.start >= end - 1e-6);
+    expect(after[0].role).toBe("drop");
+    expect(after[0].start).toBeCloseTo(end, 6);
+    expect(after.every((s) => !s.audio && s.source !== "reel" && s.source !== "talk")).toBe(true);
+    expect(plan.checks?.opening).toBeCloseTo(end, 2);
+    // With a shorter opening (the reel's 7 s), the song's drop lands right where it ends, the song under it until then.
+    const short = planMontage({ ...base, scans: all, card, openers: ["reel"] });
+    const shortEnd = short.shots.filter((s) => s.audio).at(-1)!.end;
+    const songDrop = song.drops.reduce((a, d) => (d.strength > a.strength ? d : a)).t;
+    expect(short.music!.songStart + shortEnd + CUT_LEAD).toBeCloseTo(songDrop, 1);
+    expect(short.music!.gainPoints![0][1]).toBeLessThan(0.3);
+    expect(short.music!.gainPoints!.at(-1)![1]).toBe(1);
+    // (Too long an opening for the song's drop: the edit comes in on the next bar line.)
+    expect(song.downbeats.some((d) => Math.abs(d - (plan.music!.songStart + end + CUT_LEAD)) < 0.05)).toBe(true);
+    // Every style after it.
+    for (const style of ["beat", "mono", "recut", "slow", "burst", "talk"] as const) {
+      const p = planMontage({ ...base, scans: all, card, openers: ["reel"], style });
+      expect(p.shots[0].source).toBe("reel");
+      expect(p.shots.find((s) => !s.audio)!.role).toBe("drop");
+    }
+  });
+
+  it("subtitles the talking it opens on, where the edit plays each word, the caption waiting for the drop", () => {
+    const all = [...scans, talk, reel];
+    scoreInterest(all);
+    const plan = planMontage({ ...base, scans: all, card, openers: ["reel"], subtitles: true, caption: { style: "mood", text: "Peak life." } });
+    const open = plan.shots.filter((s) => s.audio);
+    const end = open.at(-1)!.end;
+    // The caption comes in with the edit.
+    expect(plan.captions[0].start).toBeCloseTo(end, 6);
+    // One stretch of the reel, played whole (its two scenes run on into each other).
+    const ranges = speechRanges(plan);
+    expect(ranges).toHaveLength(1);
+    expect(ranges[0].source).toBe("reel");
+    expect(ranges[0].to - ranges[0].from).toBeCloseTo(end, 1);
+    // Words heard from 0.5 s into the stretch, one every 0.3 s, a full stop after the fourth.
+    const said = ["so", "this", "is", "it.", "we", "made", "it", "out", "here"];
+    const words = said.map((text, i) => ({ text, start: 0.5 + 0.3 * i, end: 0.75 + 0.3 * i }));
+    const subs = subtitlesFor(plan, [{ range: ranges[0], words }]);
+    expect(subs.map((c) => c.text)).toEqual(["so this is it", "we made it out", "here"]);
+    expect(subs[0].start).toBeCloseTo(0.5, 6);
+    expect(subs[1].start).toBeCloseTo(0.5 + 1.2, 6);
+    for (const c of subs) {
+      expect(c.spoken).toBe(true);
+      expect(c.end).toBeLessThanOrEqual(end + 1e-6);
+    }
+    // A word past the opening isn't subtitled.
+    expect(subtitlesFor(plan, [{ range: ranges[0], words: [{ text: "late", start: end + 2, end: end + 2.3 }] }])).toEqual([]);
   });
 });

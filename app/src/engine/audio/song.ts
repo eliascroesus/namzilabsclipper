@@ -449,6 +449,24 @@ export function analyzeSong(y: Float32Array, sr = SR, opts: AnalyzeOptions = {})
  * The song with its singing: the vocals attached, and the structure rebuilt so a
  * section can start where the voice comes in or drops out.
  */
+/**
+ * The song as a strip to pick from: its loudness in `n` slices, stretched over the
+ * song's own range so the quiet intro, the build and the drop read at a glance.
+ */
+export function loudnessBars(song: Pick<SongAnalysis, "loudness">, n = 160): number[] {
+  const raw: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = Math.floor((i * song.loudness.length) / n);
+    const b = Math.max(a + 1, Math.floor(((i + 1) * song.loudness.length) / n));
+    let m = 0;
+    for (let k = a; k < b; k++) m += song.loudness[k] ?? 0;
+    raw.push(m / (b - a));
+  }
+  const lo = Math.min(...raw);
+  const hi = Math.max(...raw);
+  return raw.map((v) => 0.12 + 0.88 * ((v - lo) / Math.max(1e-6, hi - lo)) ** 1.6);
+}
+
 export function withVocals(song: SongAnalysis, vocals: Vocals): SongAnalysis {
   const fps = song.sr / song.hop;
   const beatVocal = song.beats.map((b, i) => {

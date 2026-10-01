@@ -6,6 +6,7 @@ import { aboutOf, sentences, type Sentence } from "../match";
 import { SOUNDS } from "../sfx";
 import type { CaptionLook, CardSlot, MimicPlan, MimicTemplate } from "../types";
 import { CaptionPreview } from "./CaptionPreview";
+import { MusicStrip } from "./MusicStrip";
 import { SoundCard } from "./SoundCard";
 import { fromPaste, PASTE_KEY } from "./paste";
 import { mimic, useMimic, type Item, type Job, type State } from "./store";
@@ -214,6 +215,8 @@ function ExtrasPanel({ s }: { s: State }) {
 }
 
 function SoundPanel({ s }: { s: State }) {
+  // (The edit as it stands: how long its music runs, for the part of the song.)
+  const plan = useMemo(() => (s.template && s.footage && s.music?.status === "ready" ? mimic.plan() : null), [s]);
   const bed = s.template?.sound.bed;
   const own = s.sounds.filter((x) => x.status === "ready");
   return (
@@ -232,16 +235,21 @@ function SoundPanel({ s }: { s: State }) {
           <span className="hint">{bed ? `The reference has music ${-bed.level} dB under the voice; this moves yours up or down from there.` : "Up or down from 18 dB under the voice."} Shape it stretch by stretch on the Sound timeline.</span>
           <label className="slider">
             <span>Comes in</span>
-            <select className="select" value={s.musicAt} onChange={(e) => mimic.setMusicOption({ musicAt: e.target.value as State["musicAt"] })}>
+            <select
+              className="select"
+              value={typeof s.musicAt === "number" ? "own" : s.musicAt}
+              onChange={(e) => e.target.value !== "own" && mimic.setMusicOption({ musicAt: e.target.value as "bed" | "start", musicEnd: null })}
+            >
               <option value="bed">{bed ? `where the reference's does (${bed.start.toFixed(0)} s through its talk)` : "from the start"}</option>
               <option value="start">from the start</option>
+              {typeof s.musicAt === "number" && <option value="own">{`where you put it (${fmtTime(s.musicAt)}${s.musicEnd !== null ? ` to ${fmtTime(s.musicEnd)}` : ""})`}</option>}
             </select>
           </label>
-          <label className="slider">
-            <span>Start the song at</span>
-            <input className="input num" type="number" min={0} max={Math.max(0, Math.floor(s.music.duration - 1))} step={1} value={s.musicFrom} onChange={(e) => mimic.setMusicOption({ musicFrom: Math.max(0, Number(e.target.value) || 0) })} />
-            <span className="hint">s</span>
-          </label>
+          <span className="hint">Or drag the music's bar on the Sound timeline: its middle to move it, its ends to trim it.</span>
+          <div className="field">
+            <span className="label">The part of the song</span>
+            <MusicStrip s={s} plan={plan} />
+          </div>
           <button type="button" className="btn ghost" onClick={() => void mimic.setMusic(null)}>
             Remove the music
           </button>

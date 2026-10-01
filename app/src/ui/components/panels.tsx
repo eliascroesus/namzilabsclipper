@@ -8,6 +8,7 @@ import { EDIT_STYLES, paceOf } from "../../engine/plan/styles";
 import { DESIGNS } from "../../engine/plan/designs";
 import { CARD_VIDEO_LENGTH, cardHoldOf, MAX_LENGTH, studio, type Format, type State, type Style } from "../studio";
 import { Drop, fmtTime, Section, Segmented, Switch } from "./bits";
+import { CaptionEditor } from "./captions";
 import { SongTimeline } from "./song";
 
 const FORMATS: { value: Format; name: string; desc: string; icon: typeof Film }[] = [
@@ -135,6 +136,11 @@ export function FootagePanel({ s }: { s: State }) {
       </Drop>
       <SmartPicks s={s} />
       {twist && s.footage.length > 0 && <p className="hint" style={{ margin: "10px 0 0" }}>Tap a clip's tag to put it after the flip (<b style={{ color: "var(--orange)" }}>Real</b>): the work, the desk, the screen. Leave them all as Flex and it picks the calmest clip.</p>}
+      {s.style.format === "montage" && s.footage.some((f) => f.status === "ready") && (
+        <p className="hint" style={{ margin: "10px 0 0" }}>
+          Tap <b>Open</b> on a clip to start every edit with it: it plays as it is, with its own sound (someone talking, a moment you want first), and the edit hits on the song's drop right after. Pick several and they play in order (up to 20 seconds).
+        </p>
+      )}
       {s.footage.length > 0 && (
         <div className="thumbs">
           {s.footage.map((f) => (
@@ -162,6 +168,11 @@ export function FootagePanel({ s }: { s: State }) {
                     <i key={i} style={{ opacity: 0.15 + 0.85 * h * h }} />
                   ))}
                 </div>
+              )}
+              {s.style.format === "montage" && f.status === "ready" && (
+                <button type="button" className={`act opener${f.opener ? " b" : ""}`} aria-pressed={!!f.opener} onClick={() => studio.setOpener(f.id, !f.opener)} aria-label={`${f.name}: ${f.opener ? "opens the edit" : "open the edit with it"}`}>
+                  {f.opener ? `Opens ${s.footage.filter((x) => x.opener && x.status === "ready").findIndex((x) => x.id === f.id) + 1}` : "Open"}
+                </button>
               )}
               {twist && f.status === "ready" && (
                 <button type="button" className={`act${f.act === "b" ? " b" : ""}`} onClick={() => studio.setAct(f.id, f.act === "a" ? "b" : "a")} aria-label={`${f.name}: ${f.act === "a" ? "before" : "after"} the flip`}>
@@ -536,10 +547,13 @@ export function StylePanel({ s }: { s: State }) {
             <label htmlFor="meme">The text</label>
             <textarea id="meme" className="textarea" placeholder={"when she tries to talk to me\nbut all i hear in my head is this.."} value={st.memeText} onChange={(e) => studio.setStyle({ memeText: e.target.value })} />
           </div>
-          <div className="field">
-            <span className="label">Where it sits</span>
-            <Segmented label="Text position" value={st.memePosition} options={[{ value: "upper", label: "Upper third" }, { value: "centre", label: "Centre" }]} onChange={(v) => studio.setStyle({ memePosition: v })} />
-          </div>
+          {!st.ownCaption && (
+            <div className="field">
+              <span className="label">Where it sits</span>
+              <Segmented label="Text position" value={st.memePosition} options={[{ value: "upper", label: "Upper third" }, { value: "centre", label: "Centre" }]} onChange={(v) => studio.setStyle({ memePosition: v })} />
+            </div>
+          )}
+          <CaptionEditor s={s} />
         </>
       ) : (
         <>
@@ -579,7 +593,23 @@ export function StylePanel({ s }: { s: State }) {
               <span className="hint">Press Enter for a new line.</span>
             </div>
           )}
+          {st.caption !== "none" && <CaptionEditor s={s} />}
         </>
+      )}
+      {st.format === "montage" && (
+        <div className="field">
+          <Switch
+            checked={st.subtitles}
+            onChange={(v) => studio.setStyle({ subtitles: v })}
+            hint={
+              st.subtitles
+                ? `The words said in the clips the edit opens on (tagged Open, or a talking edit's), heard on this computer by a speech model for 25 languages: a 670 MB download the first time, then kept. ${st.ownCaption ? "Set in your caption's look." : "White, a few words at a time."}`
+                : "Off: the talking an edit opens on plays without subtitles."
+            }
+          >
+            Subtitles on the talking
+          </Switch>
+        </div>
       )}
       <div className="field">
         <span className="label">Colour</span>

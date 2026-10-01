@@ -248,8 +248,8 @@ export interface MimicPlan {
   sfx: SfxCue[];
   /** all the sound effects up or down (dB) */
   sfxGain?: number;
-  /** music: from `from` s into the song, starting at `start` in the edit, `gain` dB under the voice, then the user's volume line on top */
-  music: { source: string; start: number; from: number; gain: number; fadeOut: number; line?: VolumeLine } | null;
+  /** music: from `from` s into the song, starting at `start` in the edit (and stopping at `end`, when it stops before the edit does), `gain` dB under the voice, then the user's volume line on top */
+  music: { source: string; start: number; end?: number; from: number; gain: number; fadeOut: number; line?: VolumeLine } | null;
   tail: number;
   /** the user's pictures left out of the edit, and why ("cover": half the talk already has pictures over it) */
   left?: Record<string, "cover">;

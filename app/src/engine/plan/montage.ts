@@ -11,7 +11,7 @@ import { KINDS, lifeFootage, PROFILE_BINS, type Scan } from "../media/scan";
 import { boundsOf, type Bound } from "./bounds";
 import { frameShot, kenBurns } from "./framing";
 import { heardAt, rhythmCuts, type Pace, type RhythmCut, type RhythmOptions } from "./rhythm";
-import { mono, monoFlips, paceOf, photoBurst, styleLabel, TALK_DROP, talkEnd, talkingIntro, talky, windows, type EditStyle, type Talker } from "./styles";
+import { mono, monoFlips, openingIntro, paceOf, photoBurst, styleLabel, TALK_DROP, talkEnd, talkingIntro, talky, windows, type EditStyle, type Talker } from "./styles";
 import { FPS, FRAME_SIZE, sourceSpan, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type Crop, type EditPlan, type FxEvent, type OverlayEvent, type Ramp, type ShotEvent } from "./types";
 
 /**
@@ -204,6 +204,32 @@ export function musicWindow(song: SongAnalysis, length: number, cardHold: number
   const dropEdit = dropSong !== undefined ? dropSong - songStart : undefined;
   const dropAt = dropEdit !== undefined && dropEdit > 1.2 && dropEdit < cardAt - 1.2 ? dropEdit : undefined;
   return { songStart, cardAt, duration, dropAt };
+}
+
+/**
+ * The music for an edit that opens on the user's own clips (`intro` seconds of them,
+ * with their own sound): placed so the song's drop lands right where they end, the
+ * song under them quietly up to it. The strongest drop that leaves the edit room after
+ * it; failing one, the strongest new section; failing that, the first bar line after
+ * the opening. A song start the user picked is kept, wherever its drop falls.
+ */
+export function openingWindow(song: SongAnalysis, intro: number, length: number, cardHold: number, start?: number): MusicWindow {
+  const total = intro + length;
+  let songStart: number;
+  if (start !== undefined && Number.isFinite(start)) songStart = clamp(start, 0, Math.max(0, song.duration - 3));
+  else {
+    const fits = (t: number) => t >= intro - 0.05 && t - intro + Math.min(total, intro + 3) <= song.duration;
+    const drop = [...song.drops].filter((d) => fits(d.t)).sort((a, b) => b.strength - a.strength)[0]?.t;
+    const section = [...(song.structure?.sections ?? [])].filter((x) => fits(x.t)).sort((a, b) => b.strength - a.strength)[0]?.t;
+    const at = drop ?? section ?? song.downbeats.find((d) => d >= intro) ?? intro;
+    // (The hit a hair after the cut, as every cut is: CUT_LEAD.)
+    songStart = Math.max(0, at - intro - CUT_LEAD);
+  }
+  const available = song.duration - songStart;
+  const hold = cardHold > 0 ? Math.max(Math.min(cardHold, 2.5), Math.min(cardHold, available - Math.min(total, intro + 3) - 0.2)) : 0;
+  const len = Math.max(intro + 3, Math.min(total, available - hold - 0.2));
+  const cardAt = frame(cardTime(song, songStart, len, Math.max(len, available - hold)));
+  return { songStart, cardAt, duration: frame(cardAt + hold), dropAt: intro + CUT_LEAD };
 }
 
 // ── the cut grid ─────────────────────────────────────────────────────────────
@@ -1552,6 +1578,14 @@ export interface MontageOptions {
   pace?: Pace;
   /** what the edit's design wants more of (designs.ts: leanOf) */
   lean?: "action" | "calm";
+  /**
+   * the clips the user picked to open the edit with, in order (styles.ts: openingIntro):
+   * played as they are with their own sound, the song placed so its drop lands where they
+   * end, and the edit from there (`length` seconds of it)
+   */
+  openers?: string[];
+  /** the talking it opens on gets subtitles (subtitles.ts): the caption waits for the edit to come in */
+  subtitles?: boolean;
 }
 
 /** A pace's cutting against the references' (the template's shot length, times this). */
@@ -1560,15 +1594,19 @@ const PACE_LENGTH: Record<Pace, number> = { hard: 0.62, beat: 1, relaxed: 1.5 };
 export function planMontage(o: MontageOptions): EditPlan {
   const style = o.style ?? "beat";
   const song = o.song;
-  const win = musicWindow(song, o.length, o.card ? o.card.hold : 0, o.fromStart, o.songStart, style === "talk" ? TALK_DROP : undefined);
+  // The user's own opening, when they picked one: it plays first, the edit on the drop after it.
+  const opening = o.openers?.length ? openingIntro(o.scans, o.openers, o.aspect) : null;
+  const win = opening
+    ? openingWindow(song, opening.end, o.length, o.card ? o.card.hold : 0, o.songStart)
+    : musicWindow(song, o.length, o.card ? o.card.hold : 0, o.fromStart, o.songStart, style === "talk" ? TALK_DROP : undefined);
   const pace = variantPace(o.variant);
   const lead = (t: number) => frame(Math.max(1 / FPS, t - CUT_LEAD));
   const calm = win.dropAt === undefined && driveOver(song, win.songStart, 0, win.cardAt) < 0.6;
   // A talking edit: someone talking up to the drop (or a bar line two fifths in), then
   // the edit. Where the clip runs out of talking first, calm shots a bar each carry on
   // to the drop, as TJR's build does; with no one talking, they're the whole build.
-  const handover = style === "talk" ? talkEnd(song, win.songStart, win.cardAt, win.dropAt) : undefined;
-  const intro = handover !== undefined ? talkingIntro(o.scans, o.talkers ?? [], lead(handover), o.aspect, o.variant, o.avoid) : null;
+  const handover = opening ? opening.end + CUT_LEAD : style === "talk" ? talkEnd(song, win.songStart, win.cardAt, win.dropAt) : undefined;
+  const intro = opening ?? (handover !== undefined ? talkingIntro(o.scans, o.talkers ?? [], lead(handover), o.aspect, o.variant, o.avoid) : null);
   const dropAt = handover ?? win.dropAt;
   // (Talking that runs out just short of the drop holds on to it.)
   if (intro && handover !== undefined && lead(handover) - intro.end < 0.35) {
@@ -1611,11 +1649,13 @@ export function planMontage(o: MontageOptions): EditPlan {
     if (inner.length) slot.pieces = [slot.start, ...inner, slot.end].slice(1).map((t, j, a) => t - (j ? a[j - 1] : slot.start));
   }
   const used: Ranges = new Map();
-  if (intro) used.set(intro.shots[0].source, [[intro.range[0] - 1, intro.range[1] + 1]]);
-  const looped = !!o.loop && !o.card && style !== "talk";
+  if (intro && !opening) used.set(intro.shots[0].source, [[intro.range[0] - 1, intro.range[1] + 1]]);
+  const looped = !!o.loop && !o.card && style !== "talk" && !intro;
   // After the talking, the edit is the other footage (TJR's build and payoff are two
   // places), unless there's hardly any.
-  const rest = intro ? o.scans.filter((sc) => sc.id !== intro.shots[0].source) : o.scans;
+  // (The user's own opening clips aren't the edit's footage: what follows is everything else.)
+  const introIds = new Set(intro?.shots.map((sh) => sh.source) ?? []);
+  const rest = intro ? o.scans.filter((sc) => !introIds.has(sc.id)) : o.scans;
   let shots = assignShots(slots, rest.length >= 2 ? rest : o.scans, { song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, toCome: o.toCome, velocity: o.velocity, used, loop: looped, lean: o.lean });
   if (intro) shots = [...intro.shots, ...shots];
   // The beats and half beats the song hits, as cut (for pictures landing on the music).
@@ -1648,7 +1688,9 @@ export function planMontage(o: MontageOptions): EditPlan {
     shots = w.shots;
     overlays.push(...w.overlays);
   }
-  const captions: CaptionEvent[] = o.caption?.text.trim() ? [{ style: o.caption.style, text: o.caption.text.trim(), start: 0, end: o.card ? win.cardAt - 4 / FPS : win.duration }] : [];
+  // (Under subtitled talking, the caption comes in with the edit.)
+  const capFrom = o.subtitles && intro && handover !== undefined ? lead(handover) : 0;
+  const captions: CaptionEvent[] = o.caption?.text.trim() ? [{ style: o.caption.style, text: o.caption.text.trim(), start: capFrom, end: o.card ? win.cardAt - 4 / FPS : win.duration }] : [];
   // Punch-ins come after the drop: the build holds back, so the drop is its first hit.
   // (None in a slow edit, and no flourish on its drop: the cut is enough.)
   const quiet = style === "slow";
@@ -1691,12 +1733,14 @@ export function planMontage(o: MontageOptions): EditPlan {
     const end = intro.end;
     const drop = dropCut ?? end;
     plan.music.gainPoints = [[0, 0.22], [Math.max(0, end - 0.12), 0.22], ...(drop - end > 0.3 ? ([[end + 0.1, 0.55], [drop - 0.03, 0.55]] as [number, number][]) : []), [drop, 1]];
-    plan.note.sound = "The talking at the start is in the file with its own voice, the song under it: post the version with the song.";
+    plan.note.sound = opening
+      ? "Your opening plays first with its own sound, the song under it until the drop: post the version with the song."
+      : "The talking at the start is in the file with its own voice, the song under it: post the version with the song.";
     // A phone's voice against a mastered song: brought up to 3 dB under the song in full.
     plan.levelVoice = -3;
   }
   if (looped && plan.music) plan.music.fadeOut = 0.04;
-  plan.checks = { ...plan.checks, style, ...(intro ? { talking: Math.round(intro.end * 100) / 100 } : {}), ...(looped ? { loop: true } : {}) };
+  plan.checks = { ...plan.checks, style, ...(intro ? { [opening ? "opening" : "talking"]: Math.round(intro.end * 100) / 100 } : {}), ...(looped ? { loop: true } : {}) };
   return plan;
 }
 

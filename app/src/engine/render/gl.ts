@@ -50,6 +50,8 @@ export interface FrameDraw {
   burnPhase: number;
   dim: number;
   overlay: boolean;
+  /** how the captions mix with the picture: 0 laid over it, else a blend mode (render/captions.ts: BLEND_INDEX) */
+  overlayBlend?: number;
   time: number;
   seed: number;
   /** the picture knocked sideways and up or down this much (a shake), in frame widths and heights */
@@ -190,6 +192,7 @@ in vec2 vPos;
 uniform sampler2D uScene;
 uniform sampler2D uOverlay;
 uniform bool uHasOverlay;
+uniform int uBlend; // how the captions mix with the picture: 0 over it, else a blend mode
 uniform vec2 uOut;
 uniform float uWarm, uContrast, uSat, uVig, uGrain, uFade, uGlow, uExposure;
 uniform vec3 uShadows, uHighlights;
@@ -212,6 +215,22 @@ float noise(vec2 p) {
 float fbm(vec2 p) {
   float s = 0.0, a = 0.5;
   for (int i = 0; i < 5; i++) { s += a * noise(p); p = p * 2.03 + 11.7; a *= 0.5; }
+  return s;
+}
+// A caption's colour s mixed with the picture b by a blend mode (the W3C's formulas).
+vec3 blendWith(vec3 b, vec3 s, int m) {
+  if (m == 1) return b * s;
+  if (m == 2) return 1.0 - (1.0 - b) * (1.0 - s);
+  if (m == 3) return mix(2.0 * b * s, 1.0 - 2.0 * (1.0 - b) * (1.0 - s), step(0.5, b));
+  if (m == 4) return min(b, s);
+  if (m == 5) return max(b, s);
+  if (m == 6) return abs(b - s);
+  if (m == 7) return b + s - 2.0 * b * s;
+  if (m == 8) {
+    vec3 d = mix(sqrt(b), ((16.0 * b - 12.0) * b + 4.0) * b, step(b, vec3(0.25)));
+    return mix(b - (1.0 - 2.0 * s) * b * (1.0 - b), b + (2.0 * s - 1.0) * (d - b), step(0.5, s));
+  }
+  if (m == 9) return min(vec3(1.0), b / max(vec3(1e-3), 1.0 - s));
   return s;
 }
 // Where the picture shown at q (0 to 1, from the top left) comes from: moved, scaled
@@ -350,7 +369,8 @@ void main() {
   if (uBars > 0.0) c *= clamp(min(o.y, 1.0 - o.y) * uOut.y - uBars * uOut.y + 0.5, 0.0, 1.0);
   if (uHasOverlay) {
     vec4 ov = texture(uOverlay, o);
-    c = ov.rgb + c * (1.0 - ov.a);
+    if (uBlend == 0) c = ov.rgb + c * (1.0 - ov.a);
+    else c = mix(c, blendWith(clamp(c, 0.0, 1.0), ov.a > 0.001 ? ov.rgb / ov.a : vec3(0.0), uBlend), ov.a);
   }
   outColor = vec4(clamp(c, 0.0, 1.0), 1.0);
 }`;
@@ -589,6 +609,7 @@ export class Compositor {
     gl.uniform1i(p.loc("uOverlay"), 1);
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(p.loc("uHasOverlay"), f.overlay ? 1 : 0);
+    gl.uniform1i(p.loc("uBlend"), f.overlayBlend ?? 0);
     gl.uniform2f(p.loc("uOut"), this.W, this.H);
     gl.uniform1f(p.loc("uWarm"), f.grade.warmth);
     gl.uniform1f(p.loc("uContrast"), f.grade.contrast);

@@ -125,23 +125,46 @@ try {
   writeFileSync(resolve(outDir, "facts.json"), JSON.stringify(facts, null, 1));
   log("template", JSON.stringify(facts.template.notes));
   if (args.includes("--ui-check")) {
-    // The sound timeline by hand: a dip in the music's volume, a sound effect dragged along.
+    // The sound timeline by hand: a point clicked low on the music's volume lane (a dip), a
+    // stretch dragged across and set 12 dB down, the music's bar moved later, a sound effect
+    // dragged along.
     await page.setViewportSize({ width: 1440, height: 3400 });
     await page.waitForTimeout(500);
     const box = await page.locator(".timeline canvas").boundingBox();
     const dur = await page.evaluate(() => window.__mimic.plan().duration);
     const xAt = (t) => box.x + (t / dur) * box.width;
-    await page.mouse.move(xAt(dur * 0.6), box.y + 110);
-    await page.mouse.down();
-    await page.mouse.move(xAt(dur * 0.6), box.y + 155, { steps: 6 });
-    await page.mouse.up();
-    const first = await page.evaluate(() => window.__mimic.plan().sfx[0]);
-    await page.mouse.move(xAt(first.t), box.y + 77);
-    await page.mouse.down();
-    await page.mouse.move(xAt(first.t + 1), box.y + 77, { steps: 6 });
-    await page.mouse.up();
-    const after = await page.evaluate((key) => ({ line: window.__mimic.get().musicLine, edits: window.__mimic.get().cueEdits, moved: window.__mimic.plan().sfx.find((c) => c.key === key) }), first.key);
-    log("ui", JSON.stringify({ first: { key: first.key, t: first.t }, ...after }));
+    await page.mouse.click(xAt(dur * 0.6), box.y + 165);
+    if (opt("--music")) {
+      await page.mouse.move(xAt(dur * 0.2), box.y + 150);
+      await page.mouse.down();
+      await page.mouse.move(xAt(dur * 0.35), box.y + 150, { steps: 8 });
+      await page.mouse.up();
+      await page.locator(".stretch-row input[type=range]").fill("-12");
+      await page.waitForTimeout(200);
+      await page.locator(".sound-card").screenshot({ path: resolve(outDir, "sound-card-stretch.png") });
+      await page.getByRole("button", { name: "Done" }).click();
+      const m = await page.evaluate(() => window.__mimic.plan().music);
+      // (Its middle: moved later, the song's own start kept.)
+      const mid = (m.start + (m.end ?? dur)) / 2;
+      await page.mouse.move(xAt(mid), box.y + 102);
+      await page.mouse.down();
+      await page.mouse.move(xAt(mid + 2.5), box.y + 102, { steps: 8 });
+      await page.mouse.up();
+      await page.waitForTimeout(200);
+      const music = await page.evaluate(() => ({ at: window.__mimic.get().musicAt, end: window.__mimic.get().musicEnd, from: window.__mimic.get().musicFrom, line: window.__mimic.get().musicLine, song: !!window.__mimic.get().musicSong, plan: window.__mimic.plan().music }));
+      log("music", JSON.stringify(music));
+      const sound = page.locator(".music-strip").first();
+      if (await sound.count()) await sound.screenshot({ path: resolve(outDir, "music-strip.png") });
+    }
+    const first = await page.evaluate(() => window.__mimic.plan().sfx[0] ?? null);
+    if (first) {
+      await page.mouse.move(xAt(first.t), box.y + 77);
+      await page.mouse.down();
+      await page.mouse.move(xAt(first.t + 1), box.y + 77, { steps: 6 });
+      await page.mouse.up();
+    }
+    const after = await page.evaluate((key) => ({ line: window.__mimic.get().musicLine, edits: window.__mimic.get().cueEdits, moved: window.__mimic.plan().sfx.find((c) => c.key === key) ?? null }), first?.key ?? "");
+    log("ui", JSON.stringify({ first: first && { key: first.key, t: first.t }, ...after }));
     await page.locator(".sound-card").screenshot({ path: resolve(outDir, "sound-card.png") });
     await page.locator(".cap-layout").screenshot({ path: resolve(outDir, "captions-card.png") });
     await page.setViewportSize({ width: 1440, height: 1000 });

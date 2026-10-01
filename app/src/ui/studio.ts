@@ -4,7 +4,7 @@
  * reads it through useStudio(); the heavy engine objects stay out of React.
  */
 import { useSyncExternalStore } from "react";
-import { analyzeSong, SR, withVocals, type SongAnalysis } from "../engine/audio/song";
+import { analyzeSong, loudnessBars, SR, withVocals, type SongAnalysis } from "../engine/audio/song";
 import { findVocals } from "../engine/audio/vocals";
 import { cutFinder } from "../engine/media/cuts";
 import { settlePlan } from "../engine/plan/settle";
@@ -23,8 +23,11 @@ import { findMoments, transcribe, type Moment, type Transcript } from "../engine
 import { musicWindow, planMontage, usedRanges, type Ranges } from "../engine/plan/montage";
 import type { Pace } from "../engine/plan/rhythm";
 import { CALM_LABEL, mixOrder, styleFor, styleLabel, talks, type EditStyle, type Talker } from "../engine/plan/styles";
-import { applyDesign, designFor, designName, designOrder, leanOf, type Design } from "../engine/plan/designs";
-import { NO_GRADE, WARM_GRADE, type Aspect, type CardSpec, type EditPlan } from "../engine/plan/types";
+import { applyDesign, designFor, designName, designOrder, heardBeats, leanOf, ownCaptions, type Design } from "../engine/plan/designs";
+import { NO_GRADE, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type EditPlan, type TextLook } from "../engine/plan/types";
+import { speechRanges, subtitlesFor, type Heard } from "../engine/plan/subtitles";
+import { listen } from "../mimic/asr/client";
+import { DEFAULT_LOOK } from "../engine/render/captions";
 import { pickCodecs, renderPlan } from "../engine/render/export";
 import { followFaces, placeOverlays } from "../engine/vision/track";
 import { loadKit, recall, remember, saveKit, saveKitShot, loadKitShot, saveKitVideo, loadKitVideo, type KitFields } from "./kit";
@@ -44,6 +47,8 @@ export interface Footage {
   error?: string;
   /** in the twist format: which side of the flip it belongs to */
   act: "a" | "b";
+  /** in a montage: one of the clips the edit opens with, played as it is with its own sound, before the edit comes in on the drop */
+  opener?: boolean;
   /** smart picks: Gemini looking at it */
   look?: "queued" | "rating" | "done" | "failed";
   lookProgress?: number;
@@ -131,6 +136,11 @@ export interface Style {
   pace: Pace;
   /** with the card off: end on the moment the edit opens on, so the replay loops */
   loop: boolean;
+  /** captions in the user's own design (the caption editor) rather than the style's or design's */
+  ownCaption: boolean;
+  captionLook: TextLook;
+  /** subtitles on the talking an edit opens on (the speech model in the page hears the words) */
+  subtitles: boolean;
 }
 
 export interface Job {
@@ -209,13 +219,18 @@ const DEFAULT_STYLE: Style = {
   design: "mix",
   pace: "beat",
   loop: true,
+  ownCaption: false,
+  captionLook: DEFAULT_LOOK,
+  subtitles: false,
 };
 const STYLE_STORE = "clipper.style.v1";
 
 function loadStyle(): Style {
   try {
     const raw = localStorage.getItem(STYLE_STORE);
-    return raw ? { ...DEFAULT_STYLE, ...(JSON.parse(raw) as Partial<Style>) } : { ...DEFAULT_STYLE };
+    const stored = raw ? (JSON.parse(raw) as Partial<Style>) : {};
+    // (A look saved before a setting was added gets that setting's default.)
+    return { ...DEFAULT_STYLE, ...stored, captionLook: { ...DEFAULT_LOOK, ...stored.captionLook } };
   } catch {
     return { ...DEFAULT_STYLE };
   }
@@ -295,6 +310,8 @@ class Studio {
   /** where someone talks in each clip the picture model saw talking (its first ten minutes) */
   /** per clip: where a voice is heard (speech.ts), and where that's someone talking, not a song (sounds.ts) */
   private readonly talking = new Map<string, { voice: Run[]; talking: Run[] }>();
+  /** words heard in a stretch of a clip (subtitles), by clip and stretch */
+  private readonly heardWords = new Map<string, Heard["words"]>();
   /** batches in flight (making edits, finding moments) that may still read the files */
   private inFlight = 0;
   /** files taken out while a batch was using them, closed once it's done */
@@ -503,6 +520,11 @@ class Studio {
     this.set((s) => ({ footage: s.footage.filter((x) => x.id !== id) }));
   }
 
+  /** A clip the montage opens with (or not): played first with its own sound, the edit on the drop after it. */
+  setOpener(id: string, opener: boolean) {
+    this.patchFootage(id, { opener });
+  }
+
   setAct(id: string, act: "a" | "b") {
     this.patchFootage(id, { act });
   }
@@ -537,20 +559,7 @@ class Studio {
       const song = analyzeSong(y);
       if (this.state.sound?.id !== id) return;
       this.song = song;
-      // The strip: loudness per slice, stretched over the song's own range so the
-      // quiet intro, the build and the drop read at a glance.
-      const n = 160;
-      const raw: number[] = [];
-      for (let i = 0; i < n; i++) {
-        const a = Math.floor((i * song.loudness.length) / n);
-        const b = Math.max(a + 1, Math.floor(((i + 1) * song.loudness.length) / n));
-        let m = 0;
-        for (let k = a; k < b; k++) m += song.loudness[k];
-        raw.push(m / (b - a));
-      }
-      const lo = Math.min(...raw);
-      const hi = Math.max(...raw);
-      const bars = raw.map((v) => 0.12 + 0.88 * ((v - lo) / Math.max(1e-6, hi - lo)) ** 1.6);
+      const bars = loudnessBars(song);
       this.set((s) => ({
         sound: s.sound && s.sound.id === id ? { ...s.sound, status: "ready", progress: 1, bpm: song.bpm, bars, downbeats: song.downbeats, beats: song.beats, drops: song.drops.map((d) => d.t), vocals: "listening", vocalProgress: 0 } : s.sound,
       }));
@@ -640,6 +649,11 @@ class Studio {
     this.set((s) => ({ kit: { ...s.kit, shot: DEFAULT_SHOT, shotName: "Namzilabs dashboard" } }));
     await saveKitShot(null, "");
     await this.loadCardImage();
+  }
+
+  /** Change the caption editor's look (switching it on). */
+  setCaptionLook(patch: Partial<TextLook>) {
+    this.setStyle({ ownCaption: true, captionLook: { ...this.state.style.captionLook, ...patch } });
   }
 
   setStyle(patch: Partial<Style>) {
@@ -966,6 +980,26 @@ class Studio {
     return out;
   }
 
+  /** Subtitles for the talking an edit plays with its own sound: each stretch heard once by the speech model in the page. */
+  private async subtitle(plan: EditPlan, signal: AbortSignal, onProgress: (p: number) => void): Promise<CaptionEvent[]> {
+    const ranges = speechRanges(plan);
+    const heard: Heard[] = [];
+    for (const [i, range] of ranges.entries()) {
+      const key = `${range.source}@${range.from.toFixed(2)}-${range.to.toFixed(2)}`;
+      let words = this.heardWords.get(key);
+      const src = this.sources.get(range.source);
+      if (!words && src) {
+        const y = await decodeMono(src, 16000, range.from, range.to, undefined, signal);
+        if (!y.length) continue;
+        const r = await listen(y, (p) => onProgress((i + (p.stage === "listen" ? 0.2 + 0.8 * p.p : 0.2 * p.p)) / ranges.length), signal);
+        words = r.words;
+        this.heardWords.set(key, words);
+      }
+      if (words) heard.push({ range, words });
+    }
+    return subtitlesFor(plan, heard);
+  }
+
   canGenerate(): string | null {
     const s = this.state;
     if (s.busy) return "Working on it";
@@ -1058,6 +1092,8 @@ class Studio {
     // A montage's style, edit by edit: the one picked, or each edit the next in the mix
     // (the talking style only when someone talks in the footage).
     const canTalk = style.format === "montage" ? this.talkingClips(ready) : [];
+    // The clips the user picked to open the edit with, in their order.
+    const openers = style.format === "montage" ? ready.filter((f) => f.opener && (f.kind === "video" || f.kind === "image")).map((f) => f.id) : [];
     const order = mixOrder(scans, canTalk.length > 0, style.pace);
     // And its design: the one picked, or each edit the next that suits the song and footage.
     const designs = designOrder(song, scans);
@@ -1115,10 +1151,20 @@ class Studio {
             if (!talkers.length) this.patchJob(job.id, { label: (calm = named(v, CALM_LABEL)) });
             this.patchJob(job.id, { stage: "Picking the moments" });
           }
+          // Captions in the user's own design (the caption editor): each of the edit's own.
+          const dress = (plan: EditPlan): EditPlan => {
+            if (style.ownCaption) plan.captions = plan.captions.map((c) => ({ ...c, look: style.captionLook }));
+            return plan;
+          };
+          // (Without a design: on the song's beats when there is one; subtitles come on with the talking.)
+          const comeOn = (plan: EditPlan): EditPlan => {
+            if (style.ownCaption) plan.captions = ownCaptions(plan.captions, undefined, song && style.format !== "story" ? heardBeats(plan, song) : []);
+            return plan;
+          };
           const make = (): EditPlan => {
             if (style.format === "story") {
               if (!story?.transcript || !story.scan) throw new Error("The video for this clip was taken out. Find the moments again.");
-              return planStory({
+              return comeOn(dress(planStory({
                 moment: chosenMoments[v],
                 transcript: story.transcript,
                 speech: story.speech,
@@ -1132,21 +1178,34 @@ class Studio {
                 variant: base + v,
                 avoid,
                 payoff: payoff ?? undefined,
-              });
+              })));
             } else if (style.format === "twist") {
               const actB = new Set(ready.filter((f) => f.act === "b").map((f) => f.id));
-              return planTwist({ ...common, actB, captionA: style.caption === "none" ? "" : style.text, captionB: style.caption === "none" ? "" : style.textB });
+              return comeOn(dress(planTwist({ ...common, actB, captionA: style.caption === "none" ? "" : style.text, captionB: style.caption === "none" ? "" : style.textB })));
             } else if (style.format === "meme") {
-              return planMeme({ ...common, text: style.memeText, position: style.memePosition });
+              return comeOn(dress(planMeme({ ...common, text: style.memeText, position: style.memePosition })));
             }
             if (!song) throw new Error("Add a sound first");
-            const plan = planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text }, style: edit, talkers, loop: style.loop, pace: style.pace, lean: design && leanOf(design) });
+            const plan = dress(planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text }, style: edit, talkers, loop: style.loop, pace: style.pace, lean: design && leanOf(design), openers, subtitles: style.subtitles }));
             // The design's effects and colour (a split screen's panels checked with the shots).
-            return design ? applyDesign(plan, design, song, { scans }) : plan;
+            return design ? applyDesign(plan, design, song, { scans }) : comeOn(plan);
           };
           // Planned, then planned again until no shot runs over one of a long video's own
           // cuts (media/cuts.ts: every frame of what the edit uses gets looked at).
           const plan = await settlePlan(make, scanMap, cutFinder(sources, jobSignal));
+          // Subtitles on the talking it opens on (a story has its own).
+          if (style.subtitles && style.format === "montage" && plan.shots.some((sh) => sh.audio)) {
+            this.patchJob(job.id, { stage: "Listening for the words" });
+            try {
+              const subs = await this.subtitle(plan, jobSignal, throttled((p) => this.patchJob(job.id, { progress: 0.1 * p }), 200));
+              const looked = style.ownCaption ? ownCaptions(subs.map((c) => ({ ...c, look: style.captionLook })), undefined, []) : subs;
+              plan.captions = [...looked, ...plan.captions];
+              plan.checks = { ...plan.checks, subtitles: subs.length };
+            } catch (e) {
+              if (e instanceof DOMException && e.name === "AbortError") throw e;
+              this.set({ notice: `The subtitles couldn't be made in this browser (${e instanceof Error ? e.message : String(e)}), so this edit has none.` });
+            }
+          }
           // (As shot: no grade, the design's effects still on.)
           if (!plan.design) plan.grade = WARM_GRADE;
           if (style.look === "natural") plan.grade = NO_GRADE;

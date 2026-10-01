@@ -23,8 +23,8 @@ import {
 } from "mediabunny";
 import type { Source } from "../media/sources";
 import { centreAt } from "../plan/framing";
-import { NO_GRADE, overlayAt, sourceAt, sourceSpan, type EditPlan, type FxEvent, type OverlayEvent, type ShotEvent } from "../plan/types";
-import { drawCaption, popScale } from "./captions";
+import { NO_GRADE, overlayAt, sourceAt, sourceSpan, TWO_SHOT, type EditPlan, type FxEvent, type OverlayEvent, type ShotEvent } from "../plan/types";
+import { BLEND_INDEX, drawCaption, popScale } from "./captions";
 import { drawCard } from "./card";
 import { loadFonts } from "./fonts";
 import { Compositor, OVERLAY_SLOTS, type LayerDraw, type Rotation } from "./gl";
@@ -151,6 +151,11 @@ export function fxAt(fx: FxEvent[], t: number, fps: number, aspect = 9 / 16) {
   let leak = 0;
   let leakPhase = 0;
   let vhs = 0;
+  // The highlights glowing more than the look has them (a pulse on a hit), and the picture held still (a freeze frame) from this moment.
+  let glow = 0;
+  let freeze: number | null = null;
+  // A transition showing two shots at once: which, how far from the first to the second (0 to 1), which way.
+  let mix: { kind: "dissolve" | "push" | "slide"; at: number; p: number; dir: number } | null = null;
   const jolt = (n: number, seed: number) => (Math.sin(n * 12.9898 + seed * 78.233) * 43758.5453) % 1;
   for (const e of fx) {
     if (t < e.start - 1e-6 || t >= e.end - 1e-6) continue;
@@ -242,13 +247,33 @@ export function fxAt(fx: FxEvent[], t: number, fps: number, aspect = 9 / 16) {
       dim = Math.max(dim, e.strength * (t < at ? into : out) ** 1.5);
     } else if (e.kind === "vhs") {
       vhs = Math.max(vhs, e.strength);
+    } else if (e.kind === "glow") {
+      // Blooming on the hit, fading over the rest.
+      glow = Math.max(glow, e.strength * (t < at ? into : out ** 1.5));
+    } else if (e.kind === "freeze") {
+      freeze = e.start;
+    } else if ((e.kind === "dissolve" || e.kind === "push" || e.kind === "slide") && e.at !== undefined) {
+      // (Its frames evenly between the two shots: a five-frame crossfade shows the next one at
+      // 1/6, 2/6 ... 5/6, as nio.trade's do, and whole on the frame after.)
+      const u = Math.min(1, Math.max(0, (t - e.start + 1 / fps) / (span + 1 / fps)));
+      // A crossfade straight through; a push or a slide quick in the middle, easing at both ends (a slide lands softly).
+      const p = e.kind === "dissolve" ? u : e.kind === "push" ? u * u * (3 - 2 * u) : 1 - (1 - u) ** 3;
+      mix = { kind: e.kind, at: e.at, p, dir: e.dir ?? 0 };
+      if (e.kind === "push") {
+        // Smeared along the way the two go, most in the middle.
+        const a = ((e.dir ?? 0) * Math.PI) / 180;
+        // (A little: enough to read as motion, little enough that the seam between the two shows.)
+        const v = 0.08 * e.strength * 4 * u * (1 - u);
+        streak[0] += v * Math.cos(a);
+        streak[1] += v * Math.sin(a);
+      }
     } else if (e.kind === "bars") {
       // Sliding in over their first eighteen frames.
       const p = Math.min(1, (t - e.start + 1 / fps) / (18 / fps));
       bars = Math.max(bars, e.strength * p * p * (3 - 2 * p));
     }
   }
-  return { flash, burn, burnPhase, dim, punch, shake, zoomBlur, split, mono, move, scale, spin, streak, spinBlur, blur, glitch, invert, bars, leak, leakPhase, vhs };
+  return { flash, burn, burnPhase, dim, punch, shake, zoomBlur, split, mono, move, scale, spin, streak, spinBlur, blur, glitch, invert, bars, leak, leakPhase, vhs, mix, glow, freeze };
 }
 
 async function blobToBase64Parts(blob: Blob, chunk = 6 * 1024 * 1024): Promise<string[]> {
@@ -279,7 +304,10 @@ export class FramePainter {
   private readonly tones = new Map<number, { tone?: Tone; tries: number }>();
   /** what's in each overlay slot now */
   private readonly overKeys: string[] = [];
-  private lastUpload = "";
+  /** what's in each shot slot now (the shot, and the one it's turning into in a transition that shows both) */
+  private readonly uploaded: string[] = [];
+  /** the transitions showing two shots at once, and their shots: the one going out and the one coming in */
+  private readonly mixes: { e: FxEvent; a: number; b: number }[] = [];
   private overlayKey = "";
   private lastT = -Infinity;
 
@@ -292,6 +320,12 @@ export class FramePainter {
     this.comp = new Compositor(this.canvas, plan.width, plan.height);
     this.overlay = new OffscreenCanvas(plan.width, plan.height);
     this.octx = this.overlay.getContext("2d")!;
+    const near = (x: number, y: number) => Math.abs(x - y) < 0.5 / plan.fps;
+    for (const e of plan.fx) {
+      if (!TWO_SHOT.has(e.kind) || e.at === undefined) continue;
+      const a = plan.shots.findIndex((s) => near(s.end, e.at!));
+      if (a >= 0 && a + 1 < plan.shots.length && near(plan.shots[a + 1].start, e.at)) this.mixes.push({ e, a, b: a + 1 });
+    }
   }
 
   private reader(i: number): ShotReader | null {
@@ -305,7 +339,14 @@ export class FramePainter {
         if (!v) return null;
         this.sinks.set(shot.source, (sink = new VideoSampleSink(v)));
       }
-      r = new ShotReader(sink, shot.srcStart, shot.srcStart + sourceSpan(shot));
+      // (Decoded a little before and after its own stretch when a transition shows it there.)
+      let pre = 0;
+      let post = 0;
+      for (const m of this.mixes) {
+        if (m.b === i) pre = Math.max(pre, m.e.at! - m.e.start);
+        if (m.a === i) post = Math.max(post, m.e.end - m.e.at!);
+      }
+      r = new ShotReader(sink, shot.srcStart - pre * shot.speed, shot.srcStart + sourceSpan(shot) + post * shot.speed);
       this.readers.set(i, r);
     }
     return r;
@@ -357,15 +398,56 @@ export class FramePainter {
     }
   }
 
+  /**
+   * Shot `i` as it shows at `t`, in texture `slot`: also a moment just outside it, in a
+   * transition showing two shots at once (it plays on past its end, or from a moment before
+   * its start).
+   */
+  private async shotLayer(i: number, t: number, slot: number, punch: number, graded: boolean): Promise<LayerDraw | null> {
+    const shot = this.plan.shots[i];
+    if (!shot) return null;
+    const dur = Math.max(1e-6, shot.end - shot.start);
+    const tau = t - shot.start;
+    const p = Math.min(1, Math.max(0, tau / dur));
+    const c = shot.crop;
+    const zoom = (c.zoom0 + (c.zoom1 - c.zoom0) * p) * punch;
+    const [cx, cy] = centreAt(c, Math.min(dur, Math.max(0, tau)), dur);
+    // A photo flying in: the card settles from its first size to its last, quickly.
+    const card = c.inset ? { tilt: c.tilt ?? 0, inset: c.inset[0] + (c.inset[1] - c.inset[0]) * (1 - (1 - p) ** 3) } : c.tilt ? { tilt: c.tilt } : {};
+    if (shot.kind === "image") {
+      const img = this.sources.get(shot.source)?.image;
+      if (!img) return null;
+      const key = `img:${shot.source}`;
+      if (this.uploaded[slot] !== key) {
+        this.comp.upload(slot, img, img.width, img.height);
+        this.uploaded[slot] = key;
+      }
+      return this.balanced(i, { slot, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1, ...card }, graded);
+    }
+    const sample = await this.reader(i)?.at(Math.max(0, shot.srcStart + sourceAt(shot, tau)));
+    if (!sample) return null;
+    const key = `${shot.source}@${sample.timestamp}`;
+    if (this.uploaded[slot] !== key) {
+      const vf = sample.toVideoFrame();
+      this.comp.upload(slot, vf, sample.displayWidth, sample.displayHeight);
+      vf.close();
+      this.uploaded[slot] = key;
+    }
+    return this.balanced(i, { slot, srcW: sample.displayWidth, srcH: sample.displayHeight, rotation: sample.rotation as Rotation, flip: sample.flip, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1, ...card }, graded);
+  }
+
   /** Draw the frame at `t` into the canvas. */
   async paint(t: number): Promise<void> {
     const { plan, comp, sources } = this;
     const { width: W, height: H, fps } = plan;
     const f = Math.round(t * fps);
     const idx = plan.shots.findIndex((s) => t >= s.start - 1e-6 && t < s.end - 1e-6);
-    // Going backwards restarts decoding; going forwards drops the shots left behind.
+    const e = fxAt(plan.fx, t, fps, W / H);
+    // Two shots showing at once: the one going out and the one coming in.
+    const both = e.mix ? this.mixes.find((m) => Math.abs(m.e.at! - e.mix!.at) < 1e-6) : undefined;
+    // Going backwards restarts decoding; going forwards drops the shots left behind (not the one still going out).
     if (t < this.lastT) await this.dropReaders(() => false);
-    else if (idx >= 0) await this.dropReaders((i) => i >= idx);
+    else if (idx >= 0) await this.dropReaders((i) => i >= idx || i === both?.a);
     this.lastT = t;
 
     const layers: LayerDraw[] = [];
@@ -373,41 +455,36 @@ export class FramePainter {
     const ownCard = plan.card?.spec.kind === "video";
     const inCard = !!plan.card && !ownCard && t >= plan.card.start - 1e-6;
     const inOwnCard = !!plan.card && ownCard && t >= plan.card.start - 1e-6;
-    const e = fxAt(plan.fx, t, fps, W / H);
     const shot: ShotEvent | undefined = idx >= 0 ? plan.shots[idx] : undefined;
     // (Each shot balanced on its own only under a look: "as shot" is as shot.)
     const graded = !inOwnCard && (plan.grade.warmth !== 0 || plan.grade.contrast !== 0);
     // (A shot under a split screen's panels isn't drawn: black where they aren't.)
     if (shot && !inCard && !shot.hide) {
       this.reader(idx + 1); // start decoding the next shot now
-      const p = (t - shot.start) / Math.max(1e-6, shot.end - shot.start);
-      const c = shot.crop;
-      const zoom = (c.zoom0 + (c.zoom1 - c.zoom0) * p) * e.punch;
-      const [cx, cy] = centreAt(c, t - shot.start, shot.end - shot.start);
-      // A photo flying in: the card settles from its first size to its last, quickly.
-      const card = c.inset ? { tilt: c.tilt ?? 0, inset: c.inset[0] + (c.inset[1] - c.inset[0]) * (1 - (1 - Math.min(1, p)) ** 3) } : c.tilt ? { tilt: c.tilt } : {};
-      if (shot.kind === "image") {
-        const img = sources.get(shot.source)?.image;
-        if (img) {
-          const key = `img:${shot.source}`;
-          if (this.lastUpload !== key) {
-            comp.upload(0, img, img.width, img.height);
-            this.lastUpload = key;
-          }
-          layers.push(this.balanced(idx, { slot: 0, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1, ...card }, graded));
+      const flat = (i: number) => !plan.shots[i].crop.inset && !plan.shots[i].crop.tilt && !plan.shots[i].hide;
+      if (both && e.mix && flat(both.a) && flat(both.b)) {
+        // The shot going out and the one coming in, both drawn: crossfading, pushed along
+        // together (the next one coming in from the other side), or the next sliding in over the last.
+        const [a, b] = [await this.shotLayer(both.a, t, 0, e.punch, graded), await this.shotLayer(both.b, t, 1, e.punch, graded)];
+        const { kind, p, dir } = e.mix;
+        const ang = (dir * Math.PI) / 180;
+        const [dx, dy] = [Math.cos(ang), Math.sin(ang)];
+        const at = (k: number) => ({ x: 0.5 + dx * k, y: 0.5 + dy * k, w: 1, h: 1 });
+        if (kind === "dissolve") {
+          if (a) layers.push(a);
+          if (b) layers.push({ ...b, alpha: p });
+        } else if (kind === "push") {
+          if (a) layers.push({ ...a, card: at(p) });
+          if (b) layers.push({ ...b, card: at(p - 1) });
+        } else {
+          if (a) layers.push(a);
+          if (b) layers.push({ ...b, card: at(p - 1) });
         }
       } else {
-        const sample = await this.reader(idx)?.at(shot.srcStart + sourceAt(shot, t - shot.start));
-        if (sample) {
-          const key = `${shot.source}@${sample.timestamp}`;
-          if (this.lastUpload !== key) {
-            const vf = sample.toVideoFrame();
-            comp.upload(0, vf, sample.displayWidth, sample.displayHeight);
-            vf.close();
-            this.lastUpload = key;
-          }
-          layers.push(this.balanced(idx, { slot: 0, srcW: sample.displayWidth, srcH: sample.displayHeight, rotation: sample.rotation as Rotation, flip: sample.flip, cx, cy, zoom, fit: c.fit, rect: c.rect, alpha: 1, ...card }, graded));
-        }
+        // (Held on one frame while a freeze lasts, when it started in this shot.)
+        const held = e.freeze !== null && e.freeze >= shot.start - 1e-6 ? e.freeze : t;
+        const l = await this.shotLayer(idx, held, 0, e.punch, graded);
+        if (l) layers.push(l);
       }
     }
 
@@ -452,14 +529,17 @@ export class FramePainter {
     // Captions and the card, redrawn only when they change (a popping word every frame of its pop).
     const caps = plan.captions.filter((cap) => t >= cap.start - 1e-6 && t < cap.end - 1e-6);
     const cardT = plan.card && inCard ? t - plan.card.start : -1;
-    const popOf = (cap: (typeof caps)[number]) => (cap.pop ? Math.round((t - cap.start) * fps) : 5);
-    const key = cardT >= 0 ? `card:${f}` : caps.map((cap) => `${cap.style}:${cap.x}:${cap.y}:${cap.text}:${Math.min(5, popOf(cap))}`).join("|");
+    const popOf = (cap: (typeof caps)[number]) => (cap.pop || cap.look?.animate === "pop" ? Math.round((t - cap.start) * fps) : 5);
+    // (Fading in over a quarter of a second; typed out at about 25 letters a second, half a second at least.)
+    const fadeOf = (cap: (typeof caps)[number]) => (cap.anim === "fade" ? Math.min(1, (t - cap.start) / 0.25) : 1);
+    const typedOf = (cap: (typeof caps)[number]) => (cap.anim === "type" ? Math.min(1, (t - cap.start) / Math.max(0.5, cap.text.length / 25)) : 1);
+    const key = cardT >= 0 ? `card:${f}` : caps.map((cap) => `${cap.style}:${cap.x}:${cap.y}:${cap.text}:${Math.min(5, popOf(cap))}:${fadeOf(cap).toFixed(3)}:${typedOf(cap).toFixed(3)}`).join("|");
     if (key && key !== this.overlayKey) {
       this.octx.clearRect(0, 0, W, H);
       if (cardT >= 0 && plan.card) {
         drawCard(this.octx, W, H, cardT, plan.card.end - plan.card.start, plan.card.spec, { shot: this.cardImage }, plan.card.fadeIn, plan.card.fadeOut);
       } else {
-        for (const cap of caps) drawCaption(this.octx, W, H, cap, 1, popScale(popOf(cap)));
+        for (const cap of caps) drawCaption(this.octx, W, H, cap, fadeOf(cap), popScale(popOf(cap)), typedOf(cap));
       }
       comp.uploadOverlay(this.overlay);
       this.overlayKey = key;
@@ -468,12 +548,14 @@ export class FramePainter {
     const still = inCard || inOwnCard;
     comp.draw({
       layers,
-      grade: inOwnCard ? NO_GRADE : plan.grade,
+      grade: inOwnCard ? NO_GRADE : e.glow > 0 ? { ...plan.grade, glow: Math.min(1, (plan.grade.glow ?? 0) + e.glow) } : plan.grade,
       flash: e.flash,
       burn: e.burn,
       burnPhase: e.burnPhase,
       dim: inCard ? 0 : e.dim,
       overlay: !!key,
+      // (A caption of the user's own design mixes with the picture its own way: the first one showing sets it.)
+      overlayBlend: cardT >= 0 ? 0 : BLEND_INDEX[caps.find((c) => c.look)?.look?.blend ?? "normal"],
       time: t,
       seed: 1.37,
       shake: e.shake,

@@ -305,7 +305,7 @@ export async function mixMimic(plan: MimicPlan, sources: Map<string, Source>, ra
   const m = plan.music;
   const song = m ? sources.get(m.source) : undefined;
   if (m && song) {
-    const span = plan.duration - m.start;
+    const span = Math.min(plan.duration, m.end ?? plan.duration) - m.start;
     const key = JSON.stringify([m.source, m.from, Math.round(span * 100)]);
     if (extra.music?.key !== key) {
       const ch = await decodeStereo(song, MIX_RATE, m.from, m.from + span);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { retime } from "../src/mimic/asr/align";
 import { DEFAULT_LOOK, paginate } from "../src/mimic/captions";
-import { lineAt, planMimic, progress, zoomAt } from "../src/mimic/plan";
+import { lineAt, planMimic, progress, shapeLine, withStretch, zoomAt } from "../src/mimic/plan";
 import { cardOffset } from "../src/mimic/render";
 import type { MimicTemplate } from "../src/mimic/types";
 import type { Word } from "../src/mimic/asr/parakeet";
@@ -419,5 +419,50 @@ describe("the music", () => {
     expect(lineAt(line, 6)).toBeCloseTo(-6, 6);
     expect(lineAt(line, 20)).toBe(0);
     expect(lineAt([], 5)).toBe(0);
+  });
+
+  it("comes in and stops where the user put it on the timeline", () => {
+    const plan = planMimic({ ...base, music: { id: "m", duration: 60, from: 7, at: 2.5, end: 6 } });
+    expect(plan.music).toMatchObject({ start: 2.5, end: 6, from: 7, fadeOut: 0.5 });
+    // (Running to the end, or ending where the edit does: no end of its own.)
+    expect(planMimic({ ...base, music: { id: "m", duration: 60, at: 1 } }).music!.end).toBeUndefined();
+    expect(planMimic({ ...base, music: { id: "m", duration: 60, at: 1, end: 999 } }).music!.end).toBeUndefined();
+    // Never after the edit's end.
+    expect(planMimic({ ...base, music: { id: "m", duration: 60, at: 999 } }).music!.start).toBeLessThan(plan.duration);
+  });
+
+  it("sets a stretch's level, ramping into it and back out to the line as it was", () => {
+    const flat = withStretch([], 3, 5, -12, 10);
+    expect(lineAt(flat, 1)).toBe(0);
+    expect(lineAt(flat, 3)).toBe(-12);
+    expect(lineAt(flat, 4)).toBe(-12);
+    expect(lineAt(flat, 5)).toBe(-12);
+    expect(lineAt(flat, 5.5)).toBe(0);
+    expect(lineAt(flat, 9)).toBe(0);
+    // Over a line already shaped: only that stretch changes.
+    const shaped = withStretch(flat, 7, 9, 6, 10);
+    expect(lineAt(shaped, 4)).toBe(-12);
+    expect(lineAt(shaped, 8)).toBe(6);
+    expect(lineAt(shaped, 6)).toBe(0);
+    // Set again: it replaces what the stretch had.
+    expect(lineAt(withStretch(flat, 3, 5, 3, 10), 4)).toBe(3);
+    for (let i = 1; i < shaped.length; i++) expect(shaped[i][0]).toBeGreaterThan(shaped[i - 1][0]);
+  });
+
+  it("takes a shape at once: down under the talking, fading in and out, a louder ending", () => {
+    const plan = planMimic({ ...base, music: { id: "m", duration: 60, at: "start" } });
+    const pages = plan.captions!.pages;
+    const duck = shapeLine([], "duck", plan);
+    const mid = (pages[0].start + pages[0].end) / 2;
+    expect(lineAt(duck, mid)).toBe(-6);
+    const fadein = shapeLine([], "fadein", plan);
+    expect(lineAt(fadein, 0)).toBe(-30);
+    expect(lineAt(fadein, 2)).toBe(0);
+    const fadeout = shapeLine([], "fadeout", plan);
+    expect(lineAt(fadeout, plan.duration)).toBeCloseTo(-30, 6);
+    expect(lineAt(fadeout, plan.duration - 2)).toBeCloseTo(0, 1);
+    const ending = shapeLine([], "ending", plan);
+    expect(lineAt(ending, plan.duration - 0.1)).toBe(6);
+    expect(lineAt(ending, 1)).toBe(0);
   });
 });

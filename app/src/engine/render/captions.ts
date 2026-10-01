@@ -4,7 +4,7 @@
  * (plan/designs.ts). Sizes scale with the frame's short side, so a 9:16 and a 4:3
  * export read the same.
  */
-import type { CaptionEvent } from "../plan/types";
+import type { Blend, CaptionEvent, Face, TextLook } from "../plan/types";
 import { FONT } from "./fonts";
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -85,8 +85,170 @@ function wrap(ctx: Ctx, text: string, max: number): string[] {
   return out;
 }
 
-/** Draw a caption at full opacity times `alpha`, scaled about its middle by `scale` (a pop). */
-export function drawCaption(ctx: Ctx, W: number, H: number, ev: CaptionEvent, alpha = 1, scale = 1) {
+/** Each face a caption of the user's own design can take: its family, and its weight when it has only the one. */
+export const FACES: Record<Face, { name: string; family: string; weight?: number; italic?: boolean }> = {
+  inter: { name: "Inter", family: FONT.sans },
+  montserrat: { name: "Montserrat", family: FONT.montserrat },
+  poppins: { name: "Poppins", family: FONT.poppins, weight: 800 },
+  anton: { name: "Anton", family: FONT.anton, weight: 400 },
+  bebas: { name: "Bebas Neue", family: FONT.bebas, weight: 400 },
+  gothic: { name: "League Gothic", family: FONT.tall, weight: 400 },
+  oswald: { name: "Oswald", family: FONT.condensed, weight: 500 },
+  serif: { name: "Instrument Serif", family: FONT.serif, weight: 400, italic: true },
+  playfair: { name: "Playfair Display", family: FONT.playfair, italic: true },
+  mono: { name: "VT323", family: FONT.mono, weight: 400 },
+};
+
+/** The canvas's name for a blend mode (its globalCompositeOperation), for previews. */
+export const CANVAS_BLEND: Record<Blend, GlobalCompositeOperation> = {
+  normal: "source-over",
+  multiply: "multiply",
+  screen: "screen",
+  overlay: "overlay",
+  darken: "darken",
+  lighten: "lighten",
+  difference: "difference",
+  exclusion: "exclusion",
+  "soft-light": "soft-light",
+  "color-dodge": "color-dodge",
+};
+
+/** The compositor's number for a blend mode (render/gl.ts). */
+export const BLEND_INDEX: Record<Blend, number> = { normal: 0, multiply: 1, screen: 2, overlay: 3, darken: 4, lighten: 5, difference: 6, exclusion: 7, "soft-light": 8, "color-dodge": 9 };
+
+const BASE_LOOK: TextLook = {
+  font: "montserrat",
+  weight: 800,
+  size: 0.075,
+  color: "#ffffff",
+  stroke: 0.09,
+  strokeColor: "#000000",
+  shadow: 0.35,
+  shadowColor: "#000000",
+  box: false,
+  boxColor: "#000000",
+  boxOpacity: 0.7,
+  blend: "normal",
+  x: 0.5,
+  y: 0.62,
+  align: "center",
+  case: "typed",
+  spacing: 0,
+  width: 0.84,
+  rotate: 0,
+  opacity: 1,
+  animate: "design",
+};
+
+/** Looks to start a caption of the user's own design from: CapCut's most used, and the reference editors'. */
+export const TEXT_LOOKS: { id: string; name: string; look: TextLook }[] = [
+  { id: "classic", name: "Classic", look: BASE_LOOK },
+  { id: "hype", name: "Hype", look: { ...BASE_LOOK, weight: 900, case: "upper", color: "#ffe14d", stroke: 0.11, size: 0.085, animate: "words" } },
+  { id: "box", name: "Box", look: { ...BASE_LOOK, font: "inter", weight: 700, color: "#111111", stroke: 0, shadow: 0, box: true, boxColor: "#ffffff", boxOpacity: 1, size: 0.055, y: 0.7 } },
+  { id: "serif", name: "Serif", look: { ...BASE_LOOK, font: "playfair", weight: 500, stroke: 0, shadow: 0.7, size: 0.07, y: 0.5, animate: "fade" } },
+  { id: "impact", name: "Impact", look: { ...BASE_LOOK, font: "anton", case: "upper", stroke: 0, shadow: 0.45, size: 0.12, y: 0.5, animate: "pop" } },
+  { id: "ink", name: "Ink", look: { ...BASE_LOOK, font: "bebas", case: "upper", color: "#b3121e", stroke: 0, shadow: 0, size: 0.16, y: 0.5, width: 0.94, blend: "multiply", animate: "pop" } },
+  { id: "invert", name: "Invert", look: { ...BASE_LOOK, font: "anton", case: "upper", stroke: 0, shadow: 0, size: 0.14, y: 0.5, width: 0.94, blend: "difference", animate: "words" } },
+  { id: "tape", name: "Tape", look: { ...BASE_LOOK, font: "mono", weight: 400, case: "upper", stroke: 0, shadow: 0, box: true, boxOpacity: 0.55, size: 0.065, y: 0.2, animate: "type" } },
+  { id: "glow", name: "Glow", look: { ...BASE_LOOK, font: "poppins", stroke: 0, shadow: 1, shadowColor: "#ffd27a", size: 0.08, animate: "fade" } },
+  // nio.trade's label ("kimchi after retiring:") and its subtitles: white on a square black box, lowercase, plain.
+  { id: "label", name: "Label", look: { ...BASE_LOOK, font: "inter", weight: 500, case: "lower", stroke: 0, shadow: 0, box: true, boxColor: "#000000", boxOpacity: 1, size: 0.05, y: 0.72, animate: "none" } },
+  { id: "subtitle", name: "Subtitle", look: { ...BASE_LOOK, font: "inter", weight: 400, case: "lower", stroke: 0, shadow: 0, box: true, boxColor: "#000000", boxOpacity: 1, size: 0.042, y: 0.78, width: 0.9, animate: "none" } },
+  // gillioniare's meme: small heavy rounded-sans lowercase, white with a thin hard black outline, high in the frame.
+  { id: "meme", name: "Meme", look: { ...BASE_LOOK, font: "montserrat", weight: 800, case: "lower", stroke: 0.12, shadow: 0, size: 0.034, y: 0.22, width: 0.7, animate: "none" } },
+  // The phone's own text (Instagram's Classic): small, plain white, dead centre (brezscales).
+  { id: "phone", name: "Phone", look: { ...BASE_LOOK, font: "inter", weight: 600, stroke: 0, shadow: 0, size: 0.034, y: 0.5, width: 0.6, animate: "none" } },
+  // mico's: a small serif italic, dead centre, held the whole edit.
+  { id: "signature", name: "Signature", look: { ...BASE_LOOK, font: "playfair", weight: 400, stroke: 0, shadow: 0, size: 0.04, y: 0.5, animate: "none" } },
+];
+
+/** The look the caption editor opens on. */
+export const DEFAULT_LOOK: TextLook = BASE_LOOK;
+
+/** A colour (#rgb or #rrggbb) at an opacity, for the canvas. */
+function withAlpha(hex: string, a: number): string {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? [...h].map((c) => c + c).join("") : h.padEnd(6, "0");
+  const n = parseInt(full.slice(0, 6), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${Math.max(0, Math.min(1, a)).toFixed(3)})`;
+}
+
+export const faceFont = (look: Pick<TextLook, "font" | "weight">, px: number) => {
+  const f = FACES[look.font];
+  return `${f.italic ? "italic " : ""}${f.weight ?? look.weight} ${px}px ${f.family}`;
+};
+
+/**
+ * A caption of the user's own design: its face, size and colour, an outline, a shadow,
+ * a box behind each line, where it sits and how it's turned. `typed` (0 to 1) shows
+ * only that much of its letters (typed out); `scale` pops it about its middle. The
+ * blend mode isn't drawn here: the compositor mixes the whole caption layer with the
+ * picture (a preview passes `blend` to draw it with the canvas's own).
+ */
+export function drawLook(ctx: Ctx, W: number, H: number, text: string, look: TextLook, alpha = 1, scale = 1, typed = 1, blend = false) {
+  const px = Math.max(4, Math.round(Math.min(W, H) * look.size));
+  ctx.save();
+  ctx.globalAlpha = alpha * look.opacity;
+  if (blend) ctx.globalCompositeOperation = CANVAS_BLEND[look.blend];
+  ctx.font = faceFont(look, px);
+  const gap = "letterSpacing" in ctx ? look.spacing * px : 0;
+  if (gap) ctx.letterSpacing = `${gap}px`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  const cased = look.case === "upper" ? text.toUpperCase() : look.case === "lower" ? text.toLowerCase() : text;
+  let lines = wrap(ctx, cased, W * look.width);
+  if (typed < 1) {
+    let left = Math.ceil(typed * lines.reduce((a, l) => a + l.length, 0));
+    lines = lines.map((l) => {
+      const keep = l.slice(0, Math.max(0, left));
+      left -= l.length;
+      return keep;
+    });
+  }
+  const widths = lines.map((l) => ctx.measureText(l).width - gap);
+  const block = Math.max(1, ...widths);
+  const lh = px * 1.18;
+  ctx.translate(W * look.x, H * look.y);
+  ctx.rotate((look.rotate * Math.PI) / 180);
+  if (scale !== 1) ctx.scale(scale, scale);
+  const top = -((lines.length - 1) * lh) / 2;
+  lines.forEach((line, i) => {
+    if (!line) return;
+    const w = widths[i];
+    const x = look.align === "center" ? -w / 2 : look.align === "left" ? -block / 2 : block / 2 - w;
+    const y = top + i * lh;
+    if (look.box) {
+      const pad = px * 0.28;
+      ctx.save();
+      ctx.globalAlpha *= look.boxOpacity;
+      ctx.fillStyle = look.boxColor;
+      ctx.beginPath();
+      ctx.roundRect(x - pad, y - px * 0.62, w + 2 * pad, px * 1.24, px * 0.16);
+      ctx.fill();
+      ctx.restore();
+    }
+    if (look.shadow > 0) {
+      ctx.shadowColor = withAlpha(look.shadowColor, 0.75 * look.shadow);
+      ctx.shadowBlur = px * 0.45 * look.shadow;
+      ctx.shadowOffsetY = px * 0.06 * look.shadow;
+    }
+    if (look.stroke > 0) {
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 2 * look.stroke * px;
+      ctx.strokeStyle = look.strokeColor;
+      ctx.strokeText(line, x, y);
+      ctx.shadowColor = "transparent";
+    }
+    ctx.fillStyle = look.color;
+    ctx.fillText(line, x, y);
+    ctx.shadowColor = "transparent";
+  });
+  ctx.restore();
+}
+
+/** Draw a caption at full opacity times `alpha`, scaled about its middle by `scale` (a pop), `typed` of its letters shown. */
+export function drawCaption(ctx: Ctx, W: number, H: number, ev: CaptionEvent, alpha = 1, scale = 1, typed = 1) {
+  if (ev.look) return drawLook(ctx, W, H, ev.text, ev.look, alpha, scale, typed);
   const st = STYLES[ev.style];
   let px = Math.round(Math.min(W, H) * st.size);
   ctx.save();

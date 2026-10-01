@@ -65,12 +65,21 @@ kbd { font: 600 11px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; padd
 /* The sound timeline and its sound effects. */
 .timeline { position: relative; user-select: none; }
 .timeline canvas { display: block; touch-action: none; cursor: crosshair; border-radius: 6px; }
-.timeline .lanes { position: absolute; right: 6px; top: 0; height: 170px; pointer-events: none; font-size: 10px; opacity: 0.8; }
+.timeline .lanes { position: absolute; right: 6px; top: 0; height: 186px; pointer-events: none; font-size: 10px; opacity: 0.8; }
 .timeline .lanes span { position: absolute; right: 0; white-space: nowrap; }
 .timeline .lanes span:nth-child(1) { top: 22px; }
 .timeline .lanes span:nth-child(2) { top: 45px; }
 .timeline .lanes span:nth-child(3) { top: 70px; }
-.timeline .lanes span:nth-child(4) { top: 97px; }
+.timeline .lanes span:nth-child(4) { top: 96px; }
+.timeline .lanes span:nth-child(5) { top: 117px; }
+.music-tools { margin-top: 8px; }
+.music-tools .row { gap: 6px; }
+.row.wrap { flex-wrap: wrap; }
+.stretch-row .level { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.stretch-row .level.grow { flex: 1; min-width: 180px; }
+.stretch-row .level input { flex: 1; min-width: 0; accent-color: var(--brand); }
+.music-strip { display: flex; flex-direction: column; gap: 6px; }
+.music-strip .strip-wrap canvas { display: block; border-radius: 6px; background: rgba(127,127,127,0.07); }
 .cues { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 .cue { display: grid; grid-template-columns: 52px 1fr 150px 130px auto auto; gap: 8px; align-items: center; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
 .cue.on { background: var(--control); }

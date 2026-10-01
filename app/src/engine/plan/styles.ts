@@ -194,6 +194,49 @@ export function talkingIntro(scans: Scan[], talkers: Talker[], len: number, aspe
 
 const frameOf = (t: number) => Math.round(t * FPS) / FPS;
 
+/** The longest the user's own opening runs, seconds. */
+export const OPENER_MOST = 20;
+
+/**
+ * The user's own opening: the clips they picked to open the edit with, in their order,
+ * played as they are with their own sound (someone talking, a moment they want first),
+ * each of a clip's own scenes framed on its own; a photo holds two seconds. Up to
+ * `most` seconds in all; the edit comes in where it ends.
+ */
+export function openingIntro(scans: Scan[], ids: string[], aspect: Aspect, most = OPENER_MOST): TalkIntro | null {
+  const shots: ShotEvent[] = [];
+  let t = 0;
+  let range: [number, number] = [0, 0];
+  for (const id of ids) {
+    const scan = scans.find((s) => s.id === id);
+    if (!scan || t >= most - 0.5) continue;
+    const role = shots.length ? "build" : "hook";
+    if (scan.kind === "image") {
+      const end = frameOf(t + Math.min(2, most - t));
+      shots.push({ start: t, end, source: id, kind: "image", srcStart: 0, speed: 1, crop: frameShot({ scan, a: 0, b: 2, aspect }), role });
+      t = end;
+      continue;
+    }
+    const a0 = scan.start + 0.02;
+    const len = Math.min(scan.duration - 0.02 - a0, most - t);
+    if (len < 0.3) continue;
+    // (Framed scene by scene: a clip of its own edit cuts between angles.)
+    const inner = scan.cuts.filter((c) => c > a0 + 0.2 && c < a0 + len - 0.2);
+    const edges = [a0, ...inner, a0 + len];
+    for (let k = 0; k + 1 < edges.length; k++) {
+      const start = frameOf(t + edges[k] - a0);
+      const end = frameOf(t + edges[k + 1] - a0);
+      if (end - start < 1 / FPS) continue;
+      shots.push({ start, end, source: id, kind: "video", srcStart: edges[k], speed: 1, crop: frameShot({ scan, a: edges[k], b: edges[k + 1], aspect }), role: shots.length ? "build" : role, audio: true });
+    }
+    if (!range[1]) range = [a0, a0 + len];
+    t = frameOf(t + len);
+  }
+  if (!shots.length) return null;
+  shots[shots.length - 1].end = t;
+  return { shots, end: t, range };
+}
+
 // ── black and white ──────────────────────────────────────────────────────────
 
 /** Black and white over [start, end): hard on, hard off. */

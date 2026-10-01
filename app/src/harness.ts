@@ -11,11 +11,12 @@ import { KINDS, scanImage, scanVideo, scoreInterest, type Scan } from "./engine/
 import { planMontage, usedRanges, type Ranges } from "./engine/plan/montage";
 import type { Pace } from "./engine/plan/rhythm";
 import { mixOrder, styleFor, talks, type EditStyle, type Talker } from "./engine/plan/styles";
-import { applyDesign, designFor, designOrder, leanOf, type Design } from "./engine/plan/designs";
+import { applyDesign, designFor, designOrder, heardBeats, leanOf, ownCaptions, type Design } from "./engine/plan/designs";
+import { DEFAULT_LOOK, TEXT_LOOKS } from "./engine/render/captions";
 import { detectSpeech, talkingRuns } from "./engine/audio/speech";
 import { hearSounds } from "./engine/audio/sounds";
 import { planMeme, planTwist } from "./engine/plan/formats";
-import type { Aspect, CardSpec } from "./engine/plan/types";
+import type { Aspect, CardSpec, EditPlan, TextLook } from "./engine/plan/types";
 import { blobToBase64Parts, renderPlan, renderStills } from "./engine/render/export";
 import { mixPlan } from "./engine/render/mix";
 import { FaceFinder } from "./engine/vision/faces";
@@ -240,6 +241,10 @@ export interface MontageRun {
   style?: EditStyle | "mix";
   /** the montage's design (plan/designs.ts), or "mix": each edit the next that suits the song; the plain edit when unset */
   design?: Design | "mix";
+  /** clip indices the montage opens with, played as they are with their own sound (the app's Open tag) */
+  openers?: number[];
+  /** the captions in a look of the user's own (the caption editor): a ready-made look's id, changed by the rest */
+  captionLook?: Partial<TextLook> & { preset?: string };
   /** with no card: end on the moment the edit opens on */
   loop?: boolean;
   /** how hard a montage cuts on the music (the app's Cutting; the planner's own default, steady, when unset) */
@@ -346,14 +351,24 @@ async function montage(run: MontageRun) {
     const style = run.style ? styleFor(v, run.style, order) : undefined;
     const design = run.design && (run.format ?? "montage") === "montage" ? designFor(v, run.design, designs, style) : undefined;
     const common = { song: song ?? undefined, songSource: "song", songName: run.song?.split("/").pop() ?? "", fromStart: run.fromStart ?? true, songStart: run.songStart, scans, aspect: run.aspect ?? "9x16", length: run.length ?? 14, card, variant: v, avoid, toCome: (run.variants ?? 1) - v - 1, velocity: run.velocity || design === "velocity" };
+    const look = run.captionLook ? { ...(TEXT_LOOKS.find((l) => l.id === run.captionLook?.preset)?.look ?? DEFAULT_LOOK), ...run.captionLook } : undefined;
+    // (As the app does: the look on each of the edit's own captions, then brought on as it says.)
+    const dress = (plan: EditPlan): EditPlan => {
+      if (look) plan.captions = plan.captions.map((c) => ({ ...c, look }));
+      return plan;
+    };
+    const comeOn = (plan: EditPlan): EditPlan => {
+      if (look && !plan.design && song) plan.captions = ownCaptions(plan.captions, undefined, heardBeats(plan, song));
+      return plan;
+    };
     const make = () =>
       run.format === "twist"
-        ? planTwist({ ...common, actB: new Set((run.actB ?? []).map((i) => `clip${i}`)), captionA: run.caption?.text ?? "what they see vs...", captionB: run.captionB ?? "what they don't..." })
+        ? comeOn(dress(planTwist({ ...common, actB: new Set((run.actB ?? []).map((i) => `clip${i}`)), captionA: run.caption?.text ?? "what they see vs...", captionB: run.captionB ?? "what they don't..." })))
         : run.format === "meme"
-          ? planMeme({ ...common, text: run.memeText ?? "", position: run.memePosition ?? "upper" })
+          ? comeOn(dress(planMeme({ ...common, text: run.memeText ?? "", position: run.memePosition ?? "upper" })))
           : design
-            ? applyDesign(planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style, talkers, loop: run.loop, pace: run.pace, lean: leanOf(design) }), design, song!, { scans })
-            : planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style, talkers, loop: run.loop, pace: run.pace });
+            ? applyDesign(dress(planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style, talkers, loop: run.loop, pace: run.pace, lean: leanOf(design), openers: run.openers?.map((i) => `clip${i}`) })), design, song!, { scans })
+            : comeOn(dress(planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style, talkers, loop: run.loop, pace: run.pace, openers: run.openers?.map((i) => `clip${i}`) })));
     // As the app does: planned again until no shot runs over one of the footage's own cuts.
     const plan = run.settle === false ? make() : await settlePlan(make, new Map(scans.map((sc) => [sc.id, sc])), cutFinder(sources));
     usedRanges(plan, avoid);

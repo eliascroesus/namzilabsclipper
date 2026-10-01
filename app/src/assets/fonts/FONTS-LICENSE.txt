@@ -5,6 +5,11 @@ The caption and card faces here are all under the SIL Open Font License, Version
 - oswald-500.woff2: Oswald. Copyright 2016 The Oswald Project Authors (https://github.com/googlefonts/OswaldFont)
 - league-gothic-400.woff2: League Gothic. Copyright (c) 2010, Caroline Hadilaksono & Micah Rich, with Reserved Font Name "League Gothic"
 - vt323-400.woff2: VT323. Copyright 2011, The VT323 Project Authors (peter.hull@oikoi.com)
+- montserrat-var.woff2: Montserrat. Copyright 2011 The Montserrat Project Authors (https://github.com/JulietaUla/Montserrat)
+- poppins-800.woff2: Poppins. Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)
+- anton-400.woff2: Anton. Copyright 2020 The Anton Project Authors (https://github.com/googlefonts/AntonFont)
+- bebas-neue-400.woff2: Bebas Neue. Copyright 2019 The Bebas Neue Project Authors (https://github.com/dharmatype/Bebas-Neue)
+- playfair-italic-var.woff2: Playfair Display. Copyright 2017 The Playfair Display Project Authors (https://github.com/clauseggers/Playfair-Display)
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007

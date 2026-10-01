@@ -35,7 +35,7 @@ export interface StoryOptions {
   payoff?: number;
 }
 
-interface Word {
+export interface Word {
   text: string;
   start: number;
   end: number;
@@ -94,14 +94,14 @@ function timedWords(tr: Transcript, runs: Run[], a: number, b: number): Word[] {
 }
 
 /** Subtitle lines: up to four words, breaking after punctuation, like the nio.trade clips. */
-function subtitleLines(words: (Word & { out: number; outEnd: number })[]): CaptionEvent[] {
+export function subtitleLines(words: (Word & { out: number; outEnd: number })[]): CaptionEvent[] {
   const lines: CaptionEvent[] = [];
   let cur: typeof words = [];
   const flush = () => {
     if (!cur.length) return;
     const text = cur.map((w) => w.text).join(" ");
     const shout = cur.filter((w) => w.shout).length > cur.length / 2;
-    lines.push({ style: shout ? "shout" : "doc", text: shout ? text : text.replace(/[.,;:!]+$/, ""), start: cur[0].out, end: cur[cur.length - 1].outEnd });
+    lines.push({ style: shout ? "shout" : "doc", text: shout ? text : text.replace(/[.,;:!]+$/, ""), start: cur[0].out, end: cur[cur.length - 1].outEnd, spoken: true });
     cur = [];
   };
   for (const w of words) {
