@@ -323,9 +323,10 @@ describe("planners on a synthetic song (runs everywhere)", () => {
       }
       // The talking head stays out.
       expect(count.has("talk")).toBe(false);
-      // The flex still opens the edit (each edit on its own: once the views and the yacht
-      // have opened earlier edits, the clubs and the bar).
-      if (v < 2) expect(["yacht", "terrace", "sofa", "pool"]).toContain(plan.shots[0].source);
+      // The flex or the people at the beach open the edit (footage of the life: people
+      // doing something count as much as a view), each edit on its own; never the dull
+      // ones (a dark selfie, a dinner, the guys standing about).
+      if (v < 2) expect(["yacht", "terrace", "sofa", "pool", "beach"]).toContain(plan.shots[0].source);
       expect(["dinner", "selfie", "guys", "couple", "food", "talk"]).not.toContain(plan.shots[0].source);
     }
   });

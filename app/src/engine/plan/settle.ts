@@ -31,7 +31,8 @@ const overSpan = (o: OverlayEvent): [number, number] | null => (o.kind === "vide
  */
 export async function checkShots(plan: EditPlan, scans: Map<string, Scan>, find: CutFinder): Promise<number> {
   const stretches: [string, number, number][] = [];
-  for (const shot of plan.shots) if (shot.kind === "video" && !shot.audio) stretches.push([shot.source, shot.srcStart, shot.srcStart + sourceSpan(shot)]);
+  // (A shot under a split screen's panels isn't seen: what the panels play is.)
+  for (const shot of plan.shots) if (shot.kind === "video" && !shot.audio && !shot.hide) stretches.push([shot.source, shot.srcStart, shot.srcStart + sourceSpan(shot)]);
   for (const o of plan.overlays ?? []) {
     const span = overSpan(o);
     if (span) stretches.push([o.source, ...span]);
@@ -93,7 +94,8 @@ function repair(shot: ShotEvent, scan: Scan, aspect: EditPlan["aspect"]): ShotEv
  * frame by frame at what the plan uses, and plan again with what was found, until
  * nothing new turns up. If the footage cuts so fast that a few rounds don't do it,
  * the last plan's shots are moved (or slowed a little) to fit inside their scenes,
- * and a clip laid over them that runs over a cut is left out.
+ * and a clip laid over them that runs over a cut is left out (a split screen's panel
+ * holds its first frame instead: left out, it would leave a hole).
  */
 export async function settlePlan(make: () => EditPlan, scans: Map<string, Scan>, find: CutFinder, rounds = 4): Promise<EditPlan> {
   let plan = make();
@@ -110,6 +112,6 @@ export async function settlePlan(make: () => EditPlan, scans: Map<string, Scan>,
   return {
     ...plan,
     shots: plan.shots.map((s) => (s.kind === "video" && !s.audio && scans.get(s.source) ? repair(s, scans.get(s.source)!, plan.aspect) : s)),
-    ...(plan.overlays ? { overlays: plan.overlays.filter(clean) } : {}),
+    ...(plan.overlays ? { overlays: plan.overlays.flatMap((o) => (clean(o) ? [o] : o.panel ? [{ ...o, speed: 0 }] : [])) } : {}),
   };
 }

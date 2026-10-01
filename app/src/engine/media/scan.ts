@@ -500,6 +500,26 @@ function pct(values: number[], p: number): number {
  * sells the life and how striking it is, with talking heads and titles pushed
  * right down.
  */
+/**
+ * Footage of the life rather than luxury: friends on a trip, a party, a day out, where
+ * under a quarter of what the picture model looked at sells the dream (a supercar, a
+ * jet, a yacht, a watch, money, a villa). There, people doing something and what's
+ * striking to look at are the edit, not the flex the footage hasn't got. (Unjudged
+ * footage, or too little of it, isn't.)
+ */
+export function lifeFootage(scans: Scan[]): boolean {
+  let n = 0;
+  let lux = 0;
+  for (const sc of scans) {
+    if (!sc.look) continue;
+    for (let i = 0; i < sc.look.flex.length; i++) {
+      n++;
+      if (sc.look.flex[i] >= 0.7) lux++;
+    }
+  }
+  return n >= 8 && lux < 0.25 * n;
+}
+
 export function scoreInterest(scans: Scan[]): void {
   const sharp: number[] = [];
   const motion: number[] = [];
@@ -521,6 +541,8 @@ export function scoreInterest(scans: Scan[]): void {
   const WORK = KINDS.indexOf("work");
   const OTHER = KINDS.indexOf("other");
   const PEOPLE = KINDS.indexOf("people");
+  const DOING = new Set(["people", "party", "fashion", "sport"].map((k) => KINDS.indexOf(k as Kind)));
+  const life = lifeFootage(scans);
   for (const sc of scans) {
     const n = sc.stats.t.length;
     const out = new Float32Array(n);
@@ -557,13 +579,16 @@ export function scoreInterest(scans: Scan[]): void {
         // Whatever it shows, a dark frame reads as murk on a phone: below a fifth of full
         // brightness the flex counts for less (half at a twelfth).
         const seen = 1 - 0.5 * clamp01((0.2 - st.luma[i]) / 0.12);
-        q = 0.3 * quality + 0.7 * seen * (0.6 * sc.look.flex[i] + 0.4 * sc.look.wow[i]);
+        // (In footage of the life, what's happening counts as much as the flex: someone
+        // doing something, or plenty moving.)
+        const pick = life ? 0.35 * sc.look.flex[i] + 0.4 * sc.look.wow[i] + 0.25 * Math.max(DOING.has(kind) ? 1 : 0, qMotion) : 0.6 * sc.look.flex[i] + 0.4 * sc.look.wow[i];
+        q = 0.3 * quality + 0.7 * seen * pick;
         if (kind === TEXT) q *= 0.2;
         else if (kind === TALKING) q *= 0.5;
         // Filler: a room, a blur, people with nothing to show off, a desk. In the edit
         // only once the flex runs out.
         else if (kind === WORK) q *= 0.6;
-        else if (kind === OTHER || kind === PEOPLE) q *= 0.85;
+        else if (kind === OTHER || (kind === PEOPLE && !life)) q *= 0.85;
         real![i] = kind === WORK ? 0.45 + 0.3 * sc.look.wow[i] + 0.25 * quality : kind === TEXT || kind === TALKING ? 0.02 : 0.1 * quality;
       }
       out[i] = clamp01(q);

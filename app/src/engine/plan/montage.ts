@@ -7,7 +7,7 @@
  */
 import { pickSection, type Accent, type SongAnalysis } from "../audio/song";
 import type { Bar } from "../audio/structure";
-import { KINDS, PROFILE_BINS, type Scan } from "../media/scan";
+import { KINDS, lifeFootage, PROFILE_BINS, type Scan } from "../media/scan";
 import { boundsOf, type Bound } from "./bounds";
 import { frameShot, kenBurns } from "./framing";
 import { heardAt, rhythmCuts, type Pace, type RhythmCut, type RhythmOptions } from "./rhythm";
@@ -504,6 +504,10 @@ interface Segment {
   tail?: number;
   /** seconds of footage it has, when shorter than the slot's (a short clip played slower to fill it) */
   len?: number;
+  /** someone doing something in it, 0 to 1 (the picture model's people, a party, a fit check, a sport; else skin) */
+  people?: number;
+  /** empty scenery, 0 to 1: a view, a street, a room, with nobody in it and nothing moving */
+  empty?: number;
 }
 
 /** The crop for a stretch of a source: where its interest sits, inside any black bars (see framing.ts). */
@@ -574,6 +578,10 @@ export type Purpose = "flex" | "real";
 const FILLER = new Set((["talking", "text", "work", "other", "people"] as const).map((k) => KINDS.indexOf(k)));
 /** Filler whoever picked the clip: someone talking to the camera, a screen of text. */
 const NEVER = new Set((["talking", "text"] as const).map((k) => KINDS.indexOf(k)));
+/** The picture model's kinds with someone doing something in them (talking is filler). */
+const DOING = new Set((["people", "party", "fashion", "sport"] as const).map((k) => KINDS.indexOf(k)));
+/** Its scenery: a view, a street, a room, empty unless someone is in it. */
+const SCENERY = new Set((["view", "city", "home"] as const).map((k) => KINDS.indexOf(k)));
 
 /**
  * The clips the user picked one by one (short clips and pictures, when there are several):
@@ -586,8 +594,12 @@ export function handPicked(scans: Scan[]): Set<string> {
   return new Set(picked.length >= 2 ? picked.map((s) => s.id) : []);
 }
 
-/** Every usable stretch of every source for a slot `d` seconds long. */
-function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts = false, purpose: Purpose = "flex", hand: Set<string> = new Set()): Segment[] {
+/**
+ * Every usable stretch of every source for a slot `d` seconds long. In footage of the
+ * life rather than luxury (`life`: friends on a trip, a party, a day out; see
+ * lifeFootage), people doing something are what it's about, not filler.
+ */
+function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts = false, purpose: Purpose = "flex", hand: Set<string> = new Set(), life = false): Segment[] {
   const out: Segment[] = [];
   for (const scan of scans) {
     const st = scan.stats;
@@ -649,6 +661,18 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
         let mid = first;
         for (let i = first; i < st.t.length && st.t[i] <= start + d / 2; i++) mid = i;
         const look = scan.look;
+        // Someone doing something in it, and empty scenery (nobody in it, little moving).
+        let ppl = 0;
+        let scenic = 0;
+        let n = 0;
+        for (let i = first; i <= last; i++) {
+          const skin = clamp(st.skin[i] * 5, 0, 1);
+          ppl += look ? (DOING.has(look.kind[i]) ? 1 : 0.6 * skin) : skin;
+          scenic += look && SCENERY.has(look.kind[i]) ? 1 : 0;
+          n++;
+        }
+        const people = n ? ppl / n : 0;
+        const empty = n ? (scenic / n) * (1 - people) * (1 - 0.5 * clamp(motion / c / motionScale, 0, 1)) : 0;
         const emb = look?.embs && look.cell ? look.embs[look.cell[Math.max(0, mid)]] : undefined;
         let flex: number | undefined;
         let wow: number | undefined;
@@ -664,8 +688,14 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
         // a kitchen. In a clip the user picked, only talking and text, and all of a talking clip
         // but its real flex.)
         const kind = look?.kind[Math.max(0, mid)];
-        const filler = look ? (hand.has(scan.id) ? NEVER.has(kind!) || (talky(scan) && (flex ?? 0) < 0.7) : FILLER.has(kind!) || (flex ?? 1) < 0.33) : undefined;
-        out.push({ scan, start, score: sum / c, peak, motion: clamp(motion / c / motionScale, 0, 1.5), rgb: [rgb[0] / c, rgb[1] / c, rgb[2] / c], luma: luma / c, enter: clamp(st.motion[first] / motionScale, 0, 1.5), emb, flex, wow, filler, scene: acrossCuts ? -1 : s, head: first, tail: last });
+        const filler = look
+          ? hand.has(scan.id)
+            ? NEVER.has(kind!) || (talky(scan) && (flex ?? 0) < 0.7)
+            : life
+              ? NEVER.has(kind!) || (!DOING.has(kind!) && (flex ?? 1) < 0.2)
+              : FILLER.has(kind!) || (flex ?? 1) < 0.33
+          : undefined;
+        out.push({ scan, start, score: sum / c, peak, motion: clamp(motion / c / motionScale, 0, 1.5), rgb: [rgb[0] / c, rgb[1] / c, rgb[2] / c], luma: luma / c, enter: clamp(st.motion[first] / motionScale, 0, 1.5), emb, flex, wow, filler, scene: acrossCuts ? -1 : s, head: first, tail: last, people, empty });
       }
     }
   }
@@ -834,20 +864,20 @@ function selectsOf(moments: Map<string, Moment>, k: number, spreadBy = 0.08): Se
  * failing that, the longest there are (played slower); failing that, stretches
  * running across the source's own cuts.
  */
-function candidatesFor(scans: Scan[], d: number, motionScale: number, purpose: Purpose = "flex", hand: Set<string> = new Set()): { segs: Segment[]; len: number } {
-  let segs = segmentsFor(scans, d, motionScale, false, purpose, hand);
+function candidatesFor(scans: Scan[], d: number, motionScale: number, purpose: Purpose = "flex", hand: Set<string> = new Set(), life = false): { segs: Segment[]; len: number } {
+  let segs = segmentsFor(scans, d, motionScale, false, purpose, hand, life);
   if (segs.length) return { segs, len: d };
   const inShot = Math.max(...scans.map((s) => longestStretch(s)));
   if (inShot >= d * 0.5) {
     const len = Math.max(MIN_SHOT, Math.min(d, inShot));
-    segs = segmentsFor(scans, len, motionScale, false, purpose, hand);
+    segs = segmentsFor(scans, len, motionScale, false, purpose, hand, life);
     if (segs.length) return { segs, len };
   }
-  segs = segmentsFor(scans, d, motionScale, true, purpose, hand);
+  segs = segmentsFor(scans, d, motionScale, true, purpose, hand, life);
   if (segs.length) return { segs, len: d };
   const whole = Math.max(...scans.map((s) => longestStretch(s, true)));
   const len = Math.max(0.1, Math.min(d, whole));
-  segs = segmentsFor(scans, len, motionScale, true, purpose, hand);
+  segs = segmentsFor(scans, len, motionScale, true, purpose, hand, life);
   if (segs.length) return { segs, len };
   // Clips too short for even that: each one from its start, whatever its length.
   return {
@@ -877,6 +907,8 @@ export interface AssignContext {
    * shots around it are picked, so none of them repeats it
    */
   loop?: boolean;
+  /** what the edit's design wants more of (designs.ts): movement and people (a cold edit, a zoom edit), or calm, steady pictures (cinematic, a tape) */
+  lean?: "action" | "calm";
 }
 
 /** A velocity ramp takes this much more footage than the slot is long. */
@@ -965,7 +997,9 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
   // (slot by slot, below) from the three best still fresh. Any good stretch of a
   // select will do, so the edits in a batch can share a great scene without
   // repeating each other's shots.
-  const halfSeconds = segmentsFor(scans, 0.5, motionScale, false, ctx.purpose, hand);
+  // (What the footage is: luxury, where the flex is the point, or the life, where the people are.)
+  const life = lifeFootage(scans);
+  const halfSeconds = segmentsFor(scans, 0.5, motionScale, false, ctx.purpose, hand, life);
   const moments = momentScores(halfSeconds);
   // Each edit draws its selects first from the good moments (four fifths as good as
   // the footage's best, or better) no earlier edit in the batch used, in any role:
@@ -1094,7 +1128,7 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
     const need = slot.pieces ? d + (slot.pieces.length - 1) * RECUT_JUMP : ctx.velocity && d >= RAMP_MIN ? d * RAMP_FOOTAGE : d;
     const key = Math.round(need * FPS);
     if (!cache.has(key)) {
-      const c = candidatesFor(scans, need, motionScale, ctx.purpose, hand);
+      const c = candidatesFor(scans, need, motionScale, ctx.purpose, hand, life);
       cache.set(key, { ...c, best: momentScores(c.segs) });
     }
     const { segs: fit, len, best: bestOf } = cache.get(key)!;
@@ -1106,7 +1140,7 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
       for (const sc of short) {
         const L = longestStretch(sc);
         if (L < Math.max(MIN_SHOT, 0.6 * len) || L >= len) continue;
-        const more = segmentsFor([sc], L, motionScale, false, ctx.purpose, hand).map((g) => ({ ...g, len: L }));
+        const more = segmentsFor([sc], L, motionScale, false, ctx.purpose, hand, life).map((g) => ({ ...g, len: L }));
         if (more.length) segs = [...segs, ...more];
       }
     }
@@ -1167,13 +1201,25 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
         // The hook and the drop: the most striking picture of the most flex, moving.
         if (hero) s += 0.3 * seg.peak + 0.15 * Math.min(1, seg.motion) + 0.25 * (seg.flex ?? 0) + 0.25 * (seg.wow ?? 0);
         // The first frame has to read at a glance on a phone: not a dark club.
-        if (r === "hook" && seg.luma !== undefined) s -= 1.2 * Math.max(0, 0.32 - seg.luma);
+        if (r === "hook" && seg.luma !== undefined) s -= 1.6 * Math.max(0, 0.32 - seg.luma);
         // After the drop the edit pays off: the flex goes there (the build sets it up).
         if (r === "body" && dropStart !== undefined && slot.start >= dropStart - 0.05) s += 0.12 * (seg.flex ?? 0) + 0.08 * (seg.wow ?? 0);
         // The last shot is what the replay loops from: strong too.
         if (r === "closer") s += 0.1 * seg.peak + 0.2 * (seg.flex ?? 0) + 0.15 * (seg.wow ?? 0);
         if (video) s -= 0.22 * Math.abs(Math.min(1, seg.motion) - energy);
         else s -= 0.12 * energy + (hero ? 0.1 : 0);
+        // What's happening in it: where the music drives (and for the hook, which has to
+        // stop the scroll, and the drop), someone doing something lifts a shot and empty
+        // scenery sinks it; where it's calm, a view is welcome.
+        // (People you can make out: in a dim club they count for less.)
+        const drives = clamp((energy - 0.45) / 0.35, 0, 1);
+        const legible = seg.luma === undefined ? 1 : clamp((seg.luma - 0.25) / 0.1, 0, 1);
+        s += (0.12 * drives + (hero ? 0.08 : 0) + (life ? 0.06 : 0)) * (seg.people ?? 0) * legible;
+        s -= (0.14 * drives + (hero ? 0.08 : 0)) * (seg.empty ?? 0);
+        s += 0.04 * (1 - drives) * (seg.empty ?? 0);
+        // And what the design wants: movement and people, or calm, steady pictures.
+        if (ctx.lean === "action") s += 0.06 * Math.min(1, seg.motion) + 0.04 * (seg.people ?? 0);
+        else if (ctx.lean === "calm") s -= 0.1 * Math.max(0, seg.motion - 0.8);
         const far = video ? spread(seg.scan) : 0;
         const scene = sceneOf(seg);
         let carries = false;
@@ -1504,6 +1550,8 @@ export interface MontageOptions {
   loop?: boolean;
   /** how hard it cuts on the music (rhythm.ts); the style's own when it has one (slow: relaxed, fast re-cuts: hard), steady ("beat") when unset */
   pace?: Pace;
+  /** what the edit's design wants more of (designs.ts: leanOf) */
+  lean?: "action" | "calm";
 }
 
 /** A pace's cutting against the references' (the template's shot length, times this). */
@@ -1568,7 +1616,7 @@ export function planMontage(o: MontageOptions): EditPlan {
   // After the talking, the edit is the other footage (TJR's build and payoff are two
   // places), unless there's hardly any.
   const rest = intro ? o.scans.filter((sc) => sc.id !== intro.shots[0].source) : o.scans;
-  let shots = assignShots(slots, rest.length >= 2 ? rest : o.scans, { song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, toCome: o.toCome, velocity: o.velocity, used, loop: looped });
+  let shots = assignShots(slots, rest.length >= 2 ? rest : o.scans, { song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, toCome: o.toCome, velocity: o.velocity, used, loop: looped, lean: o.lean });
   if (intro) shots = [...intro.shots, ...shots];
   // The beats and half beats the song hits, as cut (for pictures landing on the music).
   const grid = song.beats

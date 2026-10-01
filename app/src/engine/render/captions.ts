@@ -1,7 +1,8 @@
 /**
  * The six caption styles of the reference edits (docs/edit-analysis.md), with
- * sizes and positions measured from their frames. Sizes scale with the frame's
- * short side, so a 9:16 and a 4:3 export read the same.
+ * sizes and positions measured from their frames, and the edit designs' own
+ * (plan/designs.ts). Sizes scale with the frame's short side, so a 9:16 and a 4:3
+ * export read the same.
  */
 import type { CaptionEvent } from "../plan/types";
 import { FONT } from "./fonts";
@@ -21,6 +22,15 @@ interface Style {
   shadow: boolean;
   transform: (s: string) => string;
   maxWidth: number;
+  /** space between the letters, in ems */
+  spacing?: number;
+  /** red and cyan copies either side of the white (a glitch's) */
+  chroma?: boolean;
+  /** grown until its widest line is this share of the frame's width (a word on the beat filling the frame), up to `most` of the short side */
+  fill?: number;
+  most?: number;
+  /** set from its left edge (at x) instead of its centre */
+  left?: boolean;
 }
 
 const STYLES: Record<CaptionEvent["style"], Style> = {
@@ -36,7 +46,22 @@ const STYLES: Record<CaptionEvent["style"], Style> = {
   mood: { font: (px) => `italic 400 ${px}px ${FONT.serif}`, size: 0.042, y: 0.5, x: 0.5, lineHeight: 1.2, box: false, outline: false, shadow: true, transform: (s) => s, maxWidth: 0.8 },
   // the text meme: small bold lines, centred in the upper third
   meme: { font: (px) => `700 ${px}px ${FONT.sans}`, size: 0.029, y: 0.3, x: 0.5, lineHeight: 1.4, box: false, outline: false, shadow: true, transform: (s) => s, maxWidth: 0.56 },
+  // the edit designs' (plan/designs.ts): big tall capitals, a word at a time on the beat, filling the frame
+  impact: { font: (px) => `400 ${px}px ${FONT.tall}`, size: 0.12, y: 0.5, x: 0.5, lineHeight: 0.95, box: false, outline: false, shadow: true, transform: (s) => s.toUpperCase(), maxWidth: 0.86, spacing: 0.02, fill: 0.62, most: 0.26 },
+  // a film's title: small capitals spaced wide
+  film: { font: (px) => `500 ${px}px ${FONT.sans}`, size: 0.038, y: 0.5, x: 0.5, lineHeight: 1.5, box: false, outline: false, shadow: true, transform: (s) => s.toUpperCase(), maxWidth: 0.86, spacing: 0.42 },
+  // condensed capitals with red and cyan either side
+  glitch: { font: (px) => `500 ${px}px ${FONT.condensed}`, size: 0.075, y: 0.5, x: 0.5, lineHeight: 1.05, box: false, outline: false, shadow: false, transform: (s) => s.toUpperCase(), maxWidth: 0.86, spacing: 0.04, chroma: true, fill: 0.56, most: 0.2 },
+  // a VCR's on-screen lettering, top left
+  osd: { font: (px) => `400 ${px}px ${FONT.mono}`, size: 0.062, y: 0.08, x: 0.07, lineHeight: 1.1, box: false, outline: false, shadow: true, transform: (s) => s.toUpperCase(), maxWidth: 0.86, spacing: 0.04, left: true },
 };
+
+/** How big a popping caption is `frames` after it lands: from seven tenths, a little too big two frames on, settled by the fifth. */
+export function popScale(frames: number): number {
+  if (frames >= 5) return 1;
+  if (frames <= 2) return 0.7 + 0.225 * Math.max(0, frames);
+  return 1.15 - 0.05 * (frames - 2);
+}
 
 function wrap(ctx: Ctx, text: string, max: number): string[] {
   const out: string[] = [];
@@ -60,25 +85,39 @@ function wrap(ctx: Ctx, text: string, max: number): string[] {
   return out;
 }
 
-/** Draw a caption at full opacity times `alpha`. */
-export function drawCaption(ctx: Ctx, W: number, H: number, ev: CaptionEvent, alpha = 1) {
+/** Draw a caption at full opacity times `alpha`, scaled about its middle by `scale` (a pop). */
+export function drawCaption(ctx: Ctx, W: number, H: number, ev: CaptionEvent, alpha = 1, scale = 1) {
   const st = STYLES[ev.style];
-  const px = Math.round(Math.min(W, H) * st.size);
+  let px = Math.round(Math.min(W, H) * st.size);
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.font = st.font(px);
-  ctx.textAlign = "center";
+  if (st.fill) {
+    // (Its longest line grown to fill the width it's given, up to the most it may be.)
+    const widest = Math.max(...st.transform(ev.text).split("\n").map((l) => ctx.measureText(l).width), 1);
+    px = Math.round(Math.max(px, Math.min(Math.min(W, H) * (st.most ?? st.size), (px * st.fill * W) / widest)));
+    ctx.font = st.font(px);
+  }
+  ctx.textAlign = st.left ? "left" : "center";
   ctx.textBaseline = "middle";
+  // (Letter spacing adds a space after the last letter too: half of it back, to stay centred.)
+  const gap = st.spacing && "letterSpacing" in ctx ? st.spacing * px : 0;
+  if (gap) ctx.letterSpacing = `${gap}px`;
   const text = st.transform(ev.text);
   const lines = wrap(ctx, text, W * st.maxWidth);
   const lh = px * st.lineHeight;
-  const cx = W * st.x;
+  const cx = W * (ev.x ?? st.x) + (st.left ? 0 : gap / 2);
   // In a tall frame the app's own caption, name and buttons cover the bottom third
   // (Reels keeps the lower 35% for them), so bottom captions sit higher there.
   const tall = H / W > 1.5;
   const baseY = tall && st.y > 0.8 ? 0.64 : st.y;
   const cy = H * (ev.y ?? baseY);
   const top = cy - ((lines.length - 1) * lh) / 2;
+  if (scale !== 1) {
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.translate(-cx, -cy);
+  }
   lines.forEach((line, i) => {
     const y = top + i * lh;
     if (!line) return;
@@ -103,6 +142,15 @@ export function drawCaption(ctx: Ctx, W: number, H: number, ev: CaptionEvent, al
       ctx.lineWidth = Math.max(2, px * 0.07);
       ctx.strokeStyle = "rgba(0,0,0,0.85)";
       ctx.strokeText(line, cx, y);
+    }
+    if (st.chroma) {
+      const d = Math.max(2, px * 0.045);
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = "rgba(255,0,60,0.9)";
+      ctx.fillText(line, cx - d, y);
+      ctx.fillStyle = "rgba(0,230,255,0.9)";
+      ctx.fillText(line, cx + d, y);
+      ctx.globalCompositeOperation = "source-over";
     }
     ctx.fillStyle = "#fff";
     ctx.fillText(line, cx, y);

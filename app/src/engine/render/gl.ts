@@ -1,8 +1,11 @@
 /**
  * The compositor: every frame of an edit is drawn here on the GPU. Footage is
  * cropped (following the subject), zoomed and graded; photos and still shots get
- * a slow push; flashes, film burns and dips to black are drawn over it; captions
- * and the demo card come in last from a 2D canvas, untouched by the grade.
+ * a slow push; flashes, film burns and dips to black are drawn over it, and the edit
+ * designs' transitions and effects (whip pans, zoom and spin transitions, blur-ins,
+ * glitches, light leaks, letterbox bars: plan/designs.ts) move and smear the whole
+ * picture; captions and the demo card come in last from a 2D canvas, untouched by
+ * the grade.
  */
 import type { Grade } from "../plan/types";
 
@@ -57,6 +60,30 @@ export interface FrameDraw {
   split?: number;
   /** black and white, 0 to 1 */
   mono?: number;
+  /**
+   * the whole picture moved (in frame widths and heights, right and down), scaled about
+   * the middle (1 = as it is) and turned clockwise (radians), what it leaves bare filled
+   * with its own mirror image: a whip pan, a zoom or a spin across a cut, a swing
+   */
+  move?: [number, number];
+  scale?: number;
+  spin?: number;
+  /** motion blur: along this (frame widths and heights), and round the middle (radians) */
+  streak?: [number, number];
+  spinBlur?: number;
+  /** out of focus, 0 to 1 */
+  blur?: number;
+  /** the picture torn into bands and split in colour, 0 to 1 */
+  glitch?: number;
+  /** the picture's negative, 0 to 1 */
+  invert?: number;
+  /** letterbox bars, each this share of the frame's height */
+  bars?: number;
+  /** a light leak, 0 to 1, and how far across it has drifted (0 to 1) */
+  leak?: number;
+  leakPhase?: number;
+  /** a videotape's picture, 0 to 1 */
+  vhs?: number;
 }
 
 const VERT = `#version 300 es
@@ -164,8 +191,17 @@ uniform sampler2D uScene;
 uniform sampler2D uOverlay;
 uniform bool uHasOverlay;
 uniform vec2 uOut;
-uniform float uWarm, uContrast, uSat, uVig, uGrain;
+uniform float uWarm, uContrast, uSat, uVig, uGrain, uFade, uGlow, uExposure;
+uniform vec3 uShadows, uHighlights;
 uniform float uFlash, uBurn, uBurnPhase, uDim, uTime, uSeed, uZoomBlur, uSplit, uMono;
+uniform vec2 uMove; // the picture moved, in frame widths and heights (right, down)
+uniform float uScale; // the picture scaled about the middle, 1 = as it is
+uniform float uSpin; // the picture turned clockwise about the middle, radians
+uniform vec2 uStreak; // motion blur along this, in frame widths and heights
+uniform float uSpinBlur; // motion blur round the middle, radians
+uniform float uBlur; // out of focus, 0 to 1
+uniform bool uMips; // the scene has its smaller copies (for the blurs and the glow)
+uniform float uGlitch, uInvert, uBars, uLeak, uLeakPhase, uVhs;
 out vec4 outColor;
 float hash(vec2 p) { p = fract(p * vec2(443.897, 441.423)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }
 float noise(vec2 p) {
@@ -178,38 +214,118 @@ float fbm(vec2 p) {
   for (int i = 0; i < 5; i++) { s += a * noise(p); p = p * 2.03 + 11.7; a *= 0.5; }
   return s;
 }
+// Where the picture shown at q (0 to 1, from the top left) comes from: moved, scaled
+// and turned about the middle, in pixels so a turn doesn't stretch it; past its edges,
+// its mirror image.
+vec2 place(vec2 q) {
+  vec2 d = (q - 0.5 - uMove) * uOut;
+  float c = cos(uSpin), s = sin(uSpin);
+  d = vec2(c * d.x + s * d.y, -s * d.x + c * d.y) / uScale;
+  vec2 p = d / uOut + 0.5;
+  return 1.0 - abs(1.0 - mod(p, 2.0));
+}
+vec3 scene(vec2 q, float lod) {
+  vec2 p = place(q);
+  return textureLod(uScene, vec2(p.x, 1.0 - p.y), uMips ? lod : 0.0).rgb;
+}
 void main() {
   vec2 o = vec2(vPos.x, 1.0 - vPos.y);
-  vec3 c = texture(uScene, vPos).rgb;
-  // A zoom blur across a cut: the picture smeared out from the middle.
-  if (uZoomBlur > 0.001) {
+  vec2 q0 = o;
+  // A glitch: bands of the picture torn sideways (a new pattern every frame), and blocks
+  // of it jumped out of place.
+  float torn = 0.0;
+  float fs = floor(uTime * 30.0 + 0.5) + uSeed * 17.0;
+  if (uGlitch > 0.001) {
+    float rows = mix(10.0, 44.0, hash(vec2(fs, 3.1)));
+    float band = floor(o.y * rows);
+    torn = step(1.0 - 0.55 * uGlitch, hash(vec2(band, fs)));
+    q0.x += (hash(vec2(band, fs + 7.0)) - 0.5) * 0.2 * uGlitch * torn;
+    vec2 blk = floor(o * vec2(9.0, 16.0) * (1.0 + floor(hash(vec2(fs, 5.0)) * 3.0)));
+    if (hash(blk + fs * 0.37) > 1.0 - 0.08 * uGlitch) q0 += (vec2(hash(blk + fs), hash(blk - fs)) - 0.5) * 0.12;
+  }
+  // A videotape: each line a little out of place (the bottom few torn sideways by the
+  // heads switching), and now and then a band of it rolling down.
+  if (uVhs > 0.001) {
+    float row = floor(o.y * uOut.y / 3.0);
+    q0.x += uVhs * (noise(vec2(row * 0.07, uTime * 9.0)) - 0.5) * 4.0 / uOut.x;
+    float head = smoothstep(0.955, 1.0, o.y);
+    q0.x += uVhs * head * (0.03 + 0.03 * noise(vec2(uTime * 40.0, o.y * 60.0)));
+    float roll = fract(uTime * 0.11 + uSeed);
+    q0.x += uVhs * smoothstep(0.03, 0.0, abs(o.y - roll)) * (noise(vec2(o.y * 300.0, uTime * 50.0)) - 0.5) * 0.04;
+  }
+  vec3 c;
+  // Blurs: a zoom blur out from the middle, motion along a whip, round a spin, and out of
+  // focus, all in one set of taps (on the scene's smaller copies, so they come out smooth).
+  float r = length((q0 - 0.5) * uOut);
+  float spread = r * (0.14 * uZoomBlur + abs(uSpinBlur)) + length(uStreak * uOut) + 0.06 * uBlur * max(uOut.x, uOut.y);
+  if (spread > 1.0) {
+    float lod = log2(max(1.0, spread / 10.0));
     vec3 acc = vec3(0.0);
-    for (int i = 0; i < 16; i++) acc += texture(uScene, mix(vec2(0.5), vPos, 1.0 - 0.14 * uZoomBlur * float(i) / 15.0)).rgb;
-    c = acc / 16.0;
+    for (int i = 0; i < 24; i++) {
+      float f = (float(i) + 0.5) / 24.0;
+      vec2 q = mix(vec2(0.5), q0, 1.0 - 0.14 * uZoomBlur * f) + uStreak * (f - 0.5);
+      if (uSpinBlur != 0.0) {
+        vec2 d = (q - 0.5) * uOut;
+        float a = uSpinBlur * (f - 0.5), ca = cos(a), sa = sin(a);
+        q = vec2(ca * d.x - sa * d.y, sa * d.x + ca * d.y) / uOut + 0.5;
+      }
+      float ang = float(i) * 2.39996;
+      q += vec2(cos(ang), sin(ang)) * sqrt(f) * 0.03 * uBlur * max(uOut.x, uOut.y) / uOut;
+      acc += scene(q, lod);
+    }
+    c = acc / 24.0;
+  } else {
+    c = scene(q0, 0.0);
   }
-  // A colour split on a hit: red pushed out from the middle, blue pulled in.
-  if (uSplit > 0.001) {
-    vec2 d = (vPos - 0.5) * 0.028 * uSplit;
-    c.r = texture(uScene, vPos + d).r;
-    c.b = texture(uScene, vPos - d).b;
+  // A colour split: red pushed out from the middle and blue pulled in on a hit; sideways
+  // in a glitch, most in its torn bands.
+  if (uSplit > 0.001 || uGlitch > 0.001) {
+    vec2 d = (q0 - 0.5) * 0.028 * uSplit + vec2(0.01 * uGlitch * (1.0 + 2.0 * torn), 0.0);
+    c.r = scene(q0 + d, 0.0).r;
+    c.b = scene(q0 - d, 0.0).b;
   }
-  // White balance towards warm.
+  // A videotape's picture: the detail soft, the colour soft and late (a few pixels to the
+  // right), and noise in the lines.
+  if (uVhs > 0.001) {
+    float px = 1.0 / uOut.x;
+    vec3 soft = (scene(q0 - vec2(1.5 * px, 0.0), 0.0) + scene(q0, 0.0) + scene(q0 + vec2(1.5 * px, 0.0), 0.0)) / 3.0;
+    vec3 wide = vec3(0.0);
+    for (int i = -3; i <= 3; i++) wide += scene(q0 + vec2((float(i) * 4.0 - 4.0) * px, 0.0), uMips ? 1.5 : 0.0);
+    wide /= 7.0;
+    vec3 luma = vec3(0.299, 0.587, 0.114);
+    vec3 tape = dot(soft, luma) + (wide - dot(wide, luma));
+    tape += (hash(vec2(floor(o.y * uOut.y / 2.0), floor(uTime * 30.0))) - 0.5) * 0.05;
+    c = mix(c, tape, uVhs);
+  }
+  // The highlights glowing into what's around them.
+  if (uGlow > 0.001 && uMips) {
+    vec3 halo = 0.5 * scene(o, 4.0) + 0.5 * scene(o, 5.5);
+    vec3 g = clamp((halo - 0.45) * 1.8, 0.0, 1.0) * uGlow;
+    c = 1.0 - (1.0 - clamp(c, 0.0, 1.0)) * (1.0 - g);
+  }
+  // Exposure, then the white balance towards warm.
+  c *= exp2(uExposure);
   c *= vec3(1.0 + 0.07 * uWarm, 1.0 + 0.012 * uWarm, 1.0 - 0.1 * uWarm);
   // A soft filmic S-curve (a little harder in black and white).
   vec3 s = c * c * (3.0 - 2.0 * c);
   c = mix(c, s, clamp(uContrast * 0.55 + 0.3 * uMono, 0.0, 1.0));
-  // Split tone: golden highlights, faintly teal shadows.
+  // Split tone: golden highlights, faintly teal shadows; and a look's own colours.
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c += uWarm * 0.05 * vec3(1.0, 0.5, -0.45) * smoothstep(0.45, 1.0, l);
   c += uWarm * 0.03 * vec3(-0.35, 0.08, 0.3) * (1.0 - smoothstep(0.0, 0.35, l));
+  c += uShadows * (1.0 - smoothstep(0.0, 0.45, l)) + uHighlights * smoothstep(0.4, 1.0, l);
   l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c = mix(vec3(l), c, uSat * (1.0 - uMono));
+  // The blacks lifted to a matte.
+  c = mix(vec3(0.2 * uFade), vec3(1.0), clamp(c, 0.0, 1.0));
   // Vignette, by the frame's longer side.
   vec2 q = (o - 0.5) * 2.0 * uOut / max(uOut.x, uOut.y);
   c *= 1.0 - uVig * 0.5 * smoothstep(0.5, 1.5, length(q));
   // Grain, strongest in the mid-tones.
   float g = hash(floor(o * uOut) + vec2(fract(uTime * 7.31) * 173.0, fract(uTime * 3.17) * 211.0)) - 0.5;
   c += g * uGrain * 0.06 * (1.0 - abs(l - 0.5));
+  // A glitch's scanlines.
+  if (uGlitch > 0.001) c *= 1.0 - 0.2 * uGlitch * step(0.5, fract(o.y * uOut.y / 4.0));
   // Film burn: a warm glow drifting in from an edge, screen-blended.
   if (uBurn > 0.0) {
     float n = fbm(o * vec2(2.4, 1.7) + vec2(uBurnPhase * 1.9, -uBurnPhase * 0.7) + uSeed);
@@ -218,8 +334,20 @@ void main() {
     vec3 bc = mix(vec3(1.0, 0.42, 0.06), vec3(1.0, 0.9, 0.62), smoothstep(0.15, 0.8, heat));
     c = 1.0 - (1.0 - clamp(c, 0.0, 1.0)) * (1.0 - bc * heat);
   }
+  // A light leak: warm and pink glows drifting across, screen-blended.
+  if (uLeak > 0.001) {
+    vec2 asp = uOut / max(uOut.x, uOut.y);
+    vec2 a = vec2(-0.3 + 1.6 * uLeakPhase, 0.2 + 0.25 * sin(uSeed * 2.0 + uLeakPhase * 2.5));
+    vec2 b = vec2(1.25 - 1.1 * uLeakPhase, 0.85 - 0.3 * uLeakPhase);
+    vec2 da = (o - a) * asp, db = (o - b) * asp;
+    vec3 lc = vec3(1.0, 0.48, 0.16) * exp(-dot(da, da) / 0.1) + vec3(1.0, 0.25, 0.42) * 0.85 * exp(-dot(db, db) / 0.07) + vec3(1.0, 0.85, 0.6) * 0.3 * exp(-dot(da, da) / 0.02);
+    c = 1.0 - (1.0 - clamp(c, 0.0, 1.0)) * (1.0 - clamp(lc * uLeak, 0.0, 1.0));
+  }
+  c = mix(c, 1.0 - clamp(c, 0.0, 1.0), uInvert);
   c = mix(c, vec3(1.0), uFlash);
   c *= 1.0 - uDim;
+  // Letterbox bars, their edges a pixel soft.
+  if (uBars > 0.0) c *= clamp(min(o.y, 1.0 - o.y) * uOut.y - uBars * uOut.y + 0.5, 0.0, 1.0);
   if (uHasOverlay) {
     vec4 ov = texture(uOverlay, o);
     c = ov.rgb + c * (1.0 - ov.a);
@@ -450,6 +578,11 @@ export class Compositor {
     gl.useProgram(p.prog);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.scene.tex);
+    // The scene's smaller copies, only when a blur or the glow reads them.
+    const mips = (f.zoomBlur ?? 0) > 0.001 || (f.blur ?? 0) > 0.001 || (f.grade.glow ?? 0) > 0.001 || (f.vhs ?? 0) > 0.001 || Math.hypot(...(f.streak ?? [0, 0])) > 1e-4 || Math.abs(f.spinBlur ?? 0) > 1e-4;
+    if (mips) gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mips ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+    gl.uniform1i(p.loc("uMips"), mips ? 1 : 0);
     gl.uniform1i(p.loc("uScene"), 0);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.overlayTex);
@@ -471,6 +604,23 @@ export class Compositor {
     gl.uniform1f(p.loc("uZoomBlur"), f.zoomBlur ?? 0);
     gl.uniform1f(p.loc("uSplit"), f.split ?? 0);
     gl.uniform1f(p.loc("uMono"), f.mono ?? 0);
+    gl.uniform1f(p.loc("uFade"), f.grade.fade ?? 0);
+    gl.uniform1f(p.loc("uGlow"), f.grade.glow ?? 0);
+    gl.uniform3fv(p.loc("uShadows"), f.grade.shadows ?? [0, 0, 0]);
+    gl.uniform3fv(p.loc("uHighlights"), f.grade.highlights ?? [0, 0, 0]);
+    gl.uniform2fv(p.loc("uMove"), f.move ?? [0, 0]);
+    gl.uniform1f(p.loc("uScale"), Math.max(0.2, f.scale ?? 1));
+    gl.uniform1f(p.loc("uSpin"), f.spin ?? 0);
+    gl.uniform2fv(p.loc("uStreak"), f.streak ?? [0, 0]);
+    gl.uniform1f(p.loc("uSpinBlur"), f.spinBlur ?? 0);
+    gl.uniform1f(p.loc("uBlur"), f.blur ?? 0);
+    gl.uniform1f(p.loc("uGlitch"), f.glitch ?? 0);
+    gl.uniform1f(p.loc("uInvert"), f.invert ?? 0);
+    gl.uniform1f(p.loc("uBars"), f.bars ?? 0);
+    gl.uniform1f(p.loc("uLeak"), f.leak ?? 0);
+    gl.uniform1f(p.loc("uLeakPhase"), f.leakPhase ?? 0);
+    gl.uniform1f(p.loc("uVhs"), f.vhs ?? 0);
+    gl.uniform1f(p.loc("uExposure"), f.grade.exposure ?? 0);
     this.quad(null);
   }
 

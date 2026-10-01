@@ -5,6 +5,7 @@ import { loadFonts } from "../../engine/render/fonts";
 import { FRAME_SIZE, type Aspect } from "../../engine/plan/types";
 import type { Pace } from "../../engine/plan/rhythm";
 import { EDIT_STYLES, paceOf } from "../../engine/plan/styles";
+import { DESIGNS } from "../../engine/plan/designs";
 import { CARD_VIDEO_LENGTH, cardHoldOf, MAX_LENGTH, studio, type Format, type State, type Style } from "../studio";
 import { Drop, fmtTime, Section, Segmented, Switch } from "./bits";
 import { SongTimeline } from "./song";
@@ -489,6 +490,26 @@ export function StylePanel({ s }: { s: State }) {
           </div>
         </div>
       )}
+      {st.format === "montage" && (
+        <div className="field">
+          <span className="label">Design</span>
+          <div className="formats styles">
+            <button type="button" className="format" aria-pressed={st.design === "mix"} onClick={() => studio.setStyle({ design: "mix" })}>
+              <span className="name">
+                <Dices size={15} strokeWidth={2.25} />
+                Mix
+              </span>
+              <span className="desc">Each edit in the batch in another design, the ones that suit the song first.</span>
+            </button>
+            {DESIGNS.map((d) => (
+              <button key={d.value} type="button" className="format" aria-pressed={st.design === d.value} onClick={() => studio.setStyle({ design: d.value })}>
+                <span className="name">{d.name}</span>
+                <span className="desc">{d.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {st.format === "montage" && (st.edit === "talk" || st.edit === "mix") && <TalkClipField s={s} />}
       {st.format === "montage" && <CuttingField st={st} />}
       <div className="field" style={st.format === "montage" ? undefined : { marginTop: 0 }}>
@@ -561,13 +582,19 @@ export function StylePanel({ s }: { s: State }) {
         </>
       )}
       <div className="field">
-        <span className="label">Look</span>
-        <Segmented label="Look" value={st.look} options={[{ value: "warm", label: "Warm film" }, { value: "natural", label: "As shot" }]} onChange={(v) => studio.setStyle({ look: v })} />
-        <span className="hint">{st.look === "warm" ? "Each shot balanced on its own (deep blacks, rich colour), then the nio.trade look: warm highlights, film contrast, a little grain and vignette." : "No grade: for footage that's already graded."}</span>
+        <span className="label">Colour</span>
+        <Segmented label="Colour" value={st.look} options={[{ value: "warm", label: st.format === "montage" ? "Graded" : "Warm film" }, { value: "natural", label: "As shot" }]} onChange={(v) => studio.setStyle({ look: v })} />
+        <span className="hint">
+          {st.look === "natural"
+            ? "No grade: for footage that's already graded. The design's effects stay on."
+            : st.format === "montage"
+              ? "Each shot balanced on its own (deep blacks, rich colour), then the design's colour: warm film, cold, teal and orange, black and white..."
+              : "Each shot balanced on its own (deep blacks, rich colour), then the nio.trade look: warm highlights, film contrast, a little grain and vignette."}
+        </span>
       </div>
       {st.format !== "meme" && (
         <div className="field">
-          <Switch checked={st.velocity} onChange={(v) => studio.setStyle({ velocity: v })} hint={st.velocity ? "Each shot hits in slow motion on the beat, then rushes into the next cut (smoothest with 60 fps footage)." : "Off: shots play at their own speed."}>
+          <Switch checked={st.velocity} onChange={(v) => studio.setStyle({ velocity: v })} hint={st.velocity ? "Each shot hits in slow motion on the beat, then rushes into the next cut (smoothest with 60 fps footage)." : st.format === "montage" ? "Off: shots play at their own speed (the Velocity design ramps them anyway)." : "Off: shots play at their own speed."}>
             Velocity (speed ramps)
           </Switch>
         </div>
@@ -586,7 +613,7 @@ export function StylePanel({ s }: { s: State }) {
       <div className="field">
         <span className="label">How many edits</span>
         <Segmented label="Number of edits" value={st.variants} options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: String(n) }))} onChange={(v) => studio.setStyle({ variants: v })} />
-        <span className="hint">{st.format === "montage" && st.edit === "mix" ? "Each one in another style, with its own moments and flourish." : "Each one uses different moments and a different flourish."}</span>
+        <span className="hint">{st.format === "montage" && (st.edit === "mix" || st.design === "mix") ? `Each one in another ${st.edit === "mix" && st.design === "mix" ? "style and design" : st.edit === "mix" ? "style" : "design"}, with its own moments.` : "Each one uses different moments and a different flourish."}</span>
       </div>
     </Section>
   );

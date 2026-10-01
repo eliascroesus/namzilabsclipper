@@ -11,6 +11,7 @@ import { KINDS, scanImage, scanVideo, scoreInterest, type Scan } from "./engine/
 import { planMontage, usedRanges, type Ranges } from "./engine/plan/montage";
 import type { Pace } from "./engine/plan/rhythm";
 import { mixOrder, styleFor, talks, type EditStyle, type Talker } from "./engine/plan/styles";
+import { applyDesign, designFor, designOrder, leanOf, type Design } from "./engine/plan/designs";
 import { detectSpeech, talkingRuns } from "./engine/audio/speech";
 import { hearSounds } from "./engine/audio/sounds";
 import { planMeme, planTwist } from "./engine/plan/formats";
@@ -215,8 +216,8 @@ export interface MontageRun {
   prefer?: "mp4" | "webm";
   codecs?: { container: "mp4" | "webm"; video: "vp9" | "avc" | "av1"; audio: "aac" | "opus" };
   out?: string;
-  /** only draw these moments (seconds, "shots" for the middle of every shot, "fx" around each effect's peak) as PNGs */
-  stills?: number[] | "shots" | "fx";
+  /** only draw these moments (seconds, "shots" for the middle of every shot, "fx" around each effect's peak, "cuts" the opening and around the first cuts and the drop) as PNGs */
+  stills?: number[] | "shots" | "fx" | "cuts";
   /** follow faces through each shot before drawing */
   faces?: boolean;
   /** speed ramps (a velocity edit) */
@@ -237,6 +238,8 @@ export interface MontageRun {
   cardVideo?: string;
   /** the montage's edit style, or "mix": each edit the next in the mix, as the app does */
   style?: EditStyle | "mix";
+  /** the montage's design (plan/designs.ts), or "mix": each edit the next that suits the song; the plain edit when unset */
+  design?: Design | "mix";
   /** with no card: end on the moment the edit opens on */
   loop?: boolean;
   /** how hard a montage cuts on the music (the app's Cutting; the planner's own default, steady, when unset) */
@@ -336,16 +339,21 @@ async function montage(run: MontageRun) {
     lap("talking");
   }
   const order = mixOrder(scans, talkers.length > 0, run.pace);
+  const designs = designOrder(song, scans);
   const results = [];
   const avoid: Ranges = new Map();
   for (let v = 0; v < (run.variants ?? 1); v++) {
-    const common = { song: song ?? undefined, songSource: "song", songName: run.song?.split("/").pop() ?? "", fromStart: run.fromStart ?? true, songStart: run.songStart, scans, aspect: run.aspect ?? "9x16", length: run.length ?? 14, card, variant: v, avoid, toCome: (run.variants ?? 1) - v - 1, velocity: run.velocity };
+    const style = run.style ? styleFor(v, run.style, order) : undefined;
+    const design = run.design && (run.format ?? "montage") === "montage" ? designFor(v, run.design, designs, style) : undefined;
+    const common = { song: song ?? undefined, songSource: "song", songName: run.song?.split("/").pop() ?? "", fromStart: run.fromStart ?? true, songStart: run.songStart, scans, aspect: run.aspect ?? "9x16", length: run.length ?? 14, card, variant: v, avoid, toCome: (run.variants ?? 1) - v - 1, velocity: run.velocity || design === "velocity" };
     const make = () =>
       run.format === "twist"
         ? planTwist({ ...common, actB: new Set((run.actB ?? []).map((i) => `clip${i}`)), captionA: run.caption?.text ?? "what they see vs...", captionB: run.captionB ?? "what they don't..." })
         : run.format === "meme"
           ? planMeme({ ...common, text: run.memeText ?? "", position: run.memePosition ?? "upper" })
-          : planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style: run.style ? styleFor(v, run.style, order) : undefined, talkers, loop: run.loop, pace: run.pace });
+          : design
+            ? applyDesign(planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style, talkers, loop: run.loop, pace: run.pace, lean: leanOf(design) }), design, song!, { scans })
+            : planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style, talkers, loop: run.loop, pace: run.pace });
     // As the app does: planned again until no shot runs over one of the footage's own cuts.
     const plan = run.settle === false ? make() : await settlePlan(make, new Map(scans.map((sc) => [sc.id, sc])), cutFinder(sources));
     usedRanges(plan, avoid);
@@ -371,7 +379,12 @@ async function montage(run: MontageRun) {
           ? [...plan.shots.flatMap(inShot), ...(plan.card ? [plan.card.start + 2] : [])]
           : run.stills === "fx"
             ? plan.fx.filter((f) => f.kind !== "dip").flatMap((f) => [-3, -1, 0, 2, 5].map((k) => Math.max(0, (f.at ?? f.start) + k / 30)))
-            : run.stills;
+            : run.stills === "cuts"
+              ? [
+                  ...[1, 3, 6, 12].map((k) => k / 30),
+                  ...[...plan.shots.slice(1, 5), ...plan.shots.filter((s) => s.role === "drop")].flatMap((s) => [-2, -1, 0, 1, 3].map((k) => s.start + k / 30)),
+                ]
+              : run.stills;
       const pngs = await renderStills(plan, sources, times, img);
       for (const [k, png] of pngs.entries()) await save(`${run.out ?? "still"}-v${v + 1}-${String(k).padStart(2, "0")}.png`, png);
       await save(`${run.out ?? "still"}-v${v + 1}.plan.json`, new Blob([JSON.stringify(plan, null, 1)]));

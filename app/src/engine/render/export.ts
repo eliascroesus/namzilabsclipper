@@ -24,7 +24,7 @@ import {
 import type { Source } from "../media/sources";
 import { centreAt } from "../plan/framing";
 import { NO_GRADE, overlayAt, sourceAt, sourceSpan, type EditPlan, type FxEvent, type OverlayEvent, type ShotEvent } from "../plan/types";
-import { drawCaption } from "./captions";
+import { drawCaption, popScale } from "./captions";
 import { drawCard } from "./card";
 import { loadFonts } from "./fonts";
 import { Compositor, OVERLAY_SLOTS, type LayerDraw, type Rotation } from "./gl";
@@ -124,7 +124,12 @@ class ShotReader {
   }
 }
 
-function fxAt(fx: FxEvent[], t: number, fps: number) {
+/**
+ * What the effects do at `t`: how much flash, burn, dim and so on, how far the punch-ins
+ * zoom, and where the designs' transitions have the whole picture (moved, scaled,
+ * turned, smeared). `aspect` is the frame's width over its height.
+ */
+export function fxAt(fx: FxEvent[], t: number, fps: number, aspect = 9 / 16) {
   let flash = 0;
   let burn = 0;
   let burnPhase = 0;
@@ -134,11 +139,27 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
   let split = 0;
   let mono = 0;
   const shake: [number, number] = [0, 0];
+  const move: [number, number] = [0, 0];
+  const streak: [number, number] = [0, 0];
+  let scale = 1;
+  let spin = 0;
+  let spinBlur = 0;
+  let blur = 0;
+  let glitch = 0;
+  let invert = 0;
+  let bars = 0;
+  let leak = 0;
+  let leakPhase = 0;
+  let vhs = 0;
+  const jolt = (n: number, seed: number) => (Math.sin(n * 12.9898 + seed * 78.233) * 43758.5453) % 1;
   for (const e of fx) {
     if (t < e.start - 1e-6 || t >= e.end - 1e-6) continue;
     const span = Math.max(1e-6, e.end - e.start);
+    // A transition's way in (0 to 1, up to the cut) and way out (1 on the cut, down to 0).
+    const at = e.at ?? e.start;
+    const into = t < at ? Math.min(1, (t - e.start + 1 / fps) / Math.max(1e-6, at - e.start + 1 / fps)) : 0;
+    const out = t >= at ? Math.max(0, 1 - (t - at) / Math.max(1e-6, e.end - at)) : 0;
     if (e.kind === "flash") {
-      const at = e.at ?? e.start;
       if (t >= at - 1e-6) flash = Math.max(flash, e.strength * (1 - (t - at) / Math.max(1e-6, e.end - at)) ** 2);
     } else if (e.kind === "burn") {
       const p = (t - e.start) / span;
@@ -151,16 +172,14 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
       dim = Math.max(dim, 1 - (t - e.start) / span);
     } else if (e.kind === "punch") {
       // In over a frame or two to the hit, then settling back over the next eight.
-      const at = e.at ?? e.start;
       const env = t < at ? (t - e.start + 1 / fps) / Math.max(1e-6, at - e.start + 1 / fps) : (1 - (t - at) / Math.max(1e-6, e.end - at)) ** 2;
       punch = Math.max(punch, 1 + 0.14 * e.strength * Math.min(1, Math.max(0, env)));
     } else if (e.kind === "zoomblur") {
-      const at = e.at ?? (e.start + e.end) / 2;
-      const half = Math.max(1e-6, Math.max(at - e.start, e.end - at));
-      zoomBlur = Math.max(zoomBlur, e.strength * Math.max(0, 1 - Math.abs(t - at) / half) ** 1.5);
+      const mid = e.at ?? (e.start + e.end) / 2;
+      const half = Math.max(1e-6, Math.max(mid - e.start, e.end - mid));
+      zoomBlur = Math.max(zoomBlur, e.strength * Math.max(0, 1 - Math.abs(t - mid) / half) ** 1.5);
     } else if (e.kind === "split") {
       // Full on the hit, closing up over the frames after it.
-      const at = e.at ?? e.start;
       if (t >= at - 1e-6) split = Math.max(split, e.strength * (1 - (t - at) / Math.max(1e-6, e.end - at)) ** 1.5);
     } else if (e.kind === "mono") {
       mono = Math.max(mono, e.strength);
@@ -168,13 +187,68 @@ function fxAt(fx: FxEvent[], t: number, fps: number) {
       // A few frames of hard, decaying jolts (the same every render), with a touch of zoom so no edge shows.
       const k = Math.round((t - e.start) * fps);
       const decay = 1 - (t - e.start) / span;
-      const jolt = (n: number) => Math.sin(n * 12.9898 + e.start * 78.233) * 43758.5453 % 1;
-      shake[0] += 0.03 * e.strength * decay * jolt(k * 2 + 1);
-      shake[1] += 0.022 * e.strength * decay * jolt(k * 2 + 2);
+      shake[0] += 0.03 * e.strength * decay * jolt(k * 2 + 1, e.start);
+      shake[1] += 0.022 * e.strength * decay * jolt(k * 2 + 2, e.start);
       punch = Math.max(punch, 1 + 0.06 * e.strength * decay);
+    } else if (e.kind === "zoomin") {
+      // Rushing in to the cut, faster and faster, and the next shot landing zoomed in and
+      // settling (easing out); pulling out instead when `dir` is -1, the next shot coming
+      // in small, from its own mirror images.
+      const env = t < at ? into ** 2 : out ** 3;
+      const z = 1 + 0.5 * e.strength * env;
+      scale *= (e.dir ?? 1) < 0 ? 1 / z : z;
+      zoomBlur = Math.max(zoomBlur, Math.min(1, 1.1 * e.strength) * (t < at ? into ** 2 : out ** 2));
+    } else if (e.kind === "whip") {
+      // Sliding out along `dir`, faster and faster, and the next shot sliding in from the
+      // other side, slowing, smeared along the way it goes.
+      const a = ((e.dir ?? 0) * Math.PI) / 180;
+      const d: [number, number] = [Math.cos(a), Math.sin(a)];
+      const off = t < at ? 0.6 * e.strength * into ** 2 : -0.6 * e.strength * out ** 3;
+      const smear = 0.4 * e.strength * (t < at ? into : out ** 2);
+      move[0] += off * d[0];
+      move[1] += off * d[1];
+      streak[0] += smear * d[0];
+      streak[1] += smear * d[1];
+    } else if (e.kind === "spin") {
+      // The same, turning: to the cut a quarter turn or so, and the next shot turning in.
+      const way = (e.dir ?? 1) < 0 ? -1 : 1;
+      spin += way * (t < at ? 1.2 * e.strength * into ** 2 : -1.2 * e.strength * out ** 3);
+      spinBlur += way * 0.5 * e.strength * (t < at ? into : out ** 2);
+      scale *= 1 + 0.25 * e.strength * (t < at ? into ** 2 : out ** 3);
+    } else if (e.kind === "swing") {
+      // Knocked round a few degrees on the hit, settling back, zoomed enough that no edge shows.
+      const way = (e.dir ?? 1) < 0 ? -1 : 1;
+      const th = ((4 * e.strength * Math.PI) / 180) * (t < at ? into : out ** 2);
+      spin += way * th;
+      const long = Math.max(aspect, 1 / aspect);
+      scale *= Math.cos(th) + long * Math.sin(Math.abs(th));
+    } else if (e.kind === "blur") {
+      blur = Math.max(blur, e.strength * (t < at ? into ** 2 : out ** 2));
+    } else if (e.kind === "glitch") {
+      // Flickering: a new tear every frame, some frames harder than others.
+      const k = Math.round((t - e.start) * fps);
+      glitch = Math.max(glitch, e.strength * (0.55 + 0.45 * Math.abs(jolt(k, e.start))));
+    } else if (e.kind === "invert") {
+      invert = Math.max(invert, e.strength);
+    } else if (e.kind === "strobe") {
+      // Black every other frame.
+      if (Math.round((t - e.start) * fps) % 2 === 1) dim = Math.max(dim, e.strength);
+    } else if (e.kind === "leak") {
+      const p = (t - e.start) / span;
+      leak = Math.max(leak, e.strength * Math.sin(Math.PI * p));
+      leakPhase = p;
+    } else if (e.kind === "fade") {
+      // Down to black into the cut, back up out of it.
+      dim = Math.max(dim, e.strength * (t < at ? into : out) ** 1.5);
+    } else if (e.kind === "vhs") {
+      vhs = Math.max(vhs, e.strength);
+    } else if (e.kind === "bars") {
+      // Sliding in over their first eighteen frames.
+      const p = Math.min(1, (t - e.start + 1 / fps) / (18 / fps));
+      bars = Math.max(bars, e.strength * p * p * (3 - 2 * p));
     }
   }
-  return { flash, burn, burnPhase, dim, punch, shake, zoomBlur, split, mono };
+  return { flash, burn, burnPhase, dim, punch, shake, zoomBlur, split, mono, move, scale, spin, streak, spinBlur, blur, glitch, invert, bars, leak, leakPhase, vhs };
 }
 
 async function blobToBase64Parts(blob: Blob, chunk = 6 * 1024 * 1024): Promise<string[]> {
@@ -299,11 +373,12 @@ export class FramePainter {
     const ownCard = plan.card?.spec.kind === "video";
     const inCard = !!plan.card && !ownCard && t >= plan.card.start - 1e-6;
     const inOwnCard = !!plan.card && ownCard && t >= plan.card.start - 1e-6;
-    const e = fxAt(plan.fx, t, fps);
+    const e = fxAt(plan.fx, t, fps, W / H);
     const shot: ShotEvent | undefined = idx >= 0 ? plan.shots[idx] : undefined;
     // (Each shot balanced on its own only under a look: "as shot" is as shot.)
     const graded = !inOwnCard && (plan.grade.warmth !== 0 || plan.grade.contrast !== 0);
-    if (shot && !inCard) {
+    // (A shot under a split screen's panels isn't drawn: black where they aren't.)
+    if (shot && !inCard && !shot.hide) {
       this.reader(idx + 1); // start decoding the next shot now
       const p = (t - shot.start) / Math.max(1e-6, shot.end - shot.start);
       const c = shot.crop;
@@ -358,7 +433,7 @@ export class FramePainter {
             comp.upload(slot, img, img.width, img.height);
             this.overKeys[j] = key;
           }
-          layers.push({ slot, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx: o.cx, cy: o.cy, zoom: o.zoom, fit: "cover", alpha: 1, tilt: o.tilt, card });
+          layers.push({ slot, srcW: img.width, srcH: img.height, rotation: 0, flip: false, cx: o.cx, cy: o.cy, zoom: o.zoom, fit: "cover", alpha: 1, tilt: o.tilt, card, rect: o.rect });
         } else {
           const sample = await this.overlayFrame(o, tau);
           if (!sample) continue;
@@ -369,26 +444,44 @@ export class FramePainter {
             vf.close();
             this.overKeys[j] = key;
           }
-          layers.push({ slot, srcW: sample.displayWidth, srcH: sample.displayHeight, rotation: sample.rotation as Rotation, flip: sample.flip, cx: o.cx, cy: o.cy, zoom: o.zoom, fit: "cover", alpha: 1, tilt: o.tilt, card });
+          layers.push({ slot, srcW: sample.displayWidth, srcH: sample.displayHeight, rotation: sample.rotation as Rotation, flip: sample.flip, cx: o.cx, cy: o.cy, zoom: o.zoom, fit: "cover", alpha: 1, tilt: o.tilt, card, rect: o.rect });
         }
       }
     }
 
-    // Captions and the card, redrawn only when they change.
+    // Captions and the card, redrawn only when they change (a popping word every frame of its pop).
     const caps = plan.captions.filter((cap) => t >= cap.start - 1e-6 && t < cap.end - 1e-6);
     const cardT = plan.card && inCard ? t - plan.card.start : -1;
-    const key = cardT >= 0 ? `card:${f}` : caps.map((cap) => `${cap.style}:${cap.y}:${cap.text}`).join("|");
+    const popOf = (cap: (typeof caps)[number]) => (cap.pop ? Math.round((t - cap.start) * fps) : 5);
+    const key = cardT >= 0 ? `card:${f}` : caps.map((cap) => `${cap.style}:${cap.x}:${cap.y}:${cap.text}:${Math.min(5, popOf(cap))}`).join("|");
     if (key && key !== this.overlayKey) {
       this.octx.clearRect(0, 0, W, H);
       if (cardT >= 0 && plan.card) {
         drawCard(this.octx, W, H, cardT, plan.card.end - plan.card.start, plan.card.spec, { shot: this.cardImage }, plan.card.fadeIn, plan.card.fadeOut);
       } else {
-        for (const cap of caps) drawCaption(this.octx, W, H, cap);
+        for (const cap of caps) drawCaption(this.octx, W, H, cap, 1, popScale(popOf(cap)));
       }
       comp.uploadOverlay(this.overlay);
       this.overlayKey = key;
     }
-    comp.draw({ layers, grade: inOwnCard ? NO_GRADE : plan.grade, flash: e.flash, burn: e.burn, burnPhase: e.burnPhase, dim: inCard ? 0 : e.dim, overlay: !!key, time: t, seed: 1.37, shake: e.shake, zoomBlur: inCard ? 0 : e.zoomBlur, split: inCard ? 0 : e.split, mono: inCard || inOwnCard ? 0 : e.mono });
+    // (The card and a card of the user's own untouched by the design: no bars, nothing moving.)
+    const still = inCard || inOwnCard;
+    comp.draw({
+      layers,
+      grade: inOwnCard ? NO_GRADE : plan.grade,
+      flash: e.flash,
+      burn: e.burn,
+      burnPhase: e.burnPhase,
+      dim: inCard ? 0 : e.dim,
+      overlay: !!key,
+      time: t,
+      seed: 1.37,
+      shake: e.shake,
+      zoomBlur: still ? 0 : e.zoomBlur,
+      split: still ? 0 : e.split,
+      mono: still ? 0 : e.mono,
+      ...(still ? {} : { move: e.move, scale: e.scale, spin: e.spin, streak: e.streak, spinBlur: e.spinBlur, blur: e.blur, glitch: e.glitch, invert: e.invert, bars: e.bars, leak: e.leak, leakPhase: e.leakPhase, vhs: e.vhs }),
+    });
   }
 
   async close() {

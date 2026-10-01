@@ -228,11 +228,13 @@ export function monoFlips(shots: ShotEvent[], beats: number[], after: number, mo
  * a fifth of the frame in the middle of it, no wider than four fifths of it nor taller
  * than half (TJR's: a wide clip six tenths of a square frame across).
  */
-function ownCard(scan: Scan, a: number, b: number, frame: number): Pick<OverlayEvent, "cx" | "cy" | "zoom" | "x" | "y" | "size" | "aspect" | "tilt"> {
+function ownCard(scan: Scan, a: number, b: number, frame: number): Pick<OverlayEvent, "cx" | "cy" | "zoom" | "x" | "y" | "size" | "aspect" | "tilt" | "rect"> {
   const r = activeRect(scan, a, b);
   const own = Math.min(2.4, Math.max(0.5, ((r[2] - r[0]) * scan.width) / Math.max(1, (r[3] - r[1]) * scan.height)));
   const size = Math.min(Math.sqrt((0.2 * frame) / own), 0.5, (0.8 * frame) / own);
-  return { cx: (r[0] + r[2]) / 2, cy: (r[1] + r[3]) / 2, zoom: 1.01, x: 0.5, y: 0.5, size, aspect: own, tilt: 0 };
+  const bars = r[0] > 0 || r[1] > 0 || r[2] < 1 || r[3] < 1;
+  // (The centre in the picture inside the bars, as the compositor reads it with them.)
+  return { cx: 0.5, cy: 0.5, zoom: 1.01, x: 0.5, y: 0.5, size, aspect: own, tilt: 0, ...(bars ? { rect: r } : { cx: (r[0] + r[2]) / 2, cy: (r[1] + r[3]) / 2 }) };
 }
 
 /**

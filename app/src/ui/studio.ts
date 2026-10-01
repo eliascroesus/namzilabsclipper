@@ -23,6 +23,7 @@ import { findMoments, transcribe, type Moment, type Transcript } from "../engine
 import { musicWindow, planMontage, usedRanges, type Ranges } from "../engine/plan/montage";
 import type { Pace } from "../engine/plan/rhythm";
 import { CALM_LABEL, mixOrder, styleFor, styleLabel, talks, type EditStyle, type Talker } from "../engine/plan/styles";
+import { applyDesign, designFor, designName, designOrder, leanOf, type Design } from "../engine/plan/designs";
 import { NO_GRADE, WARM_GRADE, type Aspect, type CardSpec, type EditPlan } from "../engine/plan/types";
 import { pickCodecs, renderPlan } from "../engine/render/export";
 import { followFaces, placeOverlays } from "../engine/vision/track";
@@ -124,6 +125,8 @@ export interface Style {
   velocity: boolean;
   /** how a montage is shaped (engine/plan/styles.ts), or "mix": each edit in a batch another way */
   edit: "mix" | EditStyle;
+  /** how a montage looks (engine/plan/designs.ts), or "mix": each edit in a batch another design, the ones that suit the song first */
+  design: "mix" | Design;
   /** how hard a montage cuts on the music (engine/plan/rhythm.ts): steady (the editors' rhythm, on the loudest hits), hard (more of the hits), or relaxed */
   pace: Pace;
   /** with the card off: end on the moment the edit opens on, so the replay loops */
@@ -203,6 +206,7 @@ const DEFAULT_STYLE: Style = {
   smart: true,
   velocity: false,
   edit: "mix",
+  design: "mix",
   pace: "beat",
   loop: true,
 };
@@ -1055,6 +1059,8 @@ class Studio {
     // (the talking style only when someone talks in the footage).
     const canTalk = style.format === "montage" ? this.talkingClips(ready) : [];
     const order = mixOrder(scans, canTalk.length > 0, style.pace);
+    // And its design: the one picked, or each edit the next that suits the song and footage.
+    const designs = designOrder(song, scans);
 
     // Another batch with the same footage and sound picks up where the last left off.
     const key = [style.format, style.aspect, ready.map((f) => f.id).join(","), s.sound?.id ?? ""].join("|");
@@ -1067,9 +1073,11 @@ class Studio {
     const base = this.made;
     this.made += count;
     const editOf = (v: number): EditStyle | undefined => (style.format === "montage" ? styleFor(base + v, style.edit, order) : undefined);
+    const designOf = (v: number): Design | undefined => (style.format === "montage" && song ? designFor(base + v, style.design, designs, editOf(v)) : undefined);
+    const named = (v: number, name: string, d = designOf(v)) => `${name}${d ? `, ${designName(d)}` : ""} ${base + v + 1}`;
     const jobs: Job[] = Array.from({ length: count }, (_, v) => ({
       id: newId("j"),
-      label: style.format === "story" ? chosenMoments[v].hook || `${label} ${base + v + 1}` : `${editOf(v) ? styleLabel(editOf(v)!) : label} ${base + v + 1}`,
+      label: style.format === "story" ? chosenMoments[v].hook || `${label} ${base + v + 1}` : named(v, editOf(v) ? styleLabel(editOf(v)!) : label),
       status: "waiting",
       progress: 0,
       stage: "Waiting",
@@ -1093,16 +1101,18 @@ class Studio {
         try {
           this.patchJob(job.id, { status: "planning", stage: "Picking the moments" });
           await new Promise((r) => setTimeout(r, 0));
-          const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, songStart: songStart ?? undefined, scans, aspect: style.aspect, length: style.length, card, variant: base + v, avoid, toCome: count - v - 1, velocity: style.velocity };
           const edit = editOf(v);
+          const design = designOf(v);
+          const common = { song: song ?? undefined, songSource: "song", songName, fromStart: fromReel, songStart: songStart ?? undefined, scans, aspect: style.aspect, length: style.length, card, variant: base + v, avoid, toCome: count - v - 1, velocity: style.velocity || design === "velocity" };
           let talkers: Talker[] = [];
+          let calm = "";
           if (edit === "talk") {
             if (canTalk.length) {
               this.patchJob(job.id, { stage: "Listening for the talking" });
               talkers = await this.talkersFor(canTalk, jobSignal);
             }
             // No one talking after all: it opens on calm shots in black and white, and says so.
-            if (!talkers.length) this.patchJob(job.id, { label: `${CALM_LABEL} ${base + v + 1}` });
+            if (!talkers.length) this.patchJob(job.id, { label: (calm = named(v, CALM_LABEL)) });
             this.patchJob(job.id, { stage: "Picking the moments" });
           }
           const make = (): EditPlan => {
@@ -1130,12 +1140,18 @@ class Studio {
               return planMeme({ ...common, text: style.memeText, position: style.memePosition });
             }
             if (!song) throw new Error("Add a sound first");
-            return planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text }, style: edit, talkers, loop: style.loop, pace: style.pace });
+            const plan = planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text }, style: edit, talkers, loop: style.loop, pace: style.pace, lean: design && leanOf(design) });
+            // The design's effects and colour (a split screen's panels checked with the shots).
+            return design ? applyDesign(plan, design, song, { scans }) : plan;
           };
           // Planned, then planned again until no shot runs over one of a long video's own
           // cuts (media/cuts.ts: every frame of what the edit uses gets looked at).
           const plan = await settlePlan(make, scanMap, cutFinder(sources, jobSignal));
-          plan.grade = style.look === "natural" ? NO_GRADE : WARM_GRADE;
+          // (As shot: no grade, the design's effects still on.)
+          if (!plan.design) plan.grade = WARM_GRADE;
+          if (style.look === "natural") plan.grade = NO_GRADE;
+          // (A split screen with no room for its panels is the zoom design: it says so.)
+          if (plan.design && plan.design !== design) this.patchJob(job.id, { label: calm ? named(v, CALM_LABEL, plan.design as Design) : named(v, edit ? styleLabel(edit) : label, plan.design as Design) });
           usedRanges(plan, avoid);
           if (style.faces && plan.shots.some((sh) => sh.crop.fit === "cover")) {
             this.patchJob(job.id, { stage: "Following faces" });

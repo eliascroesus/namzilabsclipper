@@ -59,6 +59,8 @@ export interface ShotEvent {
   ramp?: Ramp;
   /** a re-cut of the shot before it on the beat: the same clip, a jump further on */
   again?: boolean;
+  /** not drawn: pictures over it fill the frame (a split screen's panels), black where they don't */
+  hide?: boolean;
 }
 
 /**
@@ -93,6 +95,10 @@ export interface OverlayEvent {
    * under it ("head"), and the picture cropped to its own face ("face")
    */
   place?: { on?: "head"; crop?: "face" };
+  /** a split screen's panel: rather than left out when what it plays runs over one of its footage's own cuts, it holds its first frame */
+  panel?: boolean;
+  /** the picture inside any black bars of the source, [x0, y0, x1, y1] of its frame (0 to 1): the card shows only that */
+  rect?: [number, number, number, number];
 }
 
 /** Where an overlay's card is `tau` seconds into it: centre and height as a share of the frame's. */
@@ -153,9 +159,27 @@ export function outputAt(shot: Pick<ShotEvent, "start" | "end" | "speed" | "ramp
 /**
  * flash, film burn, dip to black, fade up; a punch-in (a quick zoom on a hit), a shake,
  * a zoom blur across a cut, a colour split; and black and white (on at its start, off at
- * its end, hard: a talking intro before the drop, a shot turning to colour on a hit)
+ * its end, hard: a talking intro before the drop, a shot turning to colour on a hit).
+ *
+ * The edit designs' own (designs.ts), most of them transitions peaking on a cut (`at`):
+ * - zoomin: the picture rushes in to the cut and the next one lands zoomed in and
+ *   settles (a zoom-in transition); `dir` -1 pulls out instead
+ * - whip: a whip pan, the picture sliding out blurred and the next one sliding in from
+ *   the other side; `dir` is the way it goes, in degrees (0 right, 90 down)
+ * - spin: the same turning, `dir` 1 clockwise, -1 the other way
+ * - swing: the picture knocked round a few degrees on a hit, settling back
+ * - blur: out of focus into the cut, sharpening after it (a blur-in)
+ * - glitch: bands of the picture torn sideways, the colour split, blocks of noise
+ * - invert: the picture's negative, a frame or two on a hit
+ * - strobe: black every other frame
+ * - leak: a light leak drifting across, warm and pink
+ * - bars: letterbox bars, each this share of the frame's height (`strength`), sliding
+ *   in over their first frames
+ * - fade: down to black into the cut and back up out of it (a dip across a cut)
+ * - vhs: a videotape's picture (soft, its colour bleeding late, its lines wobbling, a
+ *   torn band at the bottom), on over its span
  */
-export type FxKind = "flash" | "burn" | "dip" | "fadein" | "punch" | "shake" | "zoomblur" | "split" | "mono";
+export type FxKind = "flash" | "burn" | "dip" | "fadein" | "punch" | "shake" | "zoomblur" | "split" | "mono" | "zoomin" | "whip" | "spin" | "swing" | "blur" | "glitch" | "invert" | "strobe" | "leak" | "bars" | "fade" | "vhs";
 
 export interface FxEvent {
   kind: FxKind;
@@ -165,9 +189,11 @@ export interface FxEvent {
   strength: number;
   /** the moment of peak effect (a cut), if not the middle */
   at?: number;
+  /** which way it goes: a whip's direction in degrees, a spin's or a zoom's sign */
+  dir?: number;
 }
 
-export type CaptionStyle = "doc" | "pov" | "shout" | "lyric" | "mood" | "meme";
+export type CaptionStyle = "doc" | "pov" | "shout" | "lyric" | "mood" | "meme" | "impact" | "film" | "glitch" | "osd";
 
 export interface CaptionEvent {
   style: CaptionStyle;
@@ -176,6 +202,10 @@ export interface CaptionEvent {
   end: number;
   /** vertical centre, 0 (top) to 1 (bottom); the style's default when absent */
   y?: number;
+  /** where it sits across, 0 (left) to 1 (right): its centre, or its edge in a style set left or right; the style's default when absent */
+  x?: number;
+  /** pops in: small, a little too big, then settling, over its first five frames */
+  pop?: boolean;
 }
 
 export interface CardSpec {
@@ -232,6 +262,15 @@ export interface Grade {
   vignette: number;
   /** film grain, 0 to 1 */
   grain: number;
+  /** a colour pushed into the shadows and one into the highlights (added, about ±0.1), as a colourist's split tone */
+  shadows?: [number, number, number];
+  highlights?: [number, number, number];
+  /** the blacks lifted to a matte, 0 to 1 (1: black at a fifth of white) */
+  fade?: number;
+  /** the highlights glowing into what's around them, 0 to 1 */
+  glow?: number;
+  /** brighter or darker, in stops (-0.3: a little under) */
+  exposure?: number;
 }
 
 export const WARM_GRADE: Grade = { warmth: 0.45, contrast: 0.5, saturation: 1.0, vignette: 0.35, grain: 0.25 };
@@ -269,6 +308,8 @@ export interface EditPlan {
    */
   levelVoice?: number;
   grade: Grade;
+  /** the edit design it's in (plan/designs.ts), when it's in one */
+  design?: string;
   note: PostNote;
   /** measurements the quality gate checks, filled by the planner */
   checks?: Record<string, number | string | boolean>;
