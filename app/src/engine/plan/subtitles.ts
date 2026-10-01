@@ -14,10 +14,28 @@ export interface SpeechRange {
   to: number;
 }
 
-/** Words heard in a stretch, their times in seconds from its start (as the speech model gives them). */
+/** Words heard in a stretch, their times in seconds from its start (as the speech model gives them), and whether each was shouted. */
 export interface Heard {
   range: SpeechRange;
-  words: { text: string; start: number; end: number }[];
+  words: { text: string; start: number; end: number; shout?: boolean }[];
+}
+
+/**
+ * Which words are shouted: 8 dB or more louder than the talking around them (each word's
+ * level against the middle one of all of them), in the sound `y` (`rate` a second) the
+ * words' times are in. With fewer than four words, none: there's nothing to tell them by.
+ */
+export function shouted(y: Float32Array, rate: number, words: { start: number; end: number }[]): boolean[] {
+  if (words.length < 4) return words.map(() => false);
+  const db = words.map((w) => {
+    const a = Math.max(0, Math.floor(w.start * rate));
+    const b = Math.min(y.length, Math.max(a + 1, Math.ceil(w.end * rate)));
+    let e = 0;
+    for (let i = a; i < b; i++) e += y[i] * y[i];
+    return 10 * Math.log10(e / Math.max(1, b - a) + 1e-12);
+  });
+  const mid = [...db].sort((p, q) => p - q)[Math.floor(db.length / 2)];
+  return db.map((d) => d >= mid + 8 && d > -35);
 }
 
 /** The stretches of source the edit plays with their own sound, joined where one runs on into the next. */
@@ -48,7 +66,7 @@ export function subtitlesFor(plan: EditPlan, heard: Heard[]): CaptionEvent[] {
       if (!sh) continue;
       const speed = sh.speed || 1;
       const out = sh.start + Math.max(0, start - sh.srcStart) / speed;
-      words.push({ text: w.text, start, end, shout: false, out, outEnd: Math.min(sh.end, sh.start + (end - sh.srcStart) / speed) });
+      words.push({ text: w.text, start, end, shout: !!w.shout, out, outEnd: Math.min(sh.end, sh.start + (end - sh.srcStart) / speed) });
     }
   }
   words.sort((a, b) => a.out - b.out);

@@ -253,8 +253,11 @@ export function SoundCard({ s, plan }: { s: State; plan: MimicPlan }) {
       const song = s.music?.duration ?? Infinity;
       let now = { start: drag.start, end: drag.end, from: drag.from };
       if (drag.mode === "move") {
-        const d = clamp(dt, -drag.start, dur - drag.end);
-        now = { start: drag.start + d, end: drag.end + d, from: drag.from };
+        // (Moved later, it's trimmed where the edit or the song ends; running to the end, it still does.)
+        const d = clamp(dt, -drag.start, dur - 0.5 - drag.start);
+        const start = drag.start + d;
+        const toEnd = drag.end >= dur - 0.05;
+        now = { start, end: Math.min(dur, toEnd ? dur : drag.end + d, start + (song - drag.from)), from: drag.from };
       } else if (drag.mode === "start") {
         // (Trimming its start: the song stays where it was under it, so it starts further in.)
         const d = clamp(dt, -Math.min(drag.start, drag.from), drag.end - drag.start - 0.5);

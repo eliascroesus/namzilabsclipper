@@ -72,6 +72,8 @@ describe("edit designs", () => {
       if (d === "split") expect(p.overlays!.some((o) => o.start === 0 && o.panel), d).toBe(true);
       // (nio.trade's own: up from black over half a second, pushing in.)
       else if (d === "flow") expect(p.fx.some((f) => f.kind === "fadein" && f.start === 0 && f.end >= 15 * F - 1e-6) && p.shots[0].crop.zoom1 > p.shots[0].crop.zoom0, d).toBe(true);
+      // (…5448's: up from black, and the picture stepping closer on the first beats.)
+      else if (d === "reframe") expect(p.fx.some((f) => f.kind === "fadein" && f.start === 0 && f.end >= 15 * F - 1e-6) && p.fx.some((f) => f.kind === "reframe" && f.start < 1), d).toBe(true);
       else expect(p.fx.some((f) => f.start < 0.05 && f.kind !== "fadein"), d).toBe(true);
     }
     // Black and white and the bars from the very start.
@@ -88,6 +90,8 @@ describe("edit designs", () => {
       for (const f of p.fx) {
         if (f.at === undefined || f.at < 1e-6) continue;
         if (TRANSITIONS.has(f.kind)) expect(onCut(f.at), `${d} ${f.kind} at ${f.at}`).toBe(true);
+        // (A push in lands on the music, or has its quickest frame there.)
+        else if (f.kind === "crash") expect(onHit(f.at) || onHit((f.start - F + f.at) / 2), `${d} crash at ${f.at}`).toBe(true);
         else expect(onCut(f.at) || onHit(f.at), `${d} ${f.kind} at ${f.at}`).toBe(true);
       }
     }
@@ -101,7 +105,8 @@ describe("edit designs", () => {
       const drop = p.shots.find((s) => s.role === "drop")!.start;
       const before = p.fx.filter((f) => f.start > 0.3 && f.start < drop - 0.2 && f.kind !== "punch").length / drop;
       const after = p.fx.filter((f) => f.start >= drop - 1e-6 && f.kind !== "punch").length / (cardAt - drop);
-      if (d !== "clean" && d !== "cinematic" && d !== "vhs") expect(after, d).toBeGreaterThan(before);
+      // (nio.trade's LARP edits are the other way round: the moves in the build, the drop's energy all in the cutting.)
+      if (d !== "clean" && d !== "cinematic" && d !== "vhs" && d !== "reframe") expect(after, d).toBeGreaterThan(before);
     }
     // The flash design's drop: a strobe into it, then a flash and a shake on it.
     const p = plans.get("flash")!;
@@ -161,13 +166,20 @@ describe("edit designs", () => {
     expect(ice.fx.some((f) => f.kind === "shake")).toBe(false);
   });
 
-  it("a crossfade ends on its cut, a push or a slide straddles it, with both shots there to show", () => {
-    for (const [d, p] of plans) {
+  it("a crossfade ends on its cut or has its middle frame on it, a push or a slide straddles it, with both shots there to show", () => {
+    const flows = [0, 1, 2, 3].map((variant) => planIn("flow", { variant }));
+    // (Every other one centred, as …6955's.)
+    expect(flows.map((p) => p.fx.some((f) => f.kind === "dissolve" && f.end > f.at! + 1e-6))).toEqual([false, true, false, true]);
+    for (const [d, p] of [...plans, ...flows.map((p): [string, EditPlan] => ["flow", p])]) {
       for (const f of p.fx.filter((x) => TWO_SHOT.has(x.kind))) {
         const i = p.shots.findIndex((s) => Math.abs(s.end - f.at!) < 1e-6);
         expect(i, `${d} ${f.kind} at ${f.at}`).toBeGreaterThanOrEqual(0);
         expect(Math.abs(p.shots[i + 1].start - f.at!)).toBeLessThan(1e-6);
-        if (f.kind === "dissolve") expect(f.end).toBeCloseTo(f.at!, 6);
+        // (…6955's: 3 or 5 mixed frames, the middle one, half and half, on the cut.)
+        if (f.kind === "dissolve" && f.end > f.at! + 1e-6) {
+          expect(f.end - f.at! - (f.at! - f.start)).toBeCloseTo(F, 6);
+          expect(fxAt([f], f.at!, FPS).mix!.p).toBeCloseTo(0.5, 6);
+        } else if (f.kind === "dissolve") expect(f.end).toBeCloseTo(f.at!, 6);
         else expect(f.start < f.at! && f.end > f.at!).toBe(true);
         for (const s of [p.shots[i], p.shots[i + 1]]) expect(!s.crop.inset && !s.hide && !s.audio, `${d} ${f.kind}`).toBe(true);
       }
@@ -203,6 +215,47 @@ describe("edit designs", () => {
     expect(meme.captions[0].style).toBe("meme");
     // Too few beats for every word: the line whole.
     expect(wordByWord({ style: "mood", text: "a b c", start: 0, end: 0.5 }, "impact", [0.3])).toEqual([{ style: "impact", text: "a b c", start: 0, end: 0.5 }]);
+  });
+
+  it("reframe: hard cuts only; the picture stepping closer on the beats inside clips, black and white snapping to colour, a crash zoom landing on a beat before the drop", () => {
+    const p = plans.get("reframe")!;
+    const drop = p.shots.find((s) => s.role === "drop")!.start;
+    const songStart = p.music!.songStart;
+    const beats = song.beats.map((b) => b - songStart - CUT_LEAD);
+    const eighths = beats.flatMap((b, i) => (i + 1 < beats.length ? [b, (b + beats[i + 1]) / 2] : [b]));
+    const on = (t: number, grid: number[]) => grid.some((g) => Math.abs(g - t) <= 1.5 * F);
+    // No transition anywhere, nothing on the drop.
+    const MOVES = new Set<FxEvent["kind"]>(["dissolve", "push", "slide", "zoomin", "whip", "spin", "blur", "glitch", "fade", "strobe", "flash", "shake", "burn", "zoomblur", "split"]);
+    expect(p.fx.filter((f) => MOVES.has(f.kind))).toEqual([]);
+    expect(p.fx.some((f) => Math.abs(f.start - drop) < 1e-6 || Math.abs((f.at ?? -1) - drop) < 1e-6)).toBe(false);
+    // The steps: on the grid inside a clip, held to its end, two a clip at most and a quarter closer at most.
+    const steps = p.fx.filter((f) => f.kind === "reframe");
+    expect(steps.filter((f) => f.start < drop).length).toBeGreaterThanOrEqual(2);
+    for (const f of steps) {
+      const shot = p.shots.find((s) => f.start > s.start + 1e-6 && f.start < s.end)!;
+      expect(shot, `step at ${f.start}`).toBeDefined();
+      expect(f.end).toBeCloseTo(Math.min(shot.end, p.card!.start - 4 * F), 6);
+      expect(on(f.start, eighths), `step at ${f.start}`).toBe(true);
+      expect(f.strength).toBeGreaterThan(0.03);
+      expect(Math.abs(f.dir ?? 0)).toBeLessThanOrEqual(1.5);
+      const mine = steps.filter((g) => g.end === f.end);
+      expect(mine.length).toBeLessThanOrEqual(2);
+      expect(mine.reduce((a, g) => a * (1 + g.strength), 1)).toBeLessThanOrEqual(1.25 + 1e-9);
+    }
+    // Black and white from a cut, colour on the next beat.
+    const bw = p.fx.find((f) => f.kind === "bw")!;
+    expect(bw).toBeDefined();
+    expect(p.shots.some((s) => Math.abs(s.start - bw.start) < 1e-6)).toBe(true);
+    expect(on(bw.end, eighths)).toBe(true);
+    expect(bw.end).toBeLessThan(drop);
+    // The crash zoom: landing on a beat in the bars before the drop, held to its cut.
+    const crash = p.fx.find((f) => f.kind === "crash" && f.at! < drop)!;
+    expect(crash).toBeDefined();
+    expect(on(crash.at!, beats)).toBe(true);
+    expect(crash.strength).toBeGreaterThanOrEqual(0.45);
+    expect(p.shots.some((s) => Math.abs(s.end - crash.end) < 1e-6)).toBe(true);
+    // Up from black over half a second.
+    expect(p.fx.some((f) => f.kind === "fadein" && f.start === 0 && f.end >= 15 * F - 1e-6)).toBe(true);
   });
 
   it("the clean design is the plain edit, warm, with its own flourish", () => {
@@ -273,7 +326,7 @@ describe("a batch's designs, suited to the song", () => {
 
   it("a hard, fast song leads with the flashes and glitches; a calm one with cinematic, and leaves the hard ones out", () => {
     expect(heatOf(hot)).toBeGreaterThan(heatOf(calm) + 0.2);
-    expect(designOrder(hot, scans).slice(0, 3)).toEqual(["flash", "phonk", "glitch"]);
+    expect(designOrder(hot, scans).slice(0, 4)).toEqual(["flash", "phonk", "reframe", "glitch"]);
     const soft = designOrder(calm, scans);
     expect(soft[0]).toBe("cinematic");
     // (A batch always opens on something new: the references' clean look is never first.)
@@ -297,6 +350,7 @@ describe("a batch's designs, suited to the song", () => {
     for (let n = 0; n < 12; n++) {
       expect(["clean", "cinematic", "noir", "vhs", "ice", "flow"]).toContain(designFor(n, "mix", order, "slow"));
       expect(designFor(n, "mix", order, "mono")).not.toBe("noir");
+      expect(designFor(n, "mix", order, "mono")).not.toBe("reframe");
       expect(["noir", "split"]).not.toContain(designFor(n, "mix", order, "talk"));
       expect(designFor(n, "mix", order, "burst")).not.toBe("split");
     }
@@ -370,6 +424,50 @@ describe("the designs' moves, frame by frame", () => {
     expect(g[1]).toBeCloseTo(0.6, 6);
     expect(g[0]).toBeLessThan(g[1]);
     for (let i = 2; i < g.length; i++) expect(g[i]).toBeLessThan(g[i - 1]);
+  });
+
+  it("a stepped zoom grows a tenth every two frames, up to its most", () => {
+    const fx: FxEvent[] = [{ kind: "steps", start: at, end: at + 20 * F, strength: 0.5 }];
+    const s = [0, 1, 2, 3, 4, 9, 19].map((k) => fxAt(fx, at + k * F, FPS).scale);
+    expect(s[0]).toBeCloseTo(1.1, 6);
+    expect(s[1]).toBeCloseTo(1.1, 6);
+    expect(s[2]).toBeCloseTo(1.2, 6);
+    expect(s[4]).toBeCloseTo(1.3, 6);
+    expect(s[6]).toBeCloseTo(1.5, 6);
+  });
+
+  it("a punch-in step jumps closer in one frame, turned, and holds; a crash zoom eases in, smeared, and holds", () => {
+    const step = fxAt([{ kind: "reframe", start: at, end: at + 10 * F, strength: 0.12, dir: 1.2 }], at, FPS, 9 / 16);
+    expect(step.reframe).toBeCloseTo(1.12, 9);
+    expect(step.spin).toBeCloseTo((1.2 * Math.PI) / 180, 9);
+    expect(step.scale).toBeGreaterThanOrEqual(Math.cos(step.spin) + (16 / 9) * Math.sin(step.spin) - 1e-9);
+    expect(fxAt([{ kind: "reframe", start: at, end: at + 10 * F, strength: 0.12 }], at - F, FPS).reframe).toBe(1);
+    expect(fxAt([{ kind: "reframe", start: at, end: at + 10 * F, strength: 0.12 }], at + 9 * F, FPS).reframe).toBeCloseTo(1.12, 9);
+    const crash: FxEvent[] = [{ kind: "crash", start: at, end: at + 20 * F, strength: 0.5, at: at + 4 * F }];
+    const z = [0, 1, 2, 3, 4, 10].map((k) => fxAt(crash, at + k * F, FPS));
+    for (let i = 1; i < 5; i++) expect(z[i].reframe).toBeGreaterThan(z[i - 1].reframe);
+    // (Quickest in the middle.)
+    expect(z[2].reframe - z[1].reframe).toBeGreaterThan(z[1].reframe - z[0].reframe);
+    expect(z[4].reframe).toBeCloseTo(1.5, 9);
+    expect(z[5].reframe).toBeCloseTo(1.5, 9);
+    expect(z[2].zoomBlur).toBeGreaterThan(0.3);
+    expect(z[4].zoomBlur).toBe(0);
+    // Back out.
+    expect(fxAt([{ ...crash[0], dir: -1 }], at + 4 * F, FPS).reframe).toBeCloseTo(1, 9);
+    expect(fxAt([{ ...crash[0], dir: -1 }], at, FPS).reframe).toBeGreaterThan(1.4);
+  });
+
+  it("choppy frames come at twelve a second; black and white is darker, and colour comes back at its end", () => {
+    const choppy: FxEvent[] = [{ kind: "choppy", start: at, end: at + 12 * F, strength: 1 }];
+    const held = [0, 1, 2, 3, 4, 5, 6].map((k) => fxAt(choppy, at + k * F, FPS).freeze!);
+    // Each picture held two or three frames, five pictures in twelve frames.
+    expect(new Set(held.map((h) => h.toFixed(4))).size).toBe(3);
+    for (let i = 1; i < held.length; i++) expect(held[i]).toBeGreaterThanOrEqual(held[i - 1]);
+    expect(held[3] - held[0]).toBeCloseTo(1 / 12, 6);
+    const bw: FxEvent[] = [{ kind: "bw", start: at, end: at + 15 * F, strength: 1 }];
+    expect(fxAt(bw, at, FPS)).toMatchObject({ mono: 1 });
+    expect(fxAt(bw, at, FPS).dim).toBeCloseTo(0.18, 9);
+    expect(fxAt(bw, at + 15 * F, FPS)).toMatchObject({ mono: 0, dim: 0 });
   });
 
   it("a strobe is black every other frame; the bars slide in and hold", () => {

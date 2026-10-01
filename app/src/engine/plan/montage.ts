@@ -1501,7 +1501,8 @@ export function finishPlan(o: FinishOptions): EditPlan {
     fx,
     captions: o.captions,
     card: o.card ? { spec: o.card, start: cardAt, end: duration, fadeIn: 8 / FPS, fadeOut } : undefined,
-    music: o.songSource ? { source: o.songSource, songStart, start: 0, end: duration, fadeIn: 0.01, fadeOut, gain: 1 } : undefined,
+    // (Muffled under the card, as nio.trade's are: the edit's over, the song plays on behind it.)
+    music: o.songSource ? { source: o.songSource, songStart, start: 0, end: duration, fadeIn: 0.01, fadeOut, gain: 1, ...(o.card ? { muffle: cardAt } : {}) } : undefined,
     sourceAudio: false,
     grade: WARM_GRADE,
     note: {
@@ -1683,10 +1684,12 @@ export function planMontage(o: MontageOptions): EditPlan {
     }
   }
   // TJR's window with the next clip in it, once after the drop (talking edits, and every other straight one).
+  const under: FxEvent[] = [];
   if (style === "talk" || (style === "beat" && o.variant % 2 === 1)) {
     const w = windows(shots, song.beats.map((b) => lead(b - win.songStart)), o.scans, drop?.start ?? 1, FRAME_SIZE[o.aspect][0] / FRAME_SIZE[o.aspect][1]);
     shots = w.shots;
     overlays.push(...w.overlays);
+    under.push(...w.fx);
   }
   // (Under subtitled talking, the caption comes in with the edit.)
   const capFrom = o.subtitles && intro && handover !== undefined ? lead(handover) : 0;
@@ -1718,6 +1721,7 @@ export function planMontage(o: MontageOptions): EditPlan {
     fadeIn: style === "slow" ? 12 / FPS : style === "burst" || style === "mono" || (style === "beat" && o.variant % 2 === 0) ? 8 / FPS : undefined,
   });
   if (overlays.length) plan.overlays = overlays;
+  plan.fx.push(...under);
   // Black and white: a talking edit's build and a flipping edit's, up to the drop (a
   // flipping edit with no drop turns at the bar line two fifths in); and in a flipping
   // edit, a shot or two after the drop turning to colour on a beat.
@@ -1732,14 +1736,37 @@ export function planMontage(o: MontageOptions): EditPlan {
     // the way on the drop.
     const end = intro.end;
     const drop = dropCut ?? end;
-    plan.music.gainPoints = [[0, 0.22], [Math.max(0, end - 0.12), 0.22], ...(drop - end > 0.3 ? ([[end + 0.1, 0.55], [drop - 0.03, 0.55]] as [number, number][]) : []), [drop, 1]];
-    plan.note.sound = opening
-      ? "Your opening plays first with its own sound, the song under it until the drop: post the version with the song."
-      : "The talking at the start is in the file with its own voice, the song under it: post the version with the song.";
+    // (In every other edit opening straight into the drop, nothing under the voice: the song
+    // comes in on the cut, its first hit with it, as nio.trade's …6955 does after its stream.)
+    const silent = o.variant % 2 === 1 && drop - end <= 0.3;
+    plan.music.gainPoints = silent
+      ? [[0, 0], [Math.max(0, drop - 0.03), 0], [drop, 1]]
+      : [[0, 0.22], [Math.max(0, end - 0.12), 0.22], ...(drop - end > 0.3 ? ([[end + 0.1, 0.55], [drop - 0.03, 0.55]] as [number, number][]) : []), [drop, 1]];
+    plan.note.sound = silent
+      ? `${opening ? "Your opening" : "The talking at the start"} plays on its own with its own sound, and the song comes in on the drop: post the version with the song.`
+      : opening
+        ? "Your opening plays first with its own sound, the song under it until the drop: post the version with the song."
+        : "The talking at the start is in the file with its own voice, the song under it: post the version with the song.";
     // A phone's voice against a mastered song: brought up to 3 dB under the song in full.
     plan.levelVoice = -3;
   }
   if (looped && plan.music) plan.music.fadeOut = 0.04;
+  // Under the photo burst the song stutters (nio.trade's …0002): it cuts out, and the hit
+  // the burst starts on plays again on each picture, a sixteenth apart, until the next cut.
+  if (style === "burst" && plan.music) {
+    const burst = plan.shots.filter((s) => s.crop.inset && s.crop.tilt !== undefined);
+    if (burst.length >= 4) {
+      const from = burst[0].start;
+      const to = burst[burst.length - 1].end;
+      const piece = burst[1].start - burst[0].start;
+      const m = plan.music;
+      // (On through the last picture, held to the next cut, a roll on the sixteenths.)
+      const at = burst.map((s) => s.start);
+      for (let t = at[at.length - 1] + piece; t < to - 0.6 * piece; t += piece) at.push(frame(t));
+      plan.music.stutter = { from, to, at, src: m.songStart + (from - m.start) + CUT_LEAD - 0.004, len: Math.max(0.05, Math.min(0.14, piece - 0.012)) };
+      plan.note.sound = plan.note.sound ?? "The song stutters under the burst of photos (its hit again on each picture): post the version with the song.";
+    }
+  }
   plan.checks = { ...plan.checks, style, ...(intro ? { [opening ? "opening" : "talking"]: Math.round(intro.end * 100) / 100 } : {}), ...(looped ? { loop: true } : {}) };
   return plan;
 }

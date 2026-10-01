@@ -291,9 +291,11 @@ function ownCard(scan: Scan, a: number, b: number, frame: number): Pick<OverlayE
  * there's room, a card of another clip the edit doesn't show there (a picture when
  * there's no clip). Once, on the middle one of the runs of a clip three quarters of a
  * second long or more whose next shot is a clip; nothing when there's none. The shots
- * come back with the one it leads into moved along, when it was.
+ * come back with the one it leads into moved along, when it was. Under the cards the shot
+ * plays at twelve frames a second from the first, and stops dead when the next shot's lands
+ * (TJR's …7392: the "memory" card over a stuttering shot, then the preview over a frozen one).
  */
-export function windows(shots: ShotEvent[], beats: number[], scans: Scan[], after: number, frame: number): { shots: ShotEvent[]; overlays: OverlayEvent[] } {
+export function windows(shots: ShotEvent[], beats: number[], scans: Scan[], after: number, frame: number): { shots: ShotEvent[]; overlays: OverlayEvent[]; fx: FxEvent[] } {
   const byId = new Map(scans.map((sc) => [sc.id, sc]));
   const grid = beats.flatMap((b, i) => (i + 1 < beats.length ? [b, (b + beats[i + 1]) / 2] : [b]));
   // (Over a clip's whole run: carried over a beat, it's two shots of one clip.)
@@ -334,9 +336,12 @@ export function windows(shots: ShotEvent[], beats: number[], scans: Scan[], afte
     const overlays: OverlayEvent[] = [];
     if (other) overlays.push({ start: first!, end: next.start, source: other.scan.id, kind: other.scan.kind, srcStart: other.t, speed: other.scan.kind === "video" ? 1 : 0, ...ownCard(other.scan, other.t, other.t + next.start - first!, frame) });
     overlays.push({ start: at, end: next.start, source: next.source, kind: "video", srcStart: from, speed: next.speed, ...ownCard(scan, from, srcStart + sourceSpan(next), frame) });
-    return { shots: out, overlays };
+    // (The freeze is the cut's own move: the design leaves that cut hard.)
+    const fx: FxEvent[] = [{ kind: "freeze", start: at, end: next.start, strength: 1, at: next.start }];
+    if (other && at - first! >= 4 / FPS) fx.unshift({ kind: "choppy", start: first!, end: at, strength: 1 });
+    return { shots: out, overlays, fx };
   }
-  return { shots, overlays: [] };
+  return { shots, overlays: [], fx: [] };
 }
 
 /**
@@ -376,7 +381,7 @@ const HEAD_TILTS = [-18, 22, -14, 19];
 const PEOPLE = new Set(["talking", "people", "party", "fashion"].map((k) => KINDS.indexOf(k as (typeof KINDS)[number])));
 
 /** How much of a clip's stretch [a, b] has someone in it (the picture model's kinds, else skin), 0 to 1. */
-function someone(scan: Scan, a: number, b: number): number {
+export function someone(scan: Scan, a: number, b: number): number {
   let n = 0;
   let yes = 0;
   for (let i = 0; i < scan.stats.t.length; i++) {

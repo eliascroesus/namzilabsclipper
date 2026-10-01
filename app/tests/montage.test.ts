@@ -85,6 +85,8 @@ describe.skipIf(!songs.length)("twist and meme", () => {
     expect(plan.shots.filter((s) => s.start < sw - 1e-6).every((s) => s.source !== "desk")).toBe(true);
     expect(plan.captions.map((c) => c.text)).toEqual(["what they see vs...", "what they don't..."]);
     expect(plan.captions[1].start).toBeCloseTo(sw, 6);
+    // (The second sits a little lower, as brezscales' does.)
+    expect(plan.captions[1].y! - plan.captions[0].y!).toBeCloseTo(0.028, 6);
     const marks = [...song.beats];
     expect(Math.min(...marks.map((m) => Math.abs(m - CUT_LEAD - sw)))).toBeLessThanOrEqual(1 / FPS);
   });
@@ -176,7 +178,11 @@ describe("planners on a synthetic song (runs everywhere)", () => {
       expect(plan.shots[plan.shots.length - 1].end).toBeCloseTo(plan.card!.start, 5);
       expect(plan.duration).toBeCloseTo(plan.card!.start + 4, 1);
       expect(plan.music!.fadeOut).toBeGreaterThan(0.5);
+      // The song plays on under the card, muffled from its first frame (nio.trade's cards).
+      expect(plan.music!.muffle).toBeCloseTo(plan.card!.start, 9);
     }
+    // No card, nothing muffled.
+    expect(planMontage({ song: tune, songSource: "song", songName: "long", fromStart: true, scans, aspect: "9x16", length: 20, card: null, caption: null, variant: 0 }).music!.muffle).toBeUndefined();
   });
 
   it("ends on the user's own card video when there is one: played whole, as it was made", () => {

@@ -91,6 +91,9 @@ export function limit(channels: Float32Array[], ceiling = 0.89, rate = MIX_RATE,
 }
 
 /** Render the plan's soundtrack. `withMusic: false` leaves the song out (you add it in the app). */
+/** Where a muffled song is cut off (a 12 dB an octave low-pass): about 15 dB down at 2.5 kHz, 20 at 4 kHz, as nio.trade's cards have it. */
+export const MUFFLE_HZ = 1300;
+
 export async function mixPlan(plan: EditPlan, sources: Map<string, Source>, withMusic: boolean): Promise<AudioBuffer> {
   const length = Math.ceil(plan.duration * MIX_RATE);
   const ctx = new OfflineAudioContext(2, length, MIX_RATE);
@@ -137,7 +140,45 @@ export async function mixPlan(plan: EditPlan, sources: Map<string, Source>, with
       for (const [t, v] of m.gainPoints ?? []) if (t > m.start + m.fadeIn && t < fadeEnd) g.gain.linearRampToValueAtTime(v * m.gain, t);
       g.gain.linearRampToValueAtTime(level(fadeEnd), fadeEnd);
       g.gain.linearRampToValueAtTime(0, m.end);
-      node.connect(g).connect(master);
+      // Muffled from the card on (nio.trade's end cards): its top cut off as if through a wall,
+      // within a few hundredths of a second.
+      let into: AudioNode = master;
+      if (m.muffle !== undefined && m.muffle < m.end) {
+        const lp = ctx.createBiquadFilter();
+        lp.type = "lowpass";
+        lp.Q.value = 0.7;
+        lp.frequency.setValueAtTime(20000, 0);
+        lp.frequency.setValueAtTime(20000, Math.max(0, m.muffle - 0.01));
+        lp.frequency.exponentialRampToValueAtTime(MUFFLE_HZ, m.muffle + 0.03);
+        lp.connect(master);
+        into = lp;
+      }
+      const st = m.stutter;
+      if (st && st.to > st.from) {
+        // The stutter: the song gated off over its stretch (4 ms ramps, no clicks) and its
+        // slice played again on each time, at the level the song has there.
+        const gate = ctx.createGain();
+        gate.gain.setValueAtTime(1, 0);
+        gate.gain.setValueAtTime(1, Math.max(0, st.from - 0.004));
+        gate.gain.linearRampToValueAtTime(0, st.from);
+        gate.gain.setValueAtTime(0, Math.max(st.from, st.to - 0.004));
+        gate.gain.linearRampToValueAtTime(1, st.to);
+        node.connect(g).connect(gate).connect(into);
+        const offset = st.src - m.songStart;
+        for (const t of st.at) {
+          if (offset < 0 || offset + st.len > buf.duration || t < m.start) continue;
+          const slice = ctx.createBufferSource();
+          slice.buffer = buf;
+          const e = ctx.createGain();
+          const v = level(t);
+          e.gain.setValueAtTime(0, t);
+          e.gain.linearRampToValueAtTime(v, t + 0.003);
+          e.gain.setValueAtTime(v, t + Math.max(0.004, st.len - 0.008));
+          e.gain.linearRampToValueAtTime(0, t + st.len);
+          slice.connect(e).connect(master);
+          slice.start(t, offset, st.len);
+        }
+      } else node.connect(g).connect(into);
       node.start(m.start);
     }
   }

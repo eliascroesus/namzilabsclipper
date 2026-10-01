@@ -93,15 +93,36 @@ function timedWords(tr: Transcript, runs: Run[], a: number, b: number): Word[] {
   return words.sort((x, y) => x.start - y.start);
 }
 
-/** Subtitle lines: up to four words, breaking after punctuation, like the nio.trade clips. */
+/** How long a line stays up through a pause until the next one (nio.trade's hold through a second or so of silence; a longer one leaves the screen clear). */
+export const SUBTITLE_HOLD = 1;
+
+/**
+ * Subtitle lines as the nio.trade clips set them: up to four words, breaking after
+ * punctuation; a word said again coming onto the line where it's said ("LARP!", then
+ * "LARP! LARP!"), and a line said again joining the one before ("ACTUALLY RIGHT NOW
+ * ACTUALLY RIGHT NOW"); shouted ones in capitals. Each holds until the next comes (through
+ * a pause of up to SUBTITLE_HOLD), or a moment after its last word.
+ */
 export function subtitleLines(words: (Word & { out: number; outEnd: number })[]): CaptionEvent[] {
   const lines: CaptionEvent[] = [];
   let cur: typeof words = [];
+  const norm = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}']/gu, "");
   const flush = () => {
     if (!cur.length) return;
-    const text = cur.map((w) => w.text).join(" ");
     const shout = cur.filter((w) => w.shout).length > cur.length / 2;
-    lines.push({ style: shout ? "shout" : "doc", text: shout ? text : text.replace(/[.,;:!]+$/, ""), start: cur[0].out, end: cur[cur.length - 1].outEnd, spoken: true });
+    const style = shout ? "shout" : "doc";
+    const say = (ws: typeof cur) => {
+      const text = ws.map((w) => w.text).join(" ");
+      // (A full stop or a comma at the end goes; what's asked or shouted keeps its mark.)
+      return shout ? text.toUpperCase() : text.replace(/[.,;:]+$/, "");
+    };
+    let from = 0;
+    for (let i = 1; i < cur.length; i++) {
+      if (!norm(cur[i].text) || norm(cur[i].text) !== norm(cur[i - 1].text)) continue;
+      lines.push({ style, text: say(cur.slice(0, i)), start: cur[from].out, end: cur[i].out, spoken: true });
+      from = i;
+    }
+    lines.push({ style, text: say(cur), start: cur[from].out, end: cur[cur.length - 1].outEnd, spoken: true });
     cur = [];
   };
   for (const w of words) {
@@ -111,10 +132,16 @@ export function subtitleLines(words: (Word & { out: number; outEnd: number })[])
     if (/[.?!,;:]$/.test(w.text) && cur.length >= 2) flush();
   }
   flush();
-  // Each line holds until the next one (or a moment after its last word).
+  // A line said again within a second joins the one before (one block, up to about forty letters).
+  const same = (a: string, b: string) => a.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "") === b.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+  for (let i = 1; i < lines.length; i++) {
+    const [a, b] = [lines[i - 1], lines[i]];
+    if (same(a.text, b.text) && b.start - a.end <= SUBTITLE_HOLD && a.text.length + b.text.length < 40) lines[i] = { ...b, text: `${a.text} ${b.text}` };
+  }
   for (let i = 0; i < lines.length; i++) {
     const next = lines[i + 1];
-    lines[i].end = next ? Math.min(next.start, Math.max(lines[i].end + 0.35, lines[i].start + 0.4)) : lines[i].end + 0.35;
+    const end = next && next.start - lines[i].end <= SUBTITLE_HOLD ? next.start : Math.max(lines[i].end + 0.35, lines[i].start + 0.4);
+    lines[i].end = next ? Math.min(next.start, end) : end;
   }
   return lines;
 }

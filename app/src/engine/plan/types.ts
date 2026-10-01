@@ -178,8 +178,16 @@ export function outputAt(shot: Pick<ShotEvent, "start" | "end" | "speed" | "ramp
  * - fade: down to black into the cut and back up out of it (a dip across a cut)
  * - vhs: a videotape's picture (soft, its colour bleeding late, its lines wobbling, a
  *   torn band at the bottom), on over its span
+ *
+ * Inside a shot (nio.trade's …5448 and …2531, TJR's windows):
+ * - reframe: from one frame to the next the picture is `strength` closer (0.08: 8%),
+ *   turned `dir` degrees, and stays so to its end (an editor's punch-in step on a beat)
+ * - crash: a crash zoom, `strength` closer, quick in the middle and easing at both ends,
+ *   smeared while it moves, landing on `at` and held to its end; `dir` -1 comes back out
+ * - choppy: the picture at twelve frames a second (each frame held two or three)
+ * - bw: black and white, harder and a fifth darker, snapping to colour at its end
  */
-export type FxKind = "flash" | "burn" | "dip" | "fadein" | "punch" | "shake" | "zoomblur" | "split" | "mono" | "zoomin" | "whip" | "spin" | "swing" | "blur" | "glitch" | "invert" | "strobe" | "leak" | "bars" | "fade" | "vhs" | "dissolve" | "push" | "slide" | "freeze" | "glow";
+export type FxKind = "flash" | "burn" | "dip" | "fadein" | "punch" | "shake" | "zoomblur" | "split" | "mono" | "zoomin" | "whip" | "spin" | "swing" | "blur" | "glitch" | "invert" | "strobe" | "leak" | "bars" | "fade" | "vhs" | "dissolve" | "push" | "slide" | "freeze" | "glow" | "steps" | "reframe" | "crash" | "choppy" | "bw";
 
 /** The transitions that show two shots at once (the one going out and the one coming in): a crossfade, the two pushed along together, the next sliding in over the last. */
 export const TWO_SHOT: ReadonlySet<FxKind> = new Set<FxKind>(["dissolve", "push", "slide"]);
@@ -300,6 +308,13 @@ export interface MusicEvent {
   gain: number;
   /** the song's level over the edit, as [edit time, gain] points joined by straight ramps (ducking under dialogue) */
   gainPoints?: [number, number][];
+  /**
+   * a stutter (nio.trade's …0002): from `from` to `to` (edit seconds) the song cuts out, and
+   * a slice of it (`len` seconds from `src`, song seconds) plays again at each time in `at`
+   */
+  stutter?: { from: number; to: number; at: number[]; src: number; len: number };
+  /** from this moment (edit seconds) the song plays muffled, its top cut off as if through a wall (nio.trade's end cards) */
+  muffle?: number;
 }
 
 export interface Grade {

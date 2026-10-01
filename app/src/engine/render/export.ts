@@ -154,6 +154,9 @@ export function fxAt(fx: FxEvent[], t: number, fps: number, aspect = 9 / 16) {
   // The highlights glowing more than the look has them (a pulse on a hit), and the picture held still (a freeze frame) from this moment.
   let glow = 0;
   let freeze: number | null = null;
+  // The picture closer than the shot's own framing (a punch-in step, a crash zoom), round
+  // the framing's centre (the subject): held, where a punch settles back.
+  let reframe = 1;
   // A transition showing two shots at once: which, how far from the first to the second (0 to 1), which way.
   let mix: { kind: "dissolve" | "push" | "slide"; at: number; p: number; dir: number } | null = null;
   const jolt = (n: number, seed: number) => (Math.sin(n * 12.9898 + seed * 78.233) * 43758.5453) % 1;
@@ -252,6 +255,35 @@ export function fxAt(fx: FxEvent[], t: number, fps: number, aspect = 9 / 16) {
       glow = Math.max(glow, e.strength * (t < at ? into : out ** 1.5));
     } else if (e.kind === "freeze") {
       freeze = e.start;
+    } else if (e.kind === "reframe") {
+      // From one frame to the next the picture jumps closer, turned a degree or so, and stays
+      // (an editor's punch-in step on a beat, inside a clip: nio.trade's …2531, …5448).
+      reframe *= 1 + e.strength;
+      if (e.dir) {
+        const th = (e.dir * Math.PI) / 180;
+        spin += th;
+        // (Zoomed enough that no edge shows.)
+        scale *= Math.cos(th) + Math.max(aspect, 1 / aspect) * Math.sin(Math.abs(th));
+      }
+    } else if (e.kind === "crash") {
+      // A crash zoom: quick in the middle, easing at both ends, smeared while it moves, landing
+      // on `at` and held (or, `dir` -1, back out to the shot's own framing).
+      const u = t >= at ? 1 : Math.min(1, Math.max(0, (t - e.start + 1 / fps) / Math.max(1e-6, at - e.start + 1 / fps)));
+      const k = u * u * (3 - 2 * u);
+      reframe *= 1 + e.strength * ((e.dir ?? 1) < 0 ? 1 - k : k);
+      if (t < at) zoomBlur = Math.max(zoomBlur, Math.min(1, 1.2 * e.strength) * 4 * u * (1 - u));
+    } else if (e.kind === "choppy") {
+      // Twelve frames a second: each held two or three.
+      freeze = e.start + Math.floor((t - e.start) * 12 + 1e-6) / 12;
+    } else if (e.kind === "bw") {
+      // Black and white, harder (the mono curve) and a fifth darker, so the colour coming back is a lift too.
+      mono = Math.max(mono, 1);
+      dim = Math.max(dim, 0.18 * e.strength);
+    } else if (e.kind === "steps") {
+      // Zooming in by steps, a new size every two frames, a tenth of the picture each, up to
+      // `strength` (nio.trade's …0002 on its chart): choppy on purpose.
+      const k = Math.floor(((t - e.start) * fps) / 2 + 1e-6) + 1;
+      scale *= 1 + Math.min(e.strength, 0.1 * k);
     } else if ((e.kind === "dissolve" || e.kind === "push" || e.kind === "slide") && e.at !== undefined) {
       // (Its frames evenly between the two shots: a five-frame crossfade shows the next one at
       // 1/6, 2/6 ... 5/6, as nio.trade's do, and whole on the frame after.)
@@ -273,7 +305,7 @@ export function fxAt(fx: FxEvent[], t: number, fps: number, aspect = 9 / 16) {
       bars = Math.max(bars, e.strength * p * p * (3 - 2 * p));
     }
   }
-  return { flash, burn, burnPhase, dim, punch, shake, zoomBlur, split, mono, move, scale, spin, streak, spinBlur, blur, glitch, invert, bars, leak, leakPhase, vhs, mix, glow, freeze };
+  return { flash, burn, burnPhase, dim, punch, shake, zoomBlur, split, mono, move, scale, spin, streak, spinBlur, blur, glitch, invert, bars, leak, leakPhase, vhs, mix, glow, freeze, reframe };
 }
 
 async function blobToBase64Parts(blob: Blob, chunk = 6 * 1024 * 1024): Promise<string[]> {
@@ -465,7 +497,7 @@ export class FramePainter {
       if (both && e.mix && flat(both.a) && flat(both.b)) {
         // The shot going out and the one coming in, both drawn: crossfading, pushed along
         // together (the next one coming in from the other side), or the next sliding in over the last.
-        const [a, b] = [await this.shotLayer(both.a, t, 0, e.punch, graded), await this.shotLayer(both.b, t, 1, e.punch, graded)];
+        const [a, b] = [await this.shotLayer(both.a, t, 0, e.punch * e.reframe, graded), await this.shotLayer(both.b, t, 1, e.punch * e.reframe, graded)];
         const { kind, p, dir } = e.mix;
         const ang = (dir * Math.PI) / 180;
         const [dx, dy] = [Math.cos(ang), Math.sin(ang)];
@@ -483,7 +515,7 @@ export class FramePainter {
       } else {
         // (Held on one frame while a freeze lasts, when it started in this shot.)
         const held = e.freeze !== null && e.freeze >= shot.start - 1e-6 ? e.freeze : t;
-        const l = await this.shotLayer(idx, held, 0, e.punch, graded);
+        const l = await this.shotLayer(idx, held, 0, e.punch * e.reframe, graded);
         if (l) layers.push(l);
       }
     }

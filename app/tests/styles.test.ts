@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { analyzeSong } from "../src/engine/audio/song";
 import { scoreInterest, type Kind, type Scan } from "../src/engine/media/scan";
-import { speechRanges, subtitlesFor } from "../src/engine/plan/subtitles";
+import { shouted, speechRanges, subtitlesFor } from "../src/engine/plan/subtitles";
+import { SUBTITLE_HOLD, subtitleLines } from "../src/engine/plan/story";
 import { CUT_LEAD, planMontage, usedRanges, type Ranges } from "../src/engine/plan/montage";
 import { mixOrder, styleFor, windows, type Talker } from "../src/engine/plan/styles";
 import { FPS, sourceSpan, type CardSpec, type EditPlan } from "../src/engine/plan/types";
@@ -158,6 +159,18 @@ describe("edit styles", () => {
     const plain = planMontage({ ...base, scans, card, style: "beat" });
     expect(plain.shots.some((s) => Math.abs(s.start - plan.shots[k + 1].start) < 1e-6)).toBe(true);
     for (let i = 1; i < plan.shots.length; i++) expect(plan.shots[i].start).toBeCloseTo(plan.shots[i - 1].end, 6);
+    // Under it the song stutters: cut out from the first picture to the next cut, its hit again on each picture.
+    const st = plan.music!.stutter!;
+    expect(st.from).toBeCloseTo(burst[0].start, 6);
+    expect(st.to).toBeCloseTo(burst[burst.length - 1].end, 6);
+    expect(st.at.slice(0, burst.length)).toEqual(burst.map((s) => s.start));
+    // (Rolling on through the last picture, a sixteenth apart.)
+    for (let i = 1; i < st.at.length; i++) expect(st.at[i] - st.at[i - 1]).toBeLessThan(song.period / 4 + 1.5 / FPS);
+    expect(st.at[st.at.length - 1]).toBeLessThan(st.to - 0.05);
+    expect(st.len).toBeGreaterThanOrEqual(0.05);
+    expect(st.len).toBeLessThanOrEqual(0.14);
+    expect(st.src).toBeCloseTo(plan.music!.songStart + burst[0].start + CUT_LEAD - 0.004, 6);
+    expect(plain.music!.stutter).toBeUndefined();
   });
 
   it("photo burst: before it, the shot plays on and the user's photos land on the head of whoever is in it, on its last beats (nio.trade)", () => {
@@ -227,11 +240,18 @@ describe("edit styles", () => {
       { start: 3.8, end: 5, source: "a", kind: "video" as const, srcStart: 9, speed: 1, crop, role: "closer" as const },
     ];
     const beats = Array.from({ length: 13 }, (_, k) => 0.4 * k);
-    const { shots: out, overlays } = windows(shots, beats, [a, b, c], 0, 9 / 16);
+    const { shots: out, overlays, fx } = windows(shots, beats, [a, b, c], 0, 9 / 16);
     expect(overlays.map((o) => [o.source, +o.start.toFixed(6), +o.end.toFixed(6)])).toEqual([
       ["c", 2.8, 3.2],
       ["b", 3, 3.2],
     ]);
+    // Under them the shot stutters at twelve frames a second from the first card, and stops dead when the next shot's lands (TJR's).
+    expect(fx.map((e) => [e.kind, +e.start.toFixed(6), +e.end.toFixed(6)])).toEqual([
+      ["choppy", 2.8, 3],
+      ["freeze", 3, 3.2],
+    ]);
+    // (The cut it opens into is its own: a design leaves it hard.)
+    expect(fx[1].at).toBeCloseTo(3.2, 9);
     // c in its own 4:5, b in its 16:9; b playing on into the shot, which starts later for it.
     expect(overlays[0].aspect).toBeCloseTo(0.8, 6);
     expect(overlays[1].aspect).toBeCloseTo(16 / 9, 6);
@@ -386,5 +406,57 @@ describe("the user's own opening", () => {
     }
     // A word past the opening isn't subtitled.
     expect(subtitlesFor(plan, [{ range: ranges[0], words: [{ text: "late", start: end + 2, end: end + 2.3 }] }])).toEqual([]);
+    // Shouted words in capitals.
+    const loud = subtitlesFor(plan, [{ range: ranges[0], words: ["buy", "everyone", "buy!"].map((text, i) => ({ text, start: 0.5 + 0.3 * i, end: 0.75 + 0.3 * i, shout: true })) }]);
+    expect(loud.map((c) => c.text)).toEqual(["BUY EVERYONE BUY!"]);
+  });
+
+  it("in every other edit opening straight into the drop, nothing under the voice: the song comes in on the cut", () => {
+    const all = [...scans, talk, reel];
+    scoreInterest(all);
+    for (const variant of [0, 1]) {
+      const p = planMontage({ ...base, scans: all, card, openers: ["reel"], variant });
+      const end = p.shots.filter((s) => s.audio).at(-1)!.end;
+      const g = p.music!.gainPoints!;
+      if (variant % 2) {
+        expect(g.filter(([t]) => t < end - 0.05).every(([, v]) => v === 0)).toBe(true);
+        expect(g.at(-1)).toEqual([end, 1]);
+        expect(p.note.sound).toMatch(/comes in on the drop/);
+      } else expect(g[0][1]).toBeGreaterThan(0.1);
+    }
+  });
+});
+
+describe("subtitles as nio.trade sets them", () => {
+  const W = (text: string, out: number, len = 0.25, shout = false) => ({ text, start: out, end: out + len, shout, out, outEnd: out + len });
+
+  it("a word said again comes onto the line where it's said; a line said again joins the one before", () => {
+    const lines = subtitleLines([W("LARP!", 0.7), W("LARP!", 1.6), W("oh", 2.4), W("I", 2.6), W("know.", 2.8)]);
+    expect(lines.map((c) => c.text)).toEqual(["LARP!", "LARP! LARP!", "oh I know"]);
+    expect(lines[0].start).toBeCloseTo(0.7, 9);
+    expect(lines[0].end).toBeCloseTo(1.6, 9);
+    expect(lines[1].start).toBeCloseTo(1.6, 9);
+    const again = subtitleLines([W("actually", 0), W("right", 0.3), W("now.", 0.6), W("actually", 1.1), W("right", 1.4), W("now.", 1.7)]);
+    expect(again.map((c) => c.text)).toEqual(["actually right now", "actually right now actually right now"]);
+  });
+
+  it("each line holds until the next through a pause of a second or less; a longer one clears the screen", () => {
+    const near = subtitleLines([W("so", 0), W("this", 0.3), W("is", 0.6), W("it.", 0.9), W("we", 1.15 + 0.9), W("made", 2.35)]);
+    expect(near[0].end).toBeCloseTo(near[1].start, 9);
+    const far = subtitleLines([W("so", 0), W("this", 0.3), W("is", 0.6), W("it.", 0.9), W("we", 1.15 + SUBTITLE_HOLD + 0.5), W("made", 3)]);
+    expect(far[0].end).toBeCloseTo(1.15 + 0.35, 9);
+    expect(far[1].start - far[0].end).toBeGreaterThan(0.5);
+  });
+
+  it("finds the shouted words by how loud they are against the rest", () => {
+    const rate = 1000;
+    const y = new Float32Array(6 * rate);
+    const words = [0, 1, 2, 3, 4, 5].map((k) => ({ start: k + 0.1, end: k + 0.6 }));
+    words.forEach((w, k) => {
+      for (let i = Math.round(w.start * rate); i < Math.round(w.end * rate); i++) y[i] = (k === 4 ? 0.6 : 0.1) * Math.sin(i);
+    });
+    expect(shouted(y, rate, words)).toEqual([false, false, false, false, true, false]);
+    // (Too few words to tell: none.)
+    expect(shouted(y, rate, words.slice(3, 5))).toEqual([false, false]);
   });
 });

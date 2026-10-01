@@ -25,7 +25,7 @@ import type { Pace } from "../engine/plan/rhythm";
 import { CALM_LABEL, mixOrder, styleFor, styleLabel, talks, type EditStyle, type Talker } from "../engine/plan/styles";
 import { applyDesign, designFor, designName, designOrder, heardBeats, leanOf, ownCaptions, type Design } from "../engine/plan/designs";
 import { NO_GRADE, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type EditPlan, type TextLook } from "../engine/plan/types";
-import { speechRanges, subtitlesFor, type Heard } from "../engine/plan/subtitles";
+import { shouted, speechRanges, subtitlesFor, type Heard } from "../engine/plan/subtitles";
 import { listen } from "../mimic/asr/client";
 import { DEFAULT_LOOK } from "../engine/render/captions";
 import { pickCodecs, renderPlan } from "../engine/render/export";
@@ -992,7 +992,9 @@ class Studio {
         const y = await decodeMono(src, 16000, range.from, range.to, undefined, signal);
         if (!y.length) continue;
         const r = await listen(y, (p) => onProgress((i + (p.stage === "listen" ? 0.2 + 0.8 * p.p : 0.2 * p.p)) / ranges.length), signal);
-        words = r.words;
+        // (Shouted words, by how loud they are against the rest: their lines go in capitals.)
+        const loud = shouted(y, 16000, r.words);
+        words = r.words.map((w, k) => ({ ...w, shout: loud[k] }));
         this.heardWords.set(key, words);
       }
       if (words) heard.push({ range, words });

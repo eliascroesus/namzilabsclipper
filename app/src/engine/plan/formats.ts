@@ -103,10 +103,11 @@ export function planTwist(o: TwistOptions): EditPlan {
   // The reveal holds still: no pushes on it unless it's a photo.
   for (const s of shotsB) if (s.kind === "video") s.crop.zoom1 = s.crop.zoom0;
 
+  // (The second a little lower than the first, swapped in on the cut's own frame: brezscales' …1216.)
   const y = 0.36;
   const captions: CaptionEvent[] = [];
   if (o.captionA.trim()) captions.push({ style: "meme", text: o.captionA.trim(), start: 0, end: switchAt, y });
-  if (o.captionB.trim()) captions.push({ style: "meme", text: o.captionB.trim(), start: switchAt, end: o.card ? win.cardAt - 4 / FPS : win.duration, y });
+  if (o.captionB.trim()) captions.push({ style: "meme", text: o.captionB.trim(), start: switchAt, end: o.card ? win.cardAt - 4 / FPS : win.duration, y: y + 0.028 });
   const plan = finishPlan({
     id: "twist",
     label: `Twist ${o.variant + 1}`,
