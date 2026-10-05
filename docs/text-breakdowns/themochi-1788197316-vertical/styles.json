@@ -1,0 +1,560 @@
+[
+ {
+  "id": "cap-m",
+  "role": "base caption line (middle lines)",
+  "font": {
+   "family": "Zalando Sans (free match for an expanded neo-grotesk, most likely SF Pro Expanded)",
+   "candidates": [
+    {
+     "name": "Zalando Sans, wdth 115, wght 700, tracking -0.033 em",
+     "source": "Google Fonts; Fontsource @fontsource-variable/zalando-sans (wdth.css carries the 75-125 % width axis)",
+     "license": "OFL-1.1",
+     "match": "best free match: right a (double-storey, no spur), g (single-storey, flat terminal), y, t, r, k; descenders about 15 % longer and x-height 4 % smaller relative to caps than the video, flag of the 1 shorter; overlay IoU 0.7645 at wdth 115 wght 700 tracking -0.033 (Google Sans Flex best 0.740, TikTok Sans 0.718, Encode Sans Expanded lower)"
+    },
+    {
+     "name": "SF Pro Expanded, Semibold to Bold (likely original)",
+     "source": "Apple system font, not redistributable",
+     "license": "proprietary (Apple)",
+     "match": "likely original (cannot be verified offline): SF Pro in its Expanded width, Semibold to Bold. The editor sets every UI element in SF Pro, and SF Pro has the video's combination: double-storey a with a straight stem, single-storey g, flagged 1 without a foot, straight-tailed y, x-height/cap height about 0.75 (video 0.753)"
+    },
+    {
+     "name": "Mona Sans (2022 npm mona-sans 1.0.0, and the Google Fonts build)",
+     "source": "npm / Google Fonts",
+     "license": "OFL-1.1",
+     "match": "rejected as the original although its proportions are the closest (x/digit 0.744, descenders 0.33/0.31 of x-height): Mona Sans (both the 2022 npm release and the Google Fonts build) draws a single-storey a by default, and its ss01 set that adds the double-storey a also turns g binocular, while the video has a double-storey a with a single-storey g; overlay IoU 0.765"
+    },
+    {
+     "name": "TikTok Sans, stretch 120, weight 700 (bundled tiktok-sans)",
+     "source": "bundled",
+     "license": "OFL-1.1",
+     "match": "bundled fallback: right width (stretch 120) and x/cap 0.743, but the a has a spur and j, y differ; IoU 0.718"
+    }
+   ],
+   "weight": 700,
+   "width": "expanded (wdth 115)",
+   "style": "normal",
+   "engineFallback": "tiktok-sans, stretch 120, weight 700, tracking 0, size x0.98"
+  },
+  "case": "as-said (lower case; Instagram, DMs, CRM capitalised as typed; brand written \"mochi\")",
+  "capHeightPct": 3.91,
+  "xHeightPct": 2.95,
+  "trackingPct": -3.3,
+  "lineSpacing": "baseline to baseline = 0.97 x the cap height of the larger of the two lines (measured median, range 0.77 to 1.26); lines are packed so descenders of one line reach into the ascender band of the next",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#FEF8F5"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "rgba(20,20,20,0.55)",
+   "blur": 0.11,
+   "x": 0.014,
+   "y": 0.064,
+   "units": "em of Zalando Sans at this size",
+   "measured": "darkening 40 % at 3 px, 30 % at 6 px, 19 % at 10 px, 6.5 % at 15 px below a 56 px x-height word (\"Instagram\"); nothing above the letters"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "zalando-sans",
+   "weight": 700,
+   "stretch": 115,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.0573,
+   "tracking": -0.033,
+   "fill": {
+    "kind": "solid",
+    "color": "#FEF8F5"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(20,20,20,0.55)",
+    "blur": 0.11,
+    "x": 0.014,
+    "y": 0.064
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "31 lines, x-height 38 px median (33 to 44): \"sell\", \"through\", \"exactly\", \"who need\", \"conversation\", \"basically\" (17). Cap and x-height percentages are the measured ones; size is the Zalando Sans font size that reproduces the measured x-height."
+ },
+ {
+  "id": "cap-s",
+  "role": "small lead-in / function-word line",
+  "font": {
+   "family": "Zalando Sans (free match for an expanded neo-grotesk, most likely SF Pro Expanded)",
+   "candidates": [
+    {
+     "name": "Zalando Sans, wdth 115, wght 700, tracking -0.033 em",
+     "source": "Google Fonts; Fontsource @fontsource-variable/zalando-sans (wdth.css carries the 75-125 % width axis)",
+     "license": "OFL-1.1",
+     "match": "best free match: right a (double-storey, no spur), g (single-storey, flat terminal), y, t, r, k; descenders about 15 % longer and x-height 4 % smaller relative to caps than the video, flag of the 1 shorter; overlay IoU 0.7645 at wdth 115 wght 700 tracking -0.033 (Google Sans Flex best 0.740, TikTok Sans 0.718, Encode Sans Expanded lower)"
+    },
+    {
+     "name": "SF Pro Expanded, Semibold to Bold (likely original)",
+     "source": "Apple system font, not redistributable",
+     "license": "proprietary (Apple)",
+     "match": "likely original (cannot be verified offline): SF Pro in its Expanded width, Semibold to Bold. The editor sets every UI element in SF Pro, and SF Pro has the video's combination: double-storey a with a straight stem, single-storey g, flagged 1 without a foot, straight-tailed y, x-height/cap height about 0.75 (video 0.753)"
+    },
+    {
+     "name": "Mona Sans (2022 npm mona-sans 1.0.0, and the Google Fonts build)",
+     "source": "npm / Google Fonts",
+     "license": "OFL-1.1",
+     "match": "rejected as the original although its proportions are the closest (x/digit 0.744, descenders 0.33/0.31 of x-height): Mona Sans (both the 2022 npm release and the Google Fonts build) draws a single-storey a by default, and its ss01 set that adds the double-storey a also turns g binocular, while the video has a double-storey a with a single-storey g; overlay IoU 0.765"
+    },
+    {
+     "name": "TikTok Sans, stretch 120, weight 700 (bundled tiktok-sans)",
+     "source": "bundled",
+     "license": "OFL-1.1",
+     "match": "bundled fallback: right width (stretch 120) and x/cap 0.743, but the a has a spur and j, y differ; IoU 0.718"
+    }
+   ],
+   "weight": 700,
+   "width": "expanded (wdth 115)",
+   "style": "normal",
+   "engineFallback": "tiktok-sans, stretch 120, weight 700, tracking 0, size x0.98"
+  },
+  "case": "as-said (lower case; Instagram, DMs, CRM capitalised as typed; brand written \"mochi\")",
+  "capHeightPct": 3.13,
+  "xHeightPct": 2.35,
+  "trackingPct": -3.3,
+  "lineSpacing": "baseline to baseline = 0.97 x the cap height of the larger of the two lines (measured median, range 0.77 to 1.26); lines are packed so descenders of one line reach into the ascender band of the next",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#FEF8F5"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "rgba(20,20,20,0.55)",
+   "blur": 0.11,
+   "x": 0.014,
+   "y": 0.064,
+   "units": "em of Zalando Sans at this size",
+   "measured": "darkening 40 % at 3 px, 30 % at 6 px, 19 % at 10 px, 6.5 % at 15 px below a 56 px x-height word (\"Instagram\"); nothing above the letters"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "zalando-sans",
+   "weight": 700,
+   "stretch": 115,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.0458,
+   "tracking": -0.033,
+   "fill": {
+    "kind": "solid",
+    "color": "#FEF8F5"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(20,20,20,0.55)",
+    "blur": 0.11,
+    "x": 0.014,
+    "y": 0.064
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "16 lines, measured x-height 30 px median (20 to 32): \"if you\", \"then this is\", \"where\", \"every lead\", \"and then\", \"if your\", \"for\". Cap and x-height percentages are the measured ones; size is the Zalando Sans font size that reproduces the measured x-height."
+ },
+ {
+  "id": "cap-l",
+  "role": "emphasis line (usually the last line of a caption)",
+  "font": {
+   "family": "Zalando Sans (free match for an expanded neo-grotesk, most likely SF Pro Expanded)",
+   "candidates": [
+    {
+     "name": "Zalando Sans, wdth 115, wght 700, tracking -0.033 em",
+     "source": "Google Fonts; Fontsource @fontsource-variable/zalando-sans (wdth.css carries the 75-125 % width axis)",
+     "license": "OFL-1.1",
+     "match": "best free match: right a (double-storey, no spur), g (single-storey, flat terminal), y, t, r, k; descenders about 15 % longer and x-height 4 % smaller relative to caps than the video, flag of the 1 shorter; overlay IoU 0.7645 at wdth 115 wght 700 tracking -0.033 (Google Sans Flex best 0.740, TikTok Sans 0.718, Encode Sans Expanded lower)"
+    },
+    {
+     "name": "SF Pro Expanded, Semibold to Bold (likely original)",
+     "source": "Apple system font, not redistributable",
+     "license": "proprietary (Apple)",
+     "match": "likely original (cannot be verified offline): SF Pro in its Expanded width, Semibold to Bold. The editor sets every UI element in SF Pro, and SF Pro has the video's combination: double-storey a with a straight stem, single-storey g, flagged 1 without a foot, straight-tailed y, x-height/cap height about 0.75 (video 0.753)"
+    },
+    {
+     "name": "Mona Sans (2022 npm mona-sans 1.0.0, and the Google Fonts build)",
+     "source": "npm / Google Fonts",
+     "license": "OFL-1.1",
+     "match": "rejected as the original although its proportions are the closest (x/digit 0.744, descenders 0.33/0.31 of x-height): Mona Sans (both the 2022 npm release and the Google Fonts build) draws a single-storey a by default, and its ss01 set that adds the double-storey a also turns g binocular, while the video has a double-storey a with a single-storey g; overlay IoU 0.765"
+    },
+    {
+     "name": "TikTok Sans, stretch 120, weight 700 (bundled tiktok-sans)",
+     "source": "bundled",
+     "license": "OFL-1.1",
+     "match": "bundled fallback: right width (stretch 120) and x/cap 0.743, but the a has a spur and j, y differ; IoU 0.718"
+    }
+   ],
+   "weight": 700,
+   "width": "expanded (wdth 115)",
+   "style": "normal",
+   "engineFallback": "tiktok-sans, stretch 120, weight 700, tracking 0, size x0.98"
+  },
+  "case": "as-said (lower case; Instagram, DMs, CRM capitalised as typed; brand written \"mochi\")",
+  "capHeightPct": 5.33,
+  "xHeightPct": 4.01,
+  "trackingPct": -3.3,
+  "lineSpacing": "baseline to baseline = 0.97 x the cap height of the larger of the two lines (measured median, range 0.77 to 1.26); lines are packed so descenders of one line reach into the ascender band of the next",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#FEF8F5"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "rgba(20,20,20,0.55)",
+   "blur": 0.11,
+   "x": 0.014,
+   "y": 0.064,
+   "units": "em of Zalando Sans at this size",
+   "measured": "darkening 40 % at 3 px, 30 % at 6 px, 19 % at 10 px, 6.5 % at 15 px below a 56 px x-height word (\"Instagram\"); nothing above the letters"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "zalando-sans",
+   "weight": 700,
+   "stretch": 115,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.0781,
+   "tracking": -0.033,
+   "fill": {
+    "kind": "solid",
+    "color": "#FEF8F5"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(20,20,20,0.55)",
+    "blur": 0.11,
+    "x": 0.014,
+    "y": 0.064
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "19 lines, x-height 51 px median (46 to 62), usually the last line: \"Instagram\", \"everything\", \"the same\", \"an inbox\", \"itself\", \"a written\", \"business\". Cap and x-height percentages are the measured ones; size is the Zalando Sans font size that reproduces the measured x-height."
+ },
+ {
+  "id": "cap-xl",
+  "role": "extra-large closing word",
+  "font": {
+   "family": "Zalando Sans (free match for an expanded neo-grotesk, most likely SF Pro Expanded)",
+   "candidates": [
+    {
+     "name": "Zalando Sans, wdth 115, wght 700, tracking -0.033 em",
+     "source": "Google Fonts; Fontsource @fontsource-variable/zalando-sans (wdth.css carries the 75-125 % width axis)",
+     "license": "OFL-1.1",
+     "match": "best free match: right a (double-storey, no spur), g (single-storey, flat terminal), y, t, r, k; descenders about 15 % longer and x-height 4 % smaller relative to caps than the video, flag of the 1 shorter; overlay IoU 0.7645 at wdth 115 wght 700 tracking -0.033 (Google Sans Flex best 0.740, TikTok Sans 0.718, Encode Sans Expanded lower)"
+    },
+    {
+     "name": "SF Pro Expanded, Semibold to Bold (likely original)",
+     "source": "Apple system font, not redistributable",
+     "license": "proprietary (Apple)",
+     "match": "likely original (cannot be verified offline): SF Pro in its Expanded width, Semibold to Bold. The editor sets every UI element in SF Pro, and SF Pro has the video's combination: double-storey a with a straight stem, single-storey g, flagged 1 without a foot, straight-tailed y, x-height/cap height about 0.75 (video 0.753)"
+    },
+    {
+     "name": "Mona Sans (2022 npm mona-sans 1.0.0, and the Google Fonts build)",
+     "source": "npm / Google Fonts",
+     "license": "OFL-1.1",
+     "match": "rejected as the original although its proportions are the closest (x/digit 0.744, descenders 0.33/0.31 of x-height): Mona Sans (both the 2022 npm release and the Google Fonts build) draws a single-storey a by default, and its ss01 set that adds the double-storey a also turns g binocular, while the video has a double-storey a with a single-storey g; overlay IoU 0.765"
+    },
+    {
+     "name": "TikTok Sans, stretch 120, weight 700 (bundled tiktok-sans)",
+     "source": "bundled",
+     "license": "OFL-1.1",
+     "match": "bundled fallback: right width (stretch 120) and x/cap 0.743, but the a has a spur and j, y differ; IoU 0.718"
+    }
+   ],
+   "weight": 700,
+   "width": "expanded (wdth 115)",
+   "style": "normal",
+   "engineFallback": "tiktok-sans, stretch 120, weight 700, tracking 0, size x0.98"
+  },
+  "case": "as-said (lower case; Instagram, DMs, CRM capitalised as typed; brand written \"mochi\")",
+  "capHeightPct": 7.43,
+  "xHeightPct": 5.59,
+  "trackingPct": -3.3,
+  "lineSpacing": "baseline to baseline = 0.97 x the cap height of the larger of the two lines (measured median, range 0.77 to 1.26); lines are packed so descenders of one line reach into the ascender band of the next",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#FEF8F5"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "rgba(20,20,20,0.55)",
+   "blur": 0.11,
+   "x": 0.014,
+   "y": 0.064,
+   "units": "em of Zalando Sans at this size",
+   "measured": "darkening 40 % at 3 px, 30 % at 6 px, 19 % at 10 px, 6.5 % at 15 px below a 56 px x-height word (\"Instagram\"); nothing above the letters"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "zalando-sans",
+   "weight": 700,
+   "stretch": 115,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.1088,
+   "tracking": -0.033,
+   "fill": {
+    "kind": "solid",
+    "color": "#FEF8F5"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(20,20,20,0.55)",
+    "blur": 0.11,
+    "x": 0.014,
+    "y": 0.064
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "4 lines, x-height 72 px median (69 to 74): \"14 days\", \"for free\", \"actual\", \"system\". Cap and x-height percentages are the measured ones; size is the Zalando Sans font size that reproduces the measured x-height."
+ },
+ {
+  "id": "cap-hook",
+  "role": "giant hook word",
+  "font": {
+   "family": "Zalando Sans (free match for an expanded neo-grotesk, most likely SF Pro Expanded)",
+   "candidates": [
+    {
+     "name": "Zalando Sans, wdth 115, wght 700, tracking -0.033 em",
+     "source": "Google Fonts; Fontsource @fontsource-variable/zalando-sans (wdth.css carries the 75-125 % width axis)",
+     "license": "OFL-1.1",
+     "match": "best free match: right a (double-storey, no spur), g (single-storey, flat terminal), y, t, r, k; descenders about 15 % longer and x-height 4 % smaller relative to caps than the video, flag of the 1 shorter; overlay IoU 0.7645 at wdth 115 wght 700 tracking -0.033 (Google Sans Flex best 0.740, TikTok Sans 0.718, Encode Sans Expanded lower)"
+    },
+    {
+     "name": "SF Pro Expanded, Semibold to Bold (likely original)",
+     "source": "Apple system font, not redistributable",
+     "license": "proprietary (Apple)",
+     "match": "likely original (cannot be verified offline): SF Pro in its Expanded width, Semibold to Bold. The editor sets every UI element in SF Pro, and SF Pro has the video's combination: double-storey a with a straight stem, single-storey g, flagged 1 without a foot, straight-tailed y, x-height/cap height about 0.75 (video 0.753)"
+    },
+    {
+     "name": "Mona Sans (2022 npm mona-sans 1.0.0, and the Google Fonts build)",
+     "source": "npm / Google Fonts",
+     "license": "OFL-1.1",
+     "match": "rejected as the original although its proportions are the closest (x/digit 0.744, descenders 0.33/0.31 of x-height): Mona Sans (both the 2022 npm release and the Google Fonts build) draws a single-storey a by default, and its ss01 set that adds the double-storey a also turns g binocular, while the video has a double-storey a with a single-storey g; overlay IoU 0.765"
+    },
+    {
+     "name": "TikTok Sans, stretch 120, weight 700 (bundled tiktok-sans)",
+     "source": "bundled",
+     "license": "OFL-1.1",
+     "match": "bundled fallback: right width (stretch 120) and x/cap 0.743, but the a has a spur and j, y differ; IoU 0.718"
+    }
+   ],
+   "weight": 700,
+   "width": "expanded (wdth 115)",
+   "style": "normal",
+   "engineFallback": "tiktok-sans, stretch 120, weight 700, tracking 0, size x0.98"
+  },
+  "case": "as-said (lower case; Instagram, DMs, CRM capitalised as typed; brand written \"mochi\")",
+  "capHeightPct": 11.34,
+  "xHeightPct": 8.54,
+  "trackingPct": -3.3,
+  "lineSpacing": "baseline to baseline = 0.97 x the cap height of the larger of the two lines (measured median, range 0.77 to 1.26); lines are packed so descenders of one line reach into the ascender band of the next",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#FEF8F5"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "rgba(20,20,20,0.55)",
+   "blur": 0.11,
+   "x": 0.014,
+   "y": 0.064,
+   "units": "em of Zalando Sans at this size",
+   "measured": "darkening 40 % at 3 px, 30 % at 6 px, 19 % at 10 px, 6.5 % at 15 px below a 56 px x-height word (\"Instagram\"); nothing above the letters"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "zalando-sans",
+   "weight": 700,
+   "stretch": 115,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.1661,
+   "tracking": -0.033,
+   "fill": {
+    "kind": "solid",
+    "color": "#FEF8F5"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(20,20,20,0.55)",
+    "blur": 0.11,
+    "x": 0.014,
+    "y": 0.064
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "3 lines, x-height 109 px median (101 to 113): \"mochi\" (caption 3), \"CRM\", \"all\". Cap and x-height percentages are the measured ones; size is the Zalando Sans font size that reproduces the measured x-height."
+ },
+ {
+  "id": "title-glow",
+  "role": "section title on the purple gradient card (P15 \"Last but not least / you have the business side\")",
+  "font": {
+   "family": "SF Pro Display (Semibold to Bold look)",
+   "candidates": [
+    {
+     "name": "Inter wght 700, opsz 32",
+     "source": "bundled inter",
+     "license": "OFL-1.1",
+     "match": "best of tested: overlay IoU 0.811 (Inter 650: 0.778, Inter 600: 0.747, TikTok Sans w100 g650: 0.772, Mona Sans v1 w100 g650: 0.727)"
+    },
+    {
+     "name": "SF Pro Display Semibold (likely original)",
+     "source": "Apple, not redistributable",
+     "license": "proprietary",
+     "match": "double-storey a with small tail, slanted t, straight y; the glow fattens strokes so it reads bolder than it is"
+    }
+   ],
+   "weight": 700,
+   "width": "normal (wdth 100)",
+   "style": "normal"
+  },
+  "case": "as-said (sentence case: \"Last but not least\")",
+  "capHeightPct": 2.11,
+  "xHeightPct": 1.6,
+  "trackingPct": -1.0,
+  "lineSpacing": "two lines, baseline to baseline 39 px = 1.44 x cap height (27 px cap); line 2 indented about +70 px to the right of line 1",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#FFF6FF"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": {
+   "color": "#FFFFFF",
+   "sigmaPx": 4.5,
+   "reachPx": 10,
+   "excessLuma": "+22 at 3 px, +12 at 5 px, +5.5 at 7 px, 0 at 10 px over the gradient",
+   "units": "measured at 37 px font"
+  },
+  "opacity": 1.0,
+  "blend": "normal (the glow behaves additively, like screen)",
+  "engine": {
+   "font": "inter",
+   "weight": 700,
+   "stretch": null,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.029,
+   "tracking": -0.01,
+   "fill": {
+    "kind": "solid",
+    "color": "#FFF6FF"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": {
+    "color": "#FFFFFF",
+    "blur": 0.24,
+    "strength": 0.4
+   },
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Words appear one at a time on their spoken onsets (f1076 Last, f1079 but, f1083 not, f1088 least, f1100 you, f1104 have, f1108 the, f1112 business, f1116 side): each rises about 15 px with blur and a fade from about 30 % over 5 to 6 frames, then the whole line slides left so it stays centred (about 60 px over 9 frames after \"least\"). The block also scales down about 6 % per 10 frames from f1090 and is wiped away by white cards at f1124 to f1127."
+ },
+ {
+  "id": "ui-sf",
+  "role": "UI text inside pop-ups (cards, chips, notifications, buttons)",
+  "font": {
+   "family": "SF Pro Text / SF Pro Display (iOS system font)",
+   "candidates": [
+    {
+     "name": "Inter",
+     "source": "bundled inter",
+     "license": "OFL-1.1",
+     "match": "closest free stand-in for SF Pro"
+    }
+   ],
+   "weight": 600,
+   "width": "normal",
+   "style": "normal"
+  },
+  "case": "as-said",
+  "capHeightPct": null,
+  "xHeightPct": null,
+  "trackingPct": 0,
+  "lineSpacing": "UI spacing",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#1C1C1E",
+    "#8E8E93",
+    "#B01EB5"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 600,
+   "stretch": null,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.012,
+   "tracking": 0,
+   "fill": {
+    "kind": "solid",
+    "color": "#1C1C1E"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "See popups.json for per-element sizes and colours. Not a caption style."
+ }
+]

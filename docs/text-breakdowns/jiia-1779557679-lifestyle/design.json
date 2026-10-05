@@ -1,0 +1,108 @@
+{
+ "styles": [
+  {
+   "id": "sub",
+   "name": "Subtitle",
+   "font": "google-sans",
+   "weight": 500,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.0408,
+   "tracking": -0.02,
+   "fill": {
+    "kind": "solid",
+    "color": "#ffffff"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.5)",
+    "blur": 0.45,
+    "x": 0,
+    "y": 0.117
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1,
+   "box": null
+  },
+  {
+   "id": "title",
+   "name": "Title card",
+   "font": "anton",
+   "weight": 400,
+   "italic": false,
+   "case": "upper",
+   "size": 0.238,
+   "tracking": -0.008,
+   "fill": {
+    "kind": "solid",
+    "color": "#c70001"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1,
+   "box": null
+  },
+  {
+   "id": "tag",
+   "name": "Small red",
+   "font": "google-sans",
+   "weight": 700,
+   "italic": false,
+   "case": "lower",
+   "size": 0.0593,
+   "tracking": -0.028,
+   "fill": {
+    "kind": "solid",
+    "color": "#c70001"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1,
+   "box": null
+  }
+ ],
+ "picks": [
+  {
+   "style": "title",
+   "rule": "keyword",
+   "share": 0.23
+  },
+  {
+   "style": "title",
+   "rule": "number",
+   "share": 1
+  }
+ ],
+ "layout": "stack",
+ "leading": 1.0,
+ "words": 4,
+ "lines": 1,
+ "places": [
+  {
+   "x": 0.5,
+   "y": 0.9136,
+   "align": "center",
+   "valign": "middle",
+   "width": 0.6
+  }
+ ],
+ "behind": {
+  "share": 0
+ },
+ "enter": {
+  "kind": "none",
+  "dur": 0,
+  "unit": "page"
+ },
+ "exit": null,
+ "accentEnter": {
+  "kind": "none",
+  "dur": 0,
+  "unit": "word"
+ }
+}

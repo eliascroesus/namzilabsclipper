@@ -88,8 +88,18 @@ export function drawWord(ctx: Ctx, w: WordDraw) {
   const cy = (box.y0 + box.y1) / 2;
   ctx.translate(cx + st.dx * w.px, cy + st.dy * w.px);
   if (st.scale !== 1) ctx.scale(st.scale, st.scale);
+  // A stretch up from the baseline (in the word's own frame, so it grows from where it stands).
+  if (st.sy !== undefined && st.sy !== 1) {
+    ctx.translate(0, w.y - cy);
+    ctx.scale(1, Math.max(0.001, st.sy));
+    ctx.translate(0, cy - w.y);
+  }
+  // A turn and a lean of the word, about its middle.
+  if (s.rotate) ctx.rotate((s.rotate * Math.PI) / 180);
+  if (s.skew) ctx.transform(1, 0, -Math.tan((s.skew * Math.PI) / 180), 1, 0, 0);
   ctx.translate(-cx, -cy);
-  if (st.blur * w.px > 0.3) ctx.filter = `blur(${(st.blur * w.px).toFixed(1)}px)`;
+  const blur = (st.blur + (s.blur ?? 0)) * w.px;
+  if (blur > 0.3) ctx.filter = `blur(${blur.toFixed(1)}px)`;
   // A wipe: only what the edge has passed.
   if (st.wipe < 1) {
     ctx.beginPath();

@@ -1,0 +1,422 @@
+[
+ {
+  "id": "white",
+  "role": "base: every word that is not an accent; lowercase single words or two-word lines stacked with touching ascenders, or single words flanking the subject's head",
+  "font": {
+   "family": "neo-grotesk Bold (SF Pro Display Bold class; Inter shapes)",
+   "candidates": [
+    {
+     "name": "SF Pro Display Bold (likely original, Apple system font)",
+     "source": "Apple (macOS system font)",
+     "license": "proprietary, Apple-platform use only",
+     "match": null
+    },
+    {
+     "name": "Helvetica Now Display Bold (alternative original)",
+     "source": "Monotype",
+     "license": "paid",
+     "match": null
+    },
+    {
+     "name": "Inter Tight 700",
+     "source": "Google Fonts / @fontsource-variable/inter-tight",
+     "license": "OFL",
+     "match": 0.911
+    },
+    {
+     "name": "Inter 700, opsz 14",
+     "source": "Google Fonts (bundled id inter)",
+     "license": "OFL",
+     "match": 0.898
+    },
+    {
+     "name": "Geist 700",
+     "source": "Google Fonts / @fontsource-variable/geist",
+     "license": "OFL",
+     "match": 0.896
+    },
+    {
+     "name": "Inter Display 700 (bundled inter, opsz 32)",
+     "source": "bundled inter-opsz.woff2",
+     "license": "OFL",
+     "match": 0.892
+    },
+    {
+     "name": "Archivo 700",
+     "source": "Google Fonts (bundled id archivo)",
+     "license": "OFL",
+     "match": 0.872
+    },
+    {
+     "name": "TikTok Sans 700",
+     "source": "Google Fonts (bundled id tiktok-sans)",
+     "license": "OFL",
+     "match": 0.868
+    },
+    {
+     "name": "Hanken Grotesk 800",
+     "source": "Google Fonts",
+     "license": "OFL",
+     "match": 0.865
+    },
+    {
+     "name": "FreeSans Bold (Nimbus Sans clone of Helvetica)",
+     "source": "GNU FreeFont",
+     "license": "GPL with font exception",
+     "match": 0.863
+    },
+    {
+     "name": "Manrope 800",
+     "source": "Google Fonts (bundled id manrope)",
+     "license": "OFL",
+     "match": 0.862
+    },
+    {
+     "name": "Figtree 700",
+     "source": "Google Fonts (bundled id figtree)",
+     "license": "OFL",
+     "match": 0.857
+    },
+    {
+     "name": "Arimo 700 (Arial metrics)",
+     "source": "Google Fonts",
+     "license": "Apache-2.0",
+     "match": 0.847
+    },
+    {
+     "name": "Mona Sans 700",
+     "source": "Google Fonts",
+     "license": "OFL",
+     "match": 0.844
+    },
+    {
+     "name": "Albert Sans 800",
+     "source": "Google Fonts",
+     "license": "OFL",
+     "match": 0.839
+    },
+    {
+     "name": "Instrument Sans 700",
+     "source": "Google Fonts",
+     "license": "OFL",
+     "match": 0.833
+    }
+   ],
+   "weight": 700,
+   "width": 100,
+   "style": "normal"
+  },
+  "case": "lower",
+  "capHeightPct": {
+   "A": 9.31,
+   "B": 7.0,
+   "C": 7.1,
+   "DEF": 7.43,
+   "note": "no capitals are set; value is the ascender of h/d/l, which equals the cap height in this font class"
+  },
+  "xHeightPct": {
+   "A": 7.15,
+   "B": 5.07,
+   "C": 5.46,
+   "DEF": 5.72
+  },
+  "trackingPct": -10.0,
+  "lineSpacing": {
+   "A_baseline_px": 69.7,
+   "A_em": 0.72,
+   "B_px": [
+    51.7,
+    43.5
+   ],
+   "B_em": [
+    0.75,
+    0.63
+   ],
+   "engineLeading": {
+    "A": 0.915,
+    "B": [
+     0.959,
+     0.795
+    ]
+   }
+  },
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#FFFFFF"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "#000000",
+   "opacity": 0.3,
+   "sigmaPx": 7.0,
+   "blurCanvasPx": 14.0,
+   "dxPx": 2.5,
+   "dyPx": 4.2,
+   "note": "fixed pixel size on every word (fits on 5 words: strength 0.297 to 0.313, sigma 6.6 to 7.6 px, dx 2.1 to 3.1, dy 3.0 to 4.9)"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 700,
+   "stretch": null,
+   "italic": false,
+   "case": "lower",
+   "size": 0.105,
+   "tracking": -0.1,
+   "fill": {
+    "kind": "solid",
+    "color": "#ffffff"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.3)",
+    "blur": 0.185,
+    "x": 0.033,
+    "y": 0.056
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Per-caption engine sizes (Inter 700 opsz 32 fit): A 0.135, B 0.096, C 0.102, D/E/F 0.106. Letters touch (wh, at, th, is). Tracking per word with bundled Inter: -0.073 to -0.125 em (mean -0.10); with Inter Tight: mean -0.08. Glyph evidence: angled cut on the t top and a spurless a (Helvetica clone scores 0.863 vs Inter 0.89 to 0.91), x-height/ascender 0.769 (Inter 0.750, Helvetica 0.741), short descenders (p and y drop 15 to 16 px under a 67 px ascender, ratio 0.23; Inter 0.28).",
+  "engineAlt": {
+   "note": "if the canvas renders bundled inter at opsz 14 instead of 32",
+   "tracking": -0.11,
+   "size": 0.105
+  }
+ },
+ {
+  "id": "redsans",
+  "role": "key verb or concept: the same grotesk, twice the size, deep red ('work', 'out', 'consciousness')",
+  "font": {
+   "family": "same as white (SF Pro Display Bold class)",
+   "candidates": [
+    {
+     "name": "Inter Display 700 (bundled inter)",
+     "source": "bundled",
+     "license": "OFL",
+     "match": 0.844
+    },
+    {
+     "name": "Inter Tight 700",
+     "source": "Google Fonts",
+     "license": "OFL",
+     "match": 0.846
+    }
+   ],
+   "weight": 700,
+   "width": 100,
+   "style": "normal"
+  },
+  "case": "lower",
+  "capHeightPct": {
+   "work": 14.5,
+   "out": 16.4,
+   "consciousness": 15.6,
+   "note": "ascender of k / top of t / i-dot top"
+  },
+  "xHeightPct": {
+   "work": 11.2,
+   "out": 13.1,
+   "consciousness": 12.0
+  },
+  "trackingPct": -9.5,
+  "lineSpacing": {
+   "work_to_out_px": 102.3,
+   "em_of_out": 0.56,
+   "engineLeading": 0.711,
+   "doesnt_to_work_px": 93.5,
+   "engineLeading_doesnt_work": 0.817
+  },
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#980F04"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "#000000",
+   "opacity": 0.28,
+   "sigmaPx": 6.5,
+   "blurCanvasPx": 13.0,
+   "dxPx": 1.2,
+   "dyPx": 4.1,
+   "note": "measured on 'consciousness' over the sky; 'work out' sits on near-black so the shadow is invisible there"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 700,
+   "stretch": null,
+   "italic": false,
+   "case": "lower",
+   "size": 0.23,
+   "tracking": -0.095,
+   "fill": {
+    "kind": "solid",
+    "color": "#980f04"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.3)",
+    "blur": 0.085,
+    "x": 0.015,
+    "y": 0.025
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Engine sizes per word (Inter 700 opsz 32 fit): work 0.209, out 0.253, consciousness 0.2295. Colour from BT.709 decode of Y'CbCr (53.1, 108.6, 188.7) = rgb(152,15,3); identical core colour over backgrounds of luma 19 to 183, so normal blend at 100%."
+ },
+ {
+  "id": "redscript",
+  "role": "accent phrase at the end of a clause ('to do', 'Dream of Yours'): heavy roundhand script, small connector words at half size",
+  "font": {
+   "family": "formal roundhand script, Bold (Snell Roundhand Bold class)",
+   "candidates": [
+    {
+     "name": "Snell Roundhand Bold (likely original, macOS system font)",
+     "source": "Apple / Linotype",
+     "license": "proprietary",
+     "match": null
+    },
+    {
+     "name": "Pinyon Script",
+     "source": "Google Fonts / @fontsource/pinyon-script",
+     "license": "OFL",
+     "match": 0.358,
+     "matchWith2pxStroke": 0.384
+    },
+    {
+     "name": "Arizonia",
+     "source": "Google Fonts",
+     "license": "OFL",
+     "match": 0.326
+    },
+    {
+     "name": "Alex Brush",
+     "source": "Google Fonts",
+     "license": "OFL",
+     "match": 0.295
+    },
+    {
+     "name": "Ephesis",
+     "source": "Google Fonts",
+     "license": "OFL",
+     "match": 0.267
+    },
+    {
+     "name": "Allura (bundled)",
+     "source": "bundled",
+     "license": "OFL",
+     "match": 0.264
+    },
+    {
+     "name": "Carattere",
+     "source": "Google Fonts",
+     "license": "OFL",
+     "match": 0.264
+    },
+    {
+     "name": "Parisienne",
+     "source": "Google Fonts",
+     "license": "OFL",
+     "match": 0.257
+    },
+    {
+     "name": "Monte Carlo",
+     "source": "Google Fonts",
+     "license": "OFL",
+     "match": 0.257
+    },
+    {
+     "name": "Great Vibes (bundled)",
+     "source": "bundled",
+     "license": "OFL",
+     "match": 0.246
+    },
+    {
+     "name": "Italianno",
+     "source": "Google Fonts",
+     "license": "OFL",
+     "match": 0.245
+    }
+   ],
+   "weight": 700,
+   "width": 100,
+   "style": "script, slant about 18 deg"
+  },
+  "case": "as-said (title case on the nouns: 'Dream', 'Yours'; 'to do' and 'of' lowercase)",
+  "capHeightPct": {
+   "Dream_D": 13.5,
+   "Yours_Y": 15.0,
+   "do_d_ascender": 19.7
+  },
+  "xHeightPct": {
+   "Dream": 6.8,
+   "Yours": 7.6,
+   "do": 10.4,
+   "to": 7.1,
+   "of": 3.2
+  },
+  "trackingPct": 0,
+  "lineSpacing": {
+   "Dream_to_Yours_baseline_px": 124,
+   "note": "'of' sits between the two lines, right of centre, at 0.45x the size"
+  },
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#971009"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "note": "not measurable (moving close-up behind it); assume the project shadow"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "pinyon-script",
+   "weight": 400,
+   "stretch": null,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.21,
+   "tracking": 0,
+   "fill": {
+    "kind": "solid",
+    "color": "#971009"
+   },
+   "stroke": {
+    "color": "#971009",
+    "width": 0.013
+   },
+   "shadow": {
+    "color": "rgba(0,0,0,0.3)",
+    "blur": 0.089,
+    "x": 0.016,
+    "y": 0.027
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "match = mean IoU of the best size/position fit on 'Dream', 'Yours', 'do'; every free script is far off (<0.36), the original's shades are much heavier. Bundled fallback id: great-vibes. Engine sizes with Pinyon (x-height 0.334 em): Dream 0.204, Yours 0.229, do 0.312, to 0.21, of 0.096. Fades in over 3 frames (0.125 s, linear). Engine stroke 0.013 em in the same red is a stand-in for Snell Roundhand Bold's heavier shades (faux bold: Pinyon IoU 0.347 to 0.384 at 2 px); the original has no outline. Proposed font entry: id pinyon-script, Google Fonts OFL, Fontsource @fontsource/pinyon-script, metrics {xh: 0.334, cap: 0.677, asc: 0.863, desc: 0.384}."
+ }
+]

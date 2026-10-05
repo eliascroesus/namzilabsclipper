@@ -1,0 +1,742 @@
+[
+ {
+  "id": "base-s",
+  "role": "base word, small: i kept on, i weren't gon', i just, gotta be, and",
+  "font": {
+   "family": "Helvetica Neue Bold (likely original; Apple system font, paid)",
+   "candidates": [
+    {
+     "name": "Inter 700 (bundled id inter)",
+     "source": "Google Fonts / bundled",
+     "license": "OFL-1.1",
+     "match": "IoU 0.875 mean over 11 words at tracking -0.105 em; no spur on a, rectangular apostrophe"
+    },
+    {
+     "name": "Inter Tight 700",
+     "source": "Google Fonts (@fontsource-variable/inter-tight)",
+     "license": "OFL-1.1",
+     "match": "IoU 0.878 at tracking -0.08 em (same glyphs as Inter, tighter default spacing)"
+    },
+    {
+     "name": "Geist 700",
+     "source": "Google Fonts (@fontsource-variable/geist)",
+     "license": "OFL-1.1",
+     "match": "IoU 0.878 but needs -0.10 to -0.13 em and its apostrophe/t differ"
+    },
+    {
+     "name": "FreeSans Bold (GNU FreeFont, Helvetica clone)",
+     "source": "GNU FreeFont",
+     "license": "GPL-3.0 with font exception",
+     "match": "IoU 0.852; closest glyph SHAPES: tailed a, wedge apostrophe, flat-cut t, horizontal c/e/s terminals"
+    },
+    {
+     "name": "Arimo 700 / Liberation Sans Bold (Arial metrics)",
+     "source": "Google Fonts",
+     "license": "Apache-2.0 / OFL-1.1",
+     "match": "IoU 0.813 to 0.839; Arial details (angled t and e cuts) do not match"
+    }
+   ],
+   "weight": 700,
+   "width": "normal (100%)",
+   "style": "upright"
+  },
+  "case": "lower",
+  "capHeightPct": 6.4,
+  "xHeightPct": 4.79,
+  "trackingPct": -11.0,
+  "lineSpacing": "baseline to baseline 0.62 em of the upper line for equal sizes (0.85 to 1.0 x cap height of the lower line); lines overlap or touch",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#F4F2EC"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "#000000",
+   "opacity": 0.45,
+   "offsetPx": [
+    5,
+    10
+   ],
+   "blurSigmaPx": 4.5,
+   "note": "measured on feel, a, gotta be, take, these (r2 up to 0.67); invisible on dark backgrounds"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 700,
+   "stretch": null,
+   "italic": false,
+   "case": "lower",
+   "size": 0.088,
+   "tracking": -0.11,
+   "fill": {
+    "kind": "solid",
+    "color": "#F4F2EC"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.45)",
+    "blur": 0.142,
+    "x": 0.079,
+    "y": 0.158
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1.0
+  },
+  "notes": "Inter 700 fits: kept 64.4 px, weren't 64.4, can't 64.4, gon' 62.2, i just 58.9, and 67.9 px. x-height 33 to 36 px (4.6 to 5.0%), ascender (k, t) 45 px. Letters touch. Fill whites measured (242,243,236) gym, (249,250,253) hotel, (244,241,234) restaurant/desk: the shot grade tints the text."
+ },
+ {
+  "id": "base-m",
+  "role": "base word, medium: even, when, keep, on",
+  "font": {
+   "family": "Helvetica Neue Bold (likely original; Apple system font, paid)",
+   "candidates": [
+    {
+     "name": "Inter 700 (bundled id inter)",
+     "source": "Google Fonts / bundled",
+     "license": "OFL-1.1",
+     "match": "IoU 0.875 mean over 11 words at tracking -0.105 em; no spur on a, rectangular apostrophe"
+    },
+    {
+     "name": "Inter Tight 700",
+     "source": "Google Fonts (@fontsource-variable/inter-tight)",
+     "license": "OFL-1.1",
+     "match": "IoU 0.878 at tracking -0.08 em (same glyphs as Inter, tighter default spacing)"
+    },
+    {
+     "name": "Geist 700",
+     "source": "Google Fonts (@fontsource-variable/geist)",
+     "license": "OFL-1.1",
+     "match": "IoU 0.878 but needs -0.10 to -0.13 em and its apostrophe/t differ"
+    },
+    {
+     "name": "FreeSans Bold (GNU FreeFont, Helvetica clone)",
+     "source": "GNU FreeFont",
+     "license": "GPL-3.0 with font exception",
+     "match": "IoU 0.852; closest glyph SHAPES: tailed a, wedge apostrophe, flat-cut t, horizontal c/e/s terminals"
+    },
+    {
+     "name": "Arimo 700 / Liberation Sans Bold (Arial metrics)",
+     "source": "Google Fonts",
+     "license": "Apache-2.0 / OFL-1.1",
+     "match": "IoU 0.813 to 0.839; Arial details (angled t and e cuts) do not match"
+    }
+   ],
+   "weight": 700,
+   "width": "normal (100%)",
+   "style": "upright"
+  },
+  "case": "lower",
+  "capHeightPct": 7.86,
+  "xHeightPct": 5.97,
+  "trackingPct": -11.0,
+  "lineSpacing": "baseline to baseline 0.62 em of the upper line for equal sizes (0.85 to 1.0 x cap height of the lower line); lines overlap or touch",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#F4F2EC"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "#000000",
+   "opacity": 0.45,
+   "offsetPx": [
+    5,
+    10
+   ],
+   "blurSigmaPx": 4.5,
+   "note": "measured on feel, a, gotta be, take, these (r2 up to 0.67); invisible on dark backgrounds"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 700,
+   "stretch": null,
+   "italic": false,
+   "case": "lower",
+   "size": 0.108,
+   "tracking": -0.11,
+   "fill": {
+    "kind": "solid",
+    "color": "#F4F2EC"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.45)",
+    "blur": 0.116,
+    "x": 0.064,
+    "y": 0.129
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1.0
+  },
+  "notes": "Inter 700 fits 77.4 to 79.2 px (even, when), 70.7 (keep), 78.4 (on). x-height 42 to 44 px (5.9 to 6.1%)."
+ },
+ {
+  "id": "base-l",
+  "role": "base emphasis, large: going, these (take 0.126 sits between m and l)",
+  "font": {
+   "family": "Helvetica Neue Bold (likely original; Apple system font, paid)",
+   "candidates": [
+    {
+     "name": "Inter 700 (bundled id inter)",
+     "source": "Google Fonts / bundled",
+     "license": "OFL-1.1",
+     "match": "IoU 0.875 mean over 11 words at tracking -0.105 em; no spur on a, rectangular apostrophe"
+    },
+    {
+     "name": "Inter Tight 700",
+     "source": "Google Fonts (@fontsource-variable/inter-tight)",
+     "license": "OFL-1.1",
+     "match": "IoU 0.878 at tracking -0.08 em (same glyphs as Inter, tighter default spacing)"
+    },
+    {
+     "name": "Geist 700",
+     "source": "Google Fonts (@fontsource-variable/geist)",
+     "license": "OFL-1.1",
+     "match": "IoU 0.878 but needs -0.10 to -0.13 em and its apostrophe/t differ"
+    },
+    {
+     "name": "FreeSans Bold (GNU FreeFont, Helvetica clone)",
+     "source": "GNU FreeFont",
+     "license": "GPL-3.0 with font exception",
+     "match": "IoU 0.852; closest glyph SHAPES: tailed a, wedge apostrophe, flat-cut t, horizontal c/e/s terminals"
+    },
+    {
+     "name": "Arimo 700 / Liberation Sans Bold (Arial metrics)",
+     "source": "Google Fonts",
+     "license": "Apache-2.0 / OFL-1.1",
+     "match": "IoU 0.813 to 0.839; Arial details (angled t and e cuts) do not match"
+    }
+   ],
+   "weight": 700,
+   "width": "normal (100%)",
+   "style": "upright"
+  },
+  "case": "lower",
+  "capHeightPct": 11.28,
+  "xHeightPct": 8.47,
+  "trackingPct": -11.0,
+  "lineSpacing": "baseline to baseline 0.62 em of the upper line for equal sizes (0.85 to 1.0 x cap height of the lower line); lines overlap or touch",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#F4F2EC"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "#000000",
+   "opacity": 0.45,
+   "offsetPx": [
+    5,
+    10
+   ],
+   "blurSigmaPx": 4.5,
+   "note": "measured on feel, a, gotta be, take, these (r2 up to 0.67); invisible on dark backgrounds"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 700,
+   "stretch": null,
+   "italic": false,
+   "case": "lower",
+   "size": 0.155,
+   "tracking": -0.11,
+   "fill": {
+    "kind": "solid",
+    "color": "#F4F2EC"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.45)",
+    "blur": 0.081,
+    "x": 0.045,
+    "y": 0.09
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1.0
+  },
+  "notes": "Inter 700 fits: going 107.7 to 112.2 px, these 111.1, take 90.9. x-height 60 to 61 px (8.4%)."
+ },
+ {
+  "id": "base-xl",
+  "role": "base emphasis, extra large: i was; also next / in (0.17)",
+  "font": {
+   "family": "Helvetica Neue Bold (likely original; Apple system font, paid)",
+   "candidates": [
+    {
+     "name": "Inter 700 (bundled id inter)",
+     "source": "Google Fonts / bundled",
+     "license": "OFL-1.1",
+     "match": "IoU 0.875 mean over 11 words at tracking -0.105 em; no spur on a, rectangular apostrophe"
+    },
+    {
+     "name": "Inter Tight 700",
+     "source": "Google Fonts (@fontsource-variable/inter-tight)",
+     "license": "OFL-1.1",
+     "match": "IoU 0.878 at tracking -0.08 em (same glyphs as Inter, tighter default spacing)"
+    },
+    {
+     "name": "Geist 700",
+     "source": "Google Fonts (@fontsource-variable/geist)",
+     "license": "OFL-1.1",
+     "match": "IoU 0.878 but needs -0.10 to -0.13 em and its apostrophe/t differ"
+    },
+    {
+     "name": "FreeSans Bold (GNU FreeFont, Helvetica clone)",
+     "source": "GNU FreeFont",
+     "license": "GPL-3.0 with font exception",
+     "match": "IoU 0.852; closest glyph SHAPES: tailed a, wedge apostrophe, flat-cut t, horizontal c/e/s terminals"
+    },
+    {
+     "name": "Arimo 700 / Liberation Sans Bold (Arial metrics)",
+     "source": "Google Fonts",
+     "license": "Apache-2.0 / OFL-1.1",
+     "match": "IoU 0.813 to 0.839; Arial details (angled t and e cuts) do not match"
+    }
+   ],
+   "weight": 700,
+   "width": "normal (100%)",
+   "style": "upright"
+  },
+  "case": "lower",
+  "capHeightPct": 13.39,
+  "xHeightPct": 10.0,
+  "trackingPct": -11.0,
+  "lineSpacing": "baseline to baseline 0.62 em of the upper line for equal sizes (0.85 to 1.0 x cap height of the lower line); lines overlap or touch",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#F4F2EC"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "#000000",
+   "opacity": 0.45,
+   "offsetPx": [
+    5,
+    10
+   ],
+   "blurSigmaPx": 4.5,
+   "note": "measured on feel, a, gotta be, take, these (r2 up to 0.67); invisible on dark backgrounds"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 700,
+   "stretch": null,
+   "italic": false,
+   "case": "lower",
+   "size": 0.184,
+   "tracking": -0.11,
+   "fill": {
+    "kind": "solid",
+    "color": "#F4F2EC"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.45)",
+    "blur": 0.068,
+    "x": 0.038,
+    "y": 0.075
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1.0
+  },
+  "notes": "Inter 700 fit: was 131 to 132.5 px, x-height 72 to 73 px (10.1%). next / in (E9) x-height 65 to 69 px, size about 0.17."
+ },
+ {
+  "id": "base-xxl",
+  "role": "base line, huge: i feel like a (set BEHIND the person)",
+  "font": {
+   "family": "Helvetica Neue Bold (likely original; Apple system font, paid)",
+   "candidates": [
+    {
+     "name": "Inter 700 (bundled id inter)",
+     "source": "Google Fonts / bundled",
+     "license": "OFL-1.1",
+     "match": "IoU 0.875 mean over 11 words at tracking -0.105 em; no spur on a, rectangular apostrophe"
+    },
+    {
+     "name": "Inter Tight 700",
+     "source": "Google Fonts (@fontsource-variable/inter-tight)",
+     "license": "OFL-1.1",
+     "match": "IoU 0.878 at tracking -0.08 em (same glyphs as Inter, tighter default spacing)"
+    },
+    {
+     "name": "Geist 700",
+     "source": "Google Fonts (@fontsource-variable/geist)",
+     "license": "OFL-1.1",
+     "match": "IoU 0.878 but needs -0.10 to -0.13 em and its apostrophe/t differ"
+    },
+    {
+     "name": "FreeSans Bold (GNU FreeFont, Helvetica clone)",
+     "source": "GNU FreeFont",
+     "license": "GPL-3.0 with font exception",
+     "match": "IoU 0.852; closest glyph SHAPES: tailed a, wedge apostrophe, flat-cut t, horizontal c/e/s terminals"
+    },
+    {
+     "name": "Arimo 700 / Liberation Sans Bold (Arial metrics)",
+     "source": "Google Fonts",
+     "license": "Apache-2.0 / OFL-1.1",
+     "match": "IoU 0.813 to 0.839; Arial details (angled t and e cuts) do not match"
+    }
+   ],
+   "weight": 700,
+   "width": "normal (100%)",
+   "style": "upright"
+  },
+  "case": "lower",
+  "capHeightPct": 18.48,
+  "xHeightPct": 13.89,
+  "trackingPct": -11.0,
+  "lineSpacing": "baseline to baseline 0.62 em of the upper line for equal sizes (0.85 to 1.0 x cap height of the lower line); lines overlap or touch",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#F4F2EC"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "#000000",
+   "opacity": 0.45,
+   "offsetPx": [
+    5,
+    10
+   ],
+   "blurSigmaPx": 4.5,
+   "note": "measured on feel, a, gotta be, take, these (r2 up to 0.67); invisible on dark backgrounds"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 700,
+   "stretch": null,
+   "italic": false,
+   "case": "lower",
+   "size": 0.254,
+   "tracking": -0.11,
+   "fill": {
+    "kind": "solid",
+    "color": "#F4F2EC"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.45)",
+    "blur": 0.049,
+    "x": 0.027,
+    "y": 0.055
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1.0
+  },
+  "notes": "x-height 100 px (13.9%) read on a grid (x-top 213, baseline 313); Inter size 183 px. Shadow fit on feel: offset (5,9) px, sigma 5 px, opacity 0.49."
+ },
+ {
+  "id": "base-diff",
+  "role": "base word in DIFFERENCE blend: i can't wait, for the day i, my time / will / come, next",
+  "font": {
+   "family": "Helvetica Neue Bold (likely original; Apple system font, paid)",
+   "candidates": [
+    {
+     "name": "Inter 700 (bundled id inter)",
+     "source": "Google Fonts / bundled",
+     "license": "OFL-1.1",
+     "match": "IoU 0.875 mean over 11 words at tracking -0.105 em; no spur on a, rectangular apostrophe"
+    },
+    {
+     "name": "Inter Tight 700",
+     "source": "Google Fonts (@fontsource-variable/inter-tight)",
+     "license": "OFL-1.1",
+     "match": "IoU 0.878 at tracking -0.08 em (same glyphs as Inter, tighter default spacing)"
+    },
+    {
+     "name": "Geist 700",
+     "source": "Google Fonts (@fontsource-variable/geist)",
+     "license": "OFL-1.1",
+     "match": "IoU 0.878 but needs -0.10 to -0.13 em and its apostrophe/t differ"
+    },
+    {
+     "name": "FreeSans Bold (GNU FreeFont, Helvetica clone)",
+     "source": "GNU FreeFont",
+     "license": "GPL-3.0 with font exception",
+     "match": "IoU 0.852; closest glyph SHAPES: tailed a, wedge apostrophe, flat-cut t, horizontal c/e/s terminals"
+    },
+    {
+     "name": "Arimo 700 / Liberation Sans Bold (Arial metrics)",
+     "source": "Google Fonts",
+     "license": "Apache-2.0 / OFL-1.1",
+     "match": "IoU 0.813 to 0.839; Arial details (angled t and e cuts) do not match"
+    }
+   ],
+   "weight": 700,
+   "width": "normal (100%)",
+   "style": "upright"
+  },
+  "case": "lower",
+  "capHeightPct": 6.55,
+  "xHeightPct": 4.86,
+  "trackingPct": -11.0,
+  "lineSpacing": "baseline to baseline 0.62 em of the upper line for equal sizes (0.85 to 1.0 x cap height of the lower line); lines overlap or touch",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#FFFFFF"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "difference",
+  "engine": {
+   "font": "inter",
+   "weight": 700,
+   "stretch": null,
+   "italic": false,
+   "case": "lower",
+   "size": 0.09,
+   "tracking": -0.11,
+   "fill": {
+    "kind": "solid",
+    "color": "#FFFFFF"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "difference",
+   "opacity": 1.0
+  },
+  "notes": "Same font and tracking. White fill, blend difference (no shadow measurable). Sizes: i can't wait 0.088, for the day i about 0.09 to 0.10, my time / will / come about 0.072 (x-height about 28 px), next 0.17. Proof: the over light bg (235,222,201) reads (28,29,42) (difference error 8.0, normal 222); will over orange skin (227,184,132) reads teal (28,90,116) (difference error 8.8); wait over yellow trim reads lavender (173,187,219)."
+ },
+ {
+  "id": "script",
+  "role": "script accent, DIFFERENCE blend: Feeling, Low, Quit, Patient, Pushing, Risk",
+  "font": {
+   "family": "formal copperplate script (exact face unconfirmed; closest free Pinyon Script)",
+   "candidates": [
+    {
+     "name": "Pinyon Script",
+     "source": "Google Fonts (@fontsource/pinyon-script)",
+     "license": "OFL-1.1",
+     "match": "best free match: mean IoU 0.333 (King 0.358, Patient 0.359, Feeling 0.283); same copperplate construction (looped K, wave-topped F, oval-bowl P); K/x-height ratio 2.11 vs 2.24 measured; video shades are heavier"
+    },
+    {
+     "name": "Vujahday Script",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "IoU 0.324; heavier but brush-like, capitals wrong"
+    },
+    {
+     "name": "Arizonia",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "IoU 0.322; too heavy and upright capitals"
+    },
+    {
+     "name": "Allura (bundled id allura)",
+     "source": "bundled",
+     "license": "OFL-1.1",
+     "match": "IoU 0.302; best bundled option, rounder and lighter"
+    },
+    {
+     "name": "Great Vibes (bundled id great-vibes)",
+     "source": "bundled",
+     "license": "OFL-1.1",
+     "match": "IoU 0.216; capitals too tall and round"
+    },
+    {
+     "name": "Italianno",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "IoU 0.252; too narrow and light"
+    },
+    {
+     "name": "Likely original: a commercial copperplate (Bickham Script / Snell Roundhand / Edwardian Script class)",
+     "source": "paid / system",
+     "license": "proprietary",
+     "match": "not available to test; Snell Roundhand ships with macOS like Helvetica Neue"
+    }
+   ],
+   "weight": 400,
+   "width": "normal",
+   "style": "connected script, slanted about 25 deg"
+  },
+  "case": "title",
+  "capHeightPct": 15.28,
+  "xHeightPct": 7.78,
+  "trackingPct": 0.0,
+  "lineSpacing": "baseline to baseline 0.62 em of the upper line for equal sizes (0.85 to 1.0 x cap height of the lower line); lines overlap or touch",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#FFFFFF"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "difference",
+  "engine": {
+   "font": "pinyon-script",
+   "weight": 400,
+   "stretch": null,
+   "italic": false,
+   "case": "title",
+   "size": 0.23,
+   "tracking": 0.0,
+   "fill": {
+    "kind": "solid",
+    "color": "#FFFFFF"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "difference",
+   "opacity": 1.0
+  },
+  "notes": "Title case (capital first letter). Measured x-height / capital height px: Feeling 58/108, Low 45/87, Quit 125/257, Patient 39/107, Pushing 37/75, Risk 45/112. Pinyon Script engine size: Feeling 0.23 (whole-word fit 0.221), Low 0.18, Quit 0.51, Patient 0.24 (whole-word fit 0.241), Pushing 0.153, Risk 0.20. Patient: green over purple, blue over yellow wood, dark over the white monitor: difference with white."
+ },
+ {
+  "id": "script-normal",
+  "role": "script accent, NORMAL blend: Make, it, Line, King",
+  "font": {
+   "family": "formal copperplate script (same face as script)",
+   "candidates": [
+    {
+     "name": "Pinyon Script",
+     "source": "Google Fonts (@fontsource/pinyon-script)",
+     "license": "OFL-1.1",
+     "match": "best free match: mean IoU 0.333 (King 0.358, Patient 0.359, Feeling 0.283); same copperplate construction (looped K, wave-topped F, oval-bowl P); K/x-height ratio 2.11 vs 2.24 measured; video shades are heavier"
+    },
+    {
+     "name": "Vujahday Script",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "IoU 0.324; heavier but brush-like, capitals wrong"
+    },
+    {
+     "name": "Arizonia",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "IoU 0.322; too heavy and upright capitals"
+    },
+    {
+     "name": "Allura (bundled id allura)",
+     "source": "bundled",
+     "license": "OFL-1.1",
+     "match": "IoU 0.302; best bundled option, rounder and lighter"
+    },
+    {
+     "name": "Great Vibes (bundled id great-vibes)",
+     "source": "bundled",
+     "license": "OFL-1.1",
+     "match": "IoU 0.216; capitals too tall and round"
+    },
+    {
+     "name": "Italianno",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "IoU 0.252; too narrow and light"
+    },
+    {
+     "name": "Likely original: a commercial copperplate (Bickham Script / Snell Roundhand / Edwardian Script class)",
+     "source": "paid / system",
+     "license": "proprietary",
+     "match": "not available to test; Snell Roundhand ships with macOS like Helvetica Neue"
+    }
+   ],
+   "weight": 400,
+   "width": "normal",
+   "style": "connected script, slanted about 25 deg"
+  },
+  "case": "title",
+  "capHeightPct": 18.47,
+  "xHeightPct": 15.97,
+  "trackingPct": 0.0,
+  "lineSpacing": "baseline to baseline 0.62 em of the upper line for equal sizes (0.85 to 1.0 x cap height of the lower line); lines overlap or touch",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#F4F2EC"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "#000000",
+   "opacity": 0.45,
+   "offsetPx": [
+    5,
+    10
+   ],
+   "blurSigmaPx": 4.5,
+   "note": "measured on feel, a, gotta be, take, these (r2 up to 0.67); invisible on dark backgrounds"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "pinyon-script",
+   "weight": 400,
+   "stretch": null,
+   "italic": false,
+   "case": "title",
+   "size": 0.23,
+   "tracking": 0.0,
+   "fill": {
+    "kind": "solid",
+    "color": "#F4F2EC"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.45)",
+    "blur": 0.054,
+    "x": 0.03,
+    "y": 0.06
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1.0
+  },
+  "notes": "Same face, normal blend (stays white over the bright windscreen and over the city lights). Measured x-height / capital px: Make 54/133, it 54, Line 54/119, King 115/258. Engine size with Pinyon Script: Make, it, Line 0.23 to 0.24; King 0.48 (whole-word fit 347 px). Shadow on Make fit: offset (2,9) px, sigma 4, opacity 0.35. xHeightPct above is King; Make/Line are 7.5%."
+ }
+]

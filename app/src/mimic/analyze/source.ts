@@ -6,9 +6,14 @@
 import { VideoSampleSink } from "mediabunny";
 import { decodeMono, type Source } from "../../engine/media/sources";
 import { FaceFinder } from "../../engine/vision/faces";
+import { PersonMasker } from "../../engine/vision/person";
+import { FONTS, loadFontsFor } from "../../engine/text/library";
+import { PLAIN_STYLE, setStyleFont } from "../../engine/text/style";
+import type { Renderer } from "./fontmatch";
 import type { Gray } from "./cards";
 import type { Picture } from "./ocr";
 import type { FrameSource } from "./reference";
+import type { Plane } from "./words";
 
 export function frameSource(src: Source): FrameSource {
   const video = src.video;
@@ -81,6 +86,66 @@ export function frameSource(src: Source): FrameSource {
       }
     },
   };
+}
+
+/**
+ * Words drawn in the library's faces, their letters cut out (for matching a reference's
+ * fonts): every face loaded once, then each word drawn white on a cleared canvas.
+ */
+export async function fontRenderer(): Promise<Renderer> {
+  await loadFontsFor(FONTS.map((f) => f.id));
+  const c = new OffscreenCanvas(64, 64);
+  const ctx = c.getContext("2d", { willReadFrequently: true })!;
+  return (f, weight, stretch, italic, px, text, tracking = 0) => {
+    const st = { ...PLAIN_STYLE, font: f.id, weight, stretch, italic, tracking, shadow: null };
+    setStyleFont(ctx, st, px);
+    const m = ctx.measureText(text);
+    // (Room for the spacing however the canvas counts it in the box.)
+    const pad = 2 + Math.ceil(Math.abs(tracking) * px * [...text].length);
+    const w = Math.ceil((m.actualBoundingBoxLeft || 0) + (m.actualBoundingBoxRight || m.width)) + 2 * pad;
+    const asc = Math.ceil(m.actualBoundingBoxAscent || px) + pad;
+    const h = asc + Math.ceil(m.actualBoundingBoxDescent || 0.3 * px) + pad;
+    if (w < 2 || h < 2 || w > 4000 || h > 2000) return null;
+    if (c.width < w || c.height < h) {
+      c.width = Math.max(c.width, w);
+      c.height = Math.max(c.height, h);
+    }
+    ctx.clearRect(0, 0, c.width, c.height);
+    setStyleFont(ctx, st, px);
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(text, pad + (m.actualBoundingBoxLeft || 0), asc);
+    const img = ctx.getImageData(0, 0, w, h).data;
+    // Cropped to the ink.
+    let x0 = w;
+    let x1 = -1;
+    let y0 = h;
+    let y1 = -1;
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++)
+        if (img[(y * w + x) * 4 + 3] > 127) {
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
+    if (x1 < x0) return null;
+    const cw = x1 - x0 + 1;
+    const ch = y1 - y0 + 1;
+    const data = new Uint8Array(cw * ch);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) data[y * cw + x] = img[((y0 + y) * w + x0 + x) * 4 + 3] > 127 ? 1 : 0;
+    return { w: cw, h: ch, data, base: asc - y0 };
+  };
+}
+
+/** The person in an analysis picture (0 to 1 at the masker's working size), with the page's person masker. */
+export async function personIn(p: Picture): Promise<Plane | null> {
+  const masker = await PersonMasker.get().catch(() => null);
+  if (!masker) return null;
+  const c = new OffscreenCanvas(p.width, p.height);
+  c.getContext("2d")!.putImageData(new ImageData(Uint8ClampedArray.from(p.data), p.width, p.height), 0, 0);
+  masker.reset();
+  return masker.plane((ctx, w, h) => ctx.drawImage(c, 0, 0, w, h), p.width, p.height, -1);
 }
 
 /** Faces in an analysis picture (centre and size as shares of it), with the page's face finder. */

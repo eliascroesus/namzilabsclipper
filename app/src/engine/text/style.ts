@@ -7,6 +7,7 @@
  * height, so a style looks the same in any frame.
  */
 import { fontById, fontString, stretchKeyword, type FontDef } from "./library";
+import type { TextMotion } from "./motion";
 
 /** How a style mixes with the picture under it (the canvas's composite operations of the same names). */
 export type Blend = "normal" | "multiply" | "screen" | "overlay" | "darken" | "lighten" | "color-dodge" | "color-burn" | "hard-light" | "soft-light" | "difference" | "exclusion";
@@ -33,7 +34,7 @@ export type Fill =
   /** colours out from the middle */
   | { kind: "radial"; colors: string[]; stops?: number[] };
 
-export type TextCase = "as-said" | "upper" | "lower" | "title";
+export type TextCase = "as-said" | "upper" | "lower" | "title" | "names";
 
 export interface TextStyle {
   id: string;
@@ -63,6 +64,13 @@ export interface TextStyle {
   box: { color: string; pad: number; radius: number } | null;
   opacity: number;
   blend: Blend;
+  /** a turn (degrees, clockwise) and a lean (degrees, like an italic) of each word */
+  rotate?: number;
+  skew?: number;
+  /** a soft focus that stays on the letters (in font sizes) */
+  blur?: number;
+  /** how its words come on, when not as the design's do */
+  enter?: TextMotion;
 }
 
 /** A plain white sans: what a style falls back on. */
@@ -84,10 +92,16 @@ export const PLAIN_STYLE: TextStyle = {
   blend: "normal",
 };
 
-export function cased(s: string, c: TextCase): string {
+/**
+ * A word in a case. "names" is lowercase that keeps names: a capital only there because the
+ * word opens a sentence (`opens`) goes, one mid-sentence (Instagram) or inside a word (DMs,
+ * iPhone) stays, and so does "I".
+ */
+export function cased(s: string, c: TextCase, opens?: boolean): string {
   if (c === "upper") return s.toUpperCase();
   if (c === "lower") return s.toLowerCase();
   if (c === "title") return s.replace(/(^|\s)(\p{L})/gu, (_, a: string, b: string) => a + b.toUpperCase());
+  if (c === "names" && opens && !/^I(\b|'|\u2019)/u.test(s)) return s.replace(/^(\P{L}*)(\p{Lu})(?=[\p{Ll}\P{L}]*$)/u, (_, a: string, b: string) => a + b.toLowerCase());
   return s;
 }
 
@@ -99,8 +113,10 @@ type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 /** Set the canvas up to draw (or measure) a style at a font size in pixels. */
 export function setStyleFont(ctx: Ctx, s: TextStyle, px: number) {
   const f = fontOf(s);
-  ctx.font = fontString(f, px, s.weight, s.italic);
-  (ctx as unknown as { fontStretch: CanvasFontStretch }).fontStretch = stretchKeyword(f, s.stretch);
+  const stretch = stretchKeyword(f, s.stretch);
+  // (The width in the font string too, for a canvas without fontStretch: Safari.)
+  ctx.font = fontString(f, px, s.weight, s.italic, stretch);
+  (ctx as unknown as { fontStretch: CanvasFontStretch }).fontStretch = stretch;
   (ctx as unknown as { letterSpacing: string }).letterSpacing = `${(s.tracking * px).toFixed(2)}px`;
 }
 

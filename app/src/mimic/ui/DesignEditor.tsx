@@ -10,8 +10,8 @@ import { Plus, Trash2 } from "lucide-react";
 import { MOTIONS, type MotionKind, type TextMotion } from "../../engine/text/motion";
 import { FONT_KINDS, FONTS, fontById } from "../../engine/text/library";
 import { BLENDS, fillColor, fillCss, type Blend, type Fill, type TextCase, type TextStyle } from "../../engine/text/style";
-import { PRESETS } from "../presets";
-import type { StylePick, TextDesign } from "../types";
+import { PRESET_GROUPS, PRESETS } from "../presets";
+import type { CaptionPlace, DesignAlt, StylePick, TextDesign } from "../types";
 import { mimic, type State } from "./store";
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -106,6 +106,7 @@ function StylePanel({ st, d }: { st: TextStyle; d: TextDesign }) {
           <select className="select" value={st.case} onChange={(e) => set({ case: e.target.value as TextCase })}>
             <option value="as-said">As said</option>
             <option value="lower">lowercase</option>
+            <option value="names">lowercase, keeping Names</option>
             <option value="upper">CAPITALS</option>
             <option value="title">Title Case</option>
           </select>
@@ -157,6 +158,8 @@ function StylePanel({ st, d }: { st: TextStyle; d: TextDesign }) {
           <input type="checkbox" checked={!!st.box} onChange={(e) => set({ box: e.target.checked ? { color: "#000000", pad: 0.18, radius: 0.12 } : null })} /> Box behind
         </label>
         {st.box && <input type="color" aria-label="Box colour" value={st.box.color.slice(0, 7)} onChange={(e) => set({ box: { ...st.box!, color: e.target.value } })} />}
+        <Range label="Turn" value={st.rotate ?? 0} min={-20} max={20} step={0.5} show={`${st.rotate ?? 0}°`} onChange={(v) => set({ rotate: v || undefined })} title="Tilt each word" />
+        <Range label="Lean" value={st.skew ?? 0} min={-20} max={20} step={0.5} show={`${st.skew ?? 0}°`} onChange={(v) => set({ skew: v || undefined })} title="Slant each word, like an italic" />
       </div>
       {!isBase && (
         <div className="look">
@@ -168,6 +171,8 @@ function StylePanel({ st, d }: { st: TextStyle; d: TextDesign }) {
               <option value="first">each caption's first word</option>
               <option value="number">numbers</option>
               <option value="marked">words I mark (*like this*)</option>
+              <option value="stopword">the small words (the, in, you)</option>
+              <option value="line2">the second line</option>
             </select>
           </label>
           <Range label="In captions" value={pick?.share ?? 0} min={0} max={1} step={0.05} show={pct(pick?.share ?? 0)} onChange={(v) => mimic.patchPick(st.id, { share: v })} title="The share of captions with a word in this style" />
@@ -216,8 +221,156 @@ function MotionEditor({ label, m, onChange, allowNone }: { label: string; m: Tex
           </label>
           {m.unit !== "word" && <Range label="Stagger" value={m.stagger ?? 0} min={0} max={0.3} step={0.01} show={`${Math.round((m.stagger ?? 0) * 1000)} ms`} onChange={(v) => onChange({ ...m, stagger: v })} />}
           {(m.kind === "pop" || m.kind === "bounce") && <Range label="Overshoot" value={m.overshoot ?? 0.12} min={0} max={0.4} step={0.01} show={pct(m.overshoot ?? 0.12)} onChange={(v) => onChange({ ...m, overshoot: v })} />}
+          {(m.kind === "rise" || m.kind === "drop" || m.kind === "slide-left" || m.kind === "slide-right") && (
+            <Range label="Distance" value={m.dist ?? (m.kind === "rise" || m.kind === "drop" ? 0.4 : 0.8)} min={0.05} max={2} step={0.05} show={`${(m.dist ?? (m.kind === "rise" || m.kind === "drop" ? 0.4 : 0.8)).toFixed(2)} of its size`} onChange={(v) => onChange({ ...m, dist: v })} />
+          )}
+          {m.kind !== "type" && m.kind !== "pop" && m.kind !== "bounce" && m.kind !== "stretch" && (
+            <label>
+              Curve
+              <select className="select" value={m.ease ?? "out"} onChange={(e) => onChange({ ...m, ease: e.target.value as TextMotion["ease"] })}>
+                <option value="out">Smooth</option>
+                <option value="quint">Sharp (most of the way at once)</option>
+                <option value="in-out">Gentle both ends</option>
+                <option value="linear">Even</option>
+                <option value="back">Past and back</option>
+              </select>
+            </label>
+          )}
+          {m.kind !== "fade" && m.kind !== "type" && m.kind !== "wipe" && (
+            <Range label="Fades in over" value={m.fade ?? 0} min={0} max={1} step={0.01} show={m.fade ? `${Math.round(m.fade * 1000)} ms` : "the move"} onChange={(v) => onChange({ ...m, fade: v || undefined })} />
+          )}
+          {m.kind !== "blur" && <Range label="Out of focus" value={m.blur ?? 0} min={0} max={0.3} step={0.01} show={m.blur ? pct(m.blur) : "no"} onChange={(v) => onChange({ ...m, blur: v || undefined })} />}
+          {m.unit === "word" && <Range label="Starts early" value={m.lead ?? 0} min={0} max={0.5} step={0.01} show={`${Math.round((m.lead ?? 0) * 1000)} ms`} onChange={(v) => onChange({ ...m, lead: v || undefined })} />}
+          {m.kind === "type" && (
+            <>
+              <Range label="Letters a second" value={m.rate ?? 0} min={0} max={40} step={1} show={m.rate ? String(m.rate) : "each word over its time"} onChange={(v) => onChange({ ...m, rate: v || undefined })} />
+              <label className="check">
+                <input type="checkbox" checked={!!m.caret} onChange={(e) => onChange({ ...m, caret: e.target.checked || undefined })} /> Caret
+              </label>
+            </>
+          )}
         </>
       )}
+    </div>
+  );
+}
+
+/** The reference's own design (when one was read off it), and the ready-made ones by group. */
+function PresetPicker({ s }: { s: State }) {
+  const own = s.template?.captions?.design;
+  return (
+    <div className="chips">
+      {own && (
+        <button type="button" className="chip on" title="As read off the reference" onClick={() => mimic.setDesign(own)}>
+          As the reference
+        </button>
+      )}
+      <select
+        className="select"
+        aria-label="Ready-made looks"
+        value=""
+        onChange={(e) => {
+          const p = PRESETS.find((x) => x.id === e.target.value);
+          if (p) mimic.setDesign(p.design);
+        }}
+      >
+        <option value="">Start from a look…</option>
+        {PRESET_GROUPS.map((g) => (
+          <optgroup key={g.id} label={g.name}>
+            {PRESETS.filter((p) => p.group === g.id).map((p) => (
+              <option key={p.id} value={p.id} title={p.from}>
+                {p.name}: {p.from}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/** The word being said (karaoke) and the words not said yet. */
+function SpokenEditor({ d }: { d: TextDesign }) {
+  const sp = d.spoken;
+  const set = (p: Partial<NonNullable<TextDesign["spoken"]>> | null) => mimic.patchDesign({ spoken: p === null ? undefined : { ...(sp ?? {}), ...p } });
+  return (
+    <div className="look">
+      <label className="check">
+        <input type="checkbox" checked={!!sp} onChange={(e) => set(e.target.checked ? { fill: { kind: "solid", color: "#ffe14d" } } : null)} /> Its own look
+      </label>
+      {sp && (
+        <>
+          <FillEditor fill={sp.fill ?? d.styles[0].fill} onChange={(fill) => set({ fill })} />
+          <Range label="Grows to" value={sp.scale ?? 1} min={1} max={1.4} step={0.01} show={pct(sp.scale ?? 1)} onChange={(v) => set({ scale: v === 1 ? undefined : v })} />
+          <Range label="Weight" value={sp.weight ?? d.styles[0].weight} min={100} max={900} step={100} show={String(sp.weight ?? d.styles[0].weight)} onChange={(v) => set({ weight: v })} />
+          <label className="check">
+            <input type="checkbox" checked={!!sp.box} onChange={(e) => set({ box: e.target.checked ? { color: "#7c3aed", pad: 0.18, radius: 0.25 } : undefined })} /> Box behind it
+          </label>
+          {sp.box && <input type="color" aria-label="Its box's colour" value={sp.box.color.slice(0, 7)} onChange={(e) => set({ box: { ...sp.box!, color: e.target.value } })} />}
+          <label className="check" title="The colour sweeps across the word as it's said">
+            <input type="checkbox" checked={!!sp.sweep} onChange={(e) => set({ sweep: e.target.checked || undefined })} /> Sweep across
+          </label>
+          <label className="check" title="Said words keep the look">
+            <input type="checkbox" checked={!!sp.hold} onChange={(e) => set({ hold: e.target.checked || undefined })} /> Keep it once said
+          </label>
+          <Range label="Words to come" value={d.upcoming?.opacity ?? 1} min={0.1} max={1} step={0.05} show={pct(d.upcoming?.opacity ?? 1)} onChange={(v) => mimic.patchDesign({ upcoming: v >= 1 ? undefined : { ...(d.upcoming ?? {}), opacity: v } })} title="How strong the words not said yet are, when a caption comes on whole" />
+        </>
+      )}
+    </div>
+  );
+}
+
+/** One of the design's other looks: which captions take it, and how they're set. */
+function AltEditor({ i, a, d }: { i: number; a: DesignAlt; d: TextDesign }) {
+  const set = (p: Partial<DesignAlt>) => mimic.patchAlt(i, p);
+  const pl = a.places?.[0] ?? d.places[0];
+  const setPlace = (p: Partial<CaptionPlace>) => set({ places: [{ ...pl, ...p }, ...(a.places ?? []).slice(1)] });
+  return (
+    <div className="look alt">
+      <label>
+        Look {i + 1} takes
+        <select className="select" value={a.rule} onChange={(e) => set({ rule: e.target.value as DesignAlt["rule"] })}>
+          <option value="keyword">the captions with the strongest word</option>
+          <option value="marked">captions with a *marked* word</option>
+          <option value="number">captions with a number</option>
+          <option value="turn">every so many captions</option>
+        </select>
+      </label>
+      <Range label="Share" value={a.share} min={0} max={1} step={0.05} show={pct(a.share)} onChange={(v) => set({ share: v })} />
+      <label>
+        Words in
+        <select className="select" value={a.style ?? ""} onChange={(e) => set({ style: e.target.value || undefined })}>
+          <option value="">the styles as picked</option>
+          {d.styles.map((x, k) => (
+            <option key={x.id} value={x.id}>
+              {x.name ?? (k ? `Style ${k + 1}` : "Base")}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Set
+        <select className="select" value={a.layout ?? d.layout} onChange={(e) => set({ layout: e.target.value as TextDesign["layout"] })}>
+          <option value="stack">stacked</option>
+          <option value="lines">all one size</option>
+          <option value="spread">spread across</option>
+        </select>
+      </label>
+      <Range label="Words a line" value={a.words ?? d.words} min={1} max={6} step={1} show={String(a.words ?? d.words)} onChange={(v) => set({ words: v })} />
+      <Range label="Lines" value={a.lines ?? d.lines} min={1} max={4} step={1} show={String(a.lines ?? d.lines)} onChange={(v) => set({ lines: v })} />
+      {pl && (
+        <>
+          <Range label="Across" value={pl.x} min={0} max={1} step={0.005} show={pct(pl.x)} onChange={(v) => setPlace({ x: v })} />
+          <Range label="Down" value={pl.y} min={0} max={1} step={0.005} show={pct(pl.y)} onChange={(v) => setPlace({ y: v })} />
+          <Range label="Widest" value={pl.width} min={0.15} max={1} step={0.01} show={pct(pl.width)} onChange={(v) => setPlace({ width: v })} />
+        </>
+      )}
+      <label className="check" title="These captions go behind the person talking">
+        <input type="checkbox" checked={!!a.behind} onChange={(e) => set({ behind: e.target.checked })} /> Behind me
+      </label>
+      <button type="button" className="btn small" onClick={() => mimic.removeAlt(i)}>
+        <Trash2 size={13} /> Remove
+      </button>
     </div>
   );
 }
@@ -230,13 +383,7 @@ export function DesignEditor({ s }: { s: State }) {
     return (
       <div className="design-off">
         <span className="hint">Several text styles, words picked out, stacked beside you, some behind you:</span>
-        <div className="chips">
-          {PRESETS.map((p) => (
-            <button key={p.id} type="button" className="chip" title={p.from} onClick={() => mimic.setDesign(p.design)}>
-              {p.name}
-            </button>
-          ))}
-        </div>
+        <PresetPicker s={s} />
       </div>
     );
   }
@@ -246,13 +393,7 @@ export function DesignEditor({ s }: { s: State }) {
   return (
     <div className="design">
       <div className="row between wrap">
-        <div className="chips">
-          {PRESETS.map((p) => (
-            <button key={p.id} type="button" className="chip" title={p.from} onClick={() => mimic.setDesign(p.design)}>
-              {p.name}
-            </button>
-          ))}
-        </div>
+        <PresetPicker s={s} />
         <button type="button" className="btn small" onClick={() => mimic.setDesign(null)}>
           Back to one style
         </button>
@@ -280,12 +421,19 @@ export function DesignEditor({ s }: { s: State }) {
           <select className="select" value={d.layout} onChange={(e) => set({ layout: e.target.value as TextDesign["layout"] })}>
             <option value="stack">stacked, each word its style's size</option>
             <option value="lines">all one size</option>
+            <option value="spread">spread across the place's width</option>
           </select>
         </label>
         <Range label="Words a line" value={d.words} min={1} max={6} step={1} show={String(d.words)} onChange={(v) => set({ words: v })} />
         <Range label="Lines a caption" value={d.lines} min={1} max={4} step={1} show={String(d.lines)} onChange={(v) => set({ lines: v })} />
         <Range label="Line spacing" value={d.leading} min={0.7} max={1.6} step={0.01} show={pct(d.leading)} onChange={(v) => set({ leading: v })} />
+        <label className="check" title="Each line sized to fill the place's width">
+          <input type="checkbox" checked={!!d.fit} onChange={(e) => set({ fit: e.target.checked || undefined })} /> Lines fill the width
+        </label>
       </div>
+
+      <span className="caps">The word being said</span>
+      <SpokenEditor d={d} />
 
       <span className="caps">Where captions sit</span>
       <div className="tabs" role="tablist" aria-label="Places">
@@ -324,6 +472,17 @@ export function DesignEditor({ s }: { s: State }) {
       )}
       <div className="look">
         <Range label="Also behind me" value={d.behind.share} min={0} max={1} step={0.05} show={pct(d.behind.share)} onChange={(v) => set({ behind: { ...d.behind, share: v } })} title="The share of captions set behind you, wherever they sit" />
+      </div>
+
+      <span className="caps">Other looks</span>
+      <span className="hint">A share of the captions set another way: a big word alone in the middle, words spread round you.</span>
+      {(d.alts ?? []).map((a, i) => (
+        <AltEditor key={i} i={i} a={a} d={d} />
+      ))}
+      <div className="row">
+        <button type="button" className="btn small" onClick={() => mimic.addAlt()}>
+          <Plus size={13} /> Look
+        </button>
       </div>
 
       <span className="caps">Coming on and going off</span>

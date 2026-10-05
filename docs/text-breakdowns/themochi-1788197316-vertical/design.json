@@ -1,0 +1,208 @@
+{
+ "styles": [
+  {
+   "id": "cap-m",
+   "name": "Base",
+   "font": "zalando-sans",
+   "weight": 700,
+   "italic": false,
+   "stretch": 115,
+   "case": "as-said",
+   "size": 0.0573,
+   "tracking": -0.033,
+   "fill": {
+    "kind": "solid",
+    "color": "#FEF8F5"
+   },
+   "fillSpan": "word",
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(20,20,20,0.55)",
+    "blur": 0.11,
+    "x": 0.014,
+    "y": 0.064
+   },
+   "glow": null,
+   "box": null,
+   "opacity": 1,
+   "blend": "normal"
+  },
+  {
+   "id": "cap-s",
+   "name": "Small",
+   "font": "zalando-sans",
+   "weight": 700,
+   "italic": false,
+   "stretch": 115,
+   "case": "as-said",
+   "size": 0.0458,
+   "tracking": -0.033,
+   "fill": {
+    "kind": "solid",
+    "color": "#FEF8F5"
+   },
+   "fillSpan": "word",
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(20,20,20,0.55)",
+    "blur": 0.11,
+    "x": 0.014,
+    "y": 0.064
+   },
+   "glow": null,
+   "box": null,
+   "opacity": 1,
+   "blend": "normal"
+  },
+  {
+   "id": "cap-l",
+   "name": "Emphasis",
+   "font": "zalando-sans",
+   "weight": 700,
+   "italic": false,
+   "stretch": 115,
+   "case": "as-said",
+   "size": 0.0781,
+   "tracking": -0.033,
+   "fill": {
+    "kind": "solid",
+    "color": "#FEF8F5"
+   },
+   "fillSpan": "word",
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(20,20,20,0.55)",
+    "blur": 0.11,
+    "x": 0.014,
+    "y": 0.064
+   },
+   "glow": null,
+   "box": null,
+   "opacity": 1,
+   "blend": "normal"
+  },
+  {
+   "id": "cap-xl",
+   "name": "Extra large",
+   "font": "zalando-sans",
+   "weight": 700,
+   "italic": false,
+   "stretch": 115,
+   "case": "as-said",
+   "size": 0.1088,
+   "tracking": -0.033,
+   "fill": {
+    "kind": "solid",
+    "color": "#FEF8F5"
+   },
+   "fillSpan": "word",
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(20,20,20,0.55)",
+    "blur": 0.11,
+    "x": 0.014,
+    "y": 0.064
+   },
+   "glow": null,
+   "box": null,
+   "opacity": 1,
+   "blend": "normal"
+  },
+  {
+   "id": "cap-hook",
+   "name": "Hook",
+   "font": "zalando-sans",
+   "weight": 700,
+   "italic": false,
+   "stretch": 115,
+   "case": "as-said",
+   "size": 0.1661,
+   "tracking": -0.033,
+   "fill": {
+    "kind": "solid",
+    "color": "#FEF8F5"
+   },
+   "fillSpan": "word",
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(20,20,20,0.55)",
+    "blur": 0.11,
+    "x": 0.014,
+    "y": 0.064
+   },
+   "glow": null,
+   "box": null,
+   "opacity": 1,
+   "blend": "normal"
+  }
+ ],
+ "picks": [
+  {
+   "style": "cap-hook",
+   "rule": "marked",
+   "share": 0.12
+  },
+  {
+   "style": "cap-xl",
+   "rule": "number",
+   "share": 1.0
+  },
+  {
+   "style": "cap-l",
+   "rule": "last",
+   "share": 0.7
+  },
+  {
+   "style": "cap-s",
+   "rule": "first",
+   "share": 0.6
+  }
+ ],
+ "layout": "stack",
+ "leading": 0.93,
+ "words": 2,
+ "lines": 5,
+ "places": [
+  {
+   "x": 0.5,
+   "y": 0.138,
+   "align": "center",
+   "valign": "top",
+   "width": 0.8
+  }
+ ],
+ "behind": {
+  "share": 0.85
+ },
+ "enter": {
+  "kind": "rise",
+  "dur": 0.5,
+  "unit": "line",
+  "stagger": 0,
+  "dist": 1.15,
+  "ease": "out"
+ },
+ "exit": null,
+ "accentEnter": {
+  "kind": "rise",
+  "dur": 0.5,
+  "unit": "line",
+  "stagger": 0,
+  "dist": 0.85,
+  "ease": "out"
+ },
+ "_fontToAdd": {
+  "id": "zalando-sans",
+  "family": "Zalando Sans (variable, wght 200-900, wdth 75-125)",
+  "license": "OFL-1.1",
+  "package": "@fontsource-variable/zalando-sans (import its wdth.css to get the width axis)",
+  "metrics": {
+   "xh": 0.514,
+   "cap": 0.714,
+   "asc": 0.964,
+   "desc": 0.25
+  },
+  "fallbackIfNotAdded": "tiktok-sans, stretch 120, weight 700, tracking 0, sizes x0.98 (x-height 0.524)"
+ },
+ "_notes": "Stack of 1 to 5 lines (median 3); 47 of 73 lines hold one word and 24 hold two. Each line appears on its own first word and rises about 88 px (0.069 of the frame height, 0.4 to 2.6 em depending on the line size) with a fast fade (0.68 opacity on its first frame); the whole caption cuts out in one frame. Block top at 0.138 H (median), bottom at 0.292 H, 1.5 % of the frame below the top of the head, which is what tucks the last line behind the hair. dist 1.15 em on the base size (73 px font) is 84 px; accentEnter uses 0.85 em (85 px on the 100 px emphasis size). Not expressible (breakdown section 9): the first line sits 0.081 W left of centre and later lines step 0.035 to 0.147 W left or right; captions ride the footage zoom (x0.81 to x1.31 per shot); opacity in the video is front-loaded (0.68, 0.83, 0.90, 0.96 on frames 0 to 3) while the engine ramps linearly."
+}

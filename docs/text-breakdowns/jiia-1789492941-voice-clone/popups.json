@@ -1,0 +1,582 @@
+[
+ {
+  "id": "review_cards",
+  "t0": 7.883,
+  "t1": 9.718,
+  "f0": 189,
+  "f1": 233,
+  "layer": "BEHIND the speaker: between the footage background and the person cutout",
+  "layerEvidence": "f206..f220: the card \"...lity is honestly better than I expected from an\" is cut by the face and neck contour, the \"Gauge / I can generate...\" card by the hair (extra/behind_cards.jpg)",
+  "what": "cloud of 10 to 12 dark chat/review cards (Discord-like) floating at three depths around the speaker, while he says \"that has been revolutionizing this industry\"",
+  "bbox": [
+   0.0,
+   0.0,
+   1.0,
+   1.0
+  ],
+  "anchors": "left column x 0..330, right column x 640..1276, rows y 40..640",
+  "shape": {
+   "cornerRadiusPx": 10,
+   "cornerRadiusNote": "about 6 px on far cards, 10 px on middle cards, 14 px on near cards",
+   "sizePx": "about 215 x 47 (far), 300 x 95 (middle, with a header line and date), 420 x 135 or more (near, cut by the frame)"
+  },
+  "fill": {
+   "card": "#26282D, about 92 % opaque",
+   "border": "1 px #3A3D44",
+   "avatar": "rounded square 22 to 40 px, radius 25 %: #FF5A1F orange, #22B573 green, #FF3D9A pink \"DT\", #2F80ED blue \"L\", #7B3FE4 purple \"J\", #3B3FC8 indigo \"CM\"; white initials",
+   "tag": "\"CLIENT\" chip, orange #E8A060 text on #4A3020",
+   "text": "message white 11 to 16 px (Inter Medium), date grey #8A8D93 \"Apr 2, 2026\" top right, user names blurred"
+  },
+  "shadow": {
+   "x": 0,
+   "y": 6,
+   "blur": 18,
+   "color": "#000000",
+   "opacity": 0.5
+  },
+  "depth": "three depth planes: far cards small and sharp, near cards 1.4 x larger with 4 to 6 px depth-of-field blur; right-hand cards angled 20 to 30 deg around the vertical axis (perspective)",
+  "enter": {
+   "kind": "rise from below the frame while un-tilting (rotateX about 55 deg -> 0), ease-out",
+   "frames": 8,
+   "curve": "pink DT avatar y: 651 (f189), 552, 480, 429, 388, 352, 327, 305, 289, 276, 265, 256 (f200), 242 (f202), 238 (f203); avatar height 31 -> 54 px as it un-tilts",
+   "stagger": "1 frame between cards (left green card enters f190)",
+   "from": {
+    "dy": "+410 px (below frame)",
+    "rotateX": 55,
+    "opacity": 1,
+    "blur": "motion blur"
+   },
+   "easing": "out"
+  },
+  "exit": {
+   "kind": "fall below the frame while tilting back, ease-in",
+   "frames": 11,
+   "curve": "pink avatar y: 304 (f222), 318, 334, 351, 373, 399, 429, 467, 514, 577, 663 (f232), gone f233; height 51 -> 34 px"
+  },
+  "camera": "cards ride the footage zoom-out f192..f205 (scale 0.91)",
+  "spokenAt": "\"And that has been revolutionizing this industry\" 7.28..9.68 s"
+ },
+ {
+  "id": "title_decor",
+  "t0": 12.179,
+  "t1": 13.764,
+  "f0": 292,
+  "f1": 330,
+  "layer": "front",
+  "what": "design-tool selection decor around \"Introducing VOICE CLONE 2.0\": magenta dashed rectangle drawn from the head to the right, glowing magenta diamonds at its corners and at the title ends",
+  "shape": {
+   "dash": "2 px stroke, about 10 px dashes with 6 px gaps",
+   "diamond": "rotated square 10 to 16 px"
+  },
+  "fill": {
+   "stroke": "#E040F0",
+   "diamond": "#F070FF core"
+  },
+  "glow": {
+   "color": "#E040F0",
+   "blurPx": 12,
+   "opacity": 0.8
+  },
+  "enter": {
+   "kind": "stroke draws on (line grows) f295..f312, diamonds pop f298..f304",
+   "frames": 17
+  },
+  "exit": {
+   "kind": "fade with the orb entrance f322..f330",
+   "frames": 8
+  }
+ },
+ {
+  "id": "orb",
+  "t0": 13.472,
+  "t1": 42.96,
+  "f0": 323,
+  "f1": 1030,
+  "layer": "in front of the speaker (covers him); the title stays on top of the orb",
+  "what": "Siri-like glowing sphere: soft disc with a swirling cyan #30E0FF / magenta #FF30E0 / violet #7040FF / peach #FFA080 interior and a magenta rim bloom; recurs through all the motion-graphic scenes",
+  "shape": {
+   "diameterPx": "settled 258 px incl. bloom (0.36 of frame height) on the talking head; 196 to 260 px incl. bloom in the UI scenes (core about 150 to 180 px)",
+   "edge": "about 8 px feather, magenta rim 4 to 6 px, bloom 15 to 25 px",
+   "positions": "purple scene centre (640, 202..241) then (416, 246) beside the settings panel; lavender scene (634, 440..451) under the photo cards; navy scene (628, 339..357), then (331..338, 333..347) beside the circle reveal"
+  },
+  "enter": {
+   "kind": "rises from below the frame as a huge disc (about 1000 px), then shrinks onto the title, ease-out",
+   "frames": 43,
+   "curve": "centre y: 651 (f324), 590, 598, 553 (f330), 526, 504, 482 (f336), 462, 442, 422 (f342), 383 (f346), 360 (f350), 361..365 (f354 on); diameter about 640 (f342), 600 (f346), 520 (f350), 380 (f354), 320 (f358), 280 (f362), 260 (f370), 258 (f374..f382); centre x 634 (frame centre)"
+  },
+  "exit": {
+   "kind": "circle wipe: a cyan-blue ring expands from the orb to beyond the frame f386..f395 and its inside becomes the purple motion-graphic background",
+   "frames": 9,
+   "curve": "ring diameter 267 (f386), 497 (f390), 871+ (f394)"
+  },
+  "notes": "Inside the UI scenes the orb breathes (diameter +-6 %) and its colours swirl continuously (one revolution about 2 s)."
+ },
+ {
+  "id": "waveform",
+  "t0": 17.351,
+  "t1": 42.209,
+  "f0": 416,
+  "f1": 1012,
+  "layer": "front",
+  "what": "audio waveform: thin vertical bars on a dotted centre line, reacting to the voice",
+  "shape": {
+   "bar": "2 px wide, 3 px gap, height 2 to about 130 px incl. glow (typically 20 to 70)",
+   "length": "about 450 px (x 418 to 867) centred under the orb in the purple scene; in the navy scene split left (x 0 to 190) and right (x 470 to 560) of the orb on the orb centre line"
+  },
+  "fill": {
+   "segment2": "magenta #E040C8 with 6 px bloom",
+   "segment3": "white-lavender #F4ECFF on lavender",
+   "segment4": "white #F8F8FF with 4 px bloom"
+  },
+  "enter": {
+   "kind": "bars grow from the centre line",
+   "frames": 6
+  },
+  "exit": {
+   "kind": "bars collapse to the dotted line",
+   "frames": 6
+  }
+ },
+ {
+  "id": "voice_settings_panel",
+  "t0": 20.354,
+  "t1": 24.9,
+  "f0": 488,
+  "f1": 597,
+  "layer": "front (no card behind: floating UI on the purple background)",
+  "what": "\"Voice Settings\" title, three sliders: Speed 1,04x, Expressiveness 40 %, Variation 40 %",
+  "bbox": [
+   0.638,
+   0.26,
+   0.882,
+   0.655
+  ],
+  "shape": {
+   "track": "4 px line plus glow (6 px total), round caps, 302 px long (x 814 to 1116), rows 86 px apart (track y 287, 373, 459)",
+   "knob": "white circle 16 to 18 px",
+   "labels": "label above the track at left, value right-aligned at x 1114, title Voice Settings right-aligned at x 1122, y 187"
+  },
+  "fill": {
+   "trackFilled": "white-lavender #E8E0FF with glow",
+   "trackEmpty": "violet #5A4FD0",
+   "knob": "#FFFFFF",
+   "text": "white, Inter Medium, cap 15 px (size 0.029)"
+  },
+  "glow": {
+   "color": "#B0A0FF",
+   "blurPx": 6,
+   "opacity": 0.6,
+   "on": "knobs and filled track"
+  },
+  "enter": {
+   "kind": "knobs appear as dots (f488..f490), labels type on letter by letter (f492..f498), filled tracks draw out leftwards from the knobs (f494..f500), then the knobs slide left while the values count down: Speed 2,00x -> 1,94x (f502) -> 1,70x (f506) -> 1,34x (f512) -> 1,04x (f520); Expressiveness 100 % -> 80 % -> 48 % -> 40 %",
+   "frames": 32,
+   "easing": "out"
+  },
+  "exit": {
+   "kind": "camera push towards the orb then the lavender circle wipe (f590..f599)",
+   "frames": 9
+  }
+ },
+ {
+  "id": "scene_cards",
+  "t0": 25.067,
+  "t1": 31.073,
+  "f0": 601,
+  "f1": 745,
+  "layer": "front",
+  "what": "four photo cards (car interior, restaurant, gym, subway) dealt above the orb; the cursor picks one, it flies into the orb and becomes the background scene",
+  "shape": {
+   "cornerRadiusPx": 8,
+   "sizePx": "about 95 x 110",
+   "border": "1 px violet #8040C0"
+  },
+  "shadow": {
+   "x": 0,
+   "y": 6,
+   "blur": 14,
+   "color": "#3A1060",
+   "opacity": 0.45
+  },
+  "enter": {
+   "kind": "fly in from the right edge on a 3D arc (rotated about 45 deg around the vertical axis, straightening), staggered",
+   "frames": 12,
+   "stagger": "1 to 2 frames per card",
+   "easing": "out"
+  },
+  "selection": {
+   "kind": "cursor taps a card, the card scales down and drops into the orb (f660..f676), the frame fills with that scene",
+   "frames": 16
+  },
+  "sceneTreatment": {
+   "kind": "duotone / gradient map of the photo inside a soft circular vignette (radius about 420 px)",
+   "colors": [
+    "#5A37D1",
+    "#EAC8FF"
+   ],
+   "fit": "R = -60 + 1.27 L, G = -97 + 1.29 L, B = 157 + 0.44 L (L = photo luminance), hue 260 +- 5 deg throughout",
+   "engineBlend": "closest single blend: \"color\" (hue/saturation of #9A70F0 over the luminance of the photo), or \"luminosity\" of the photo over a violet fill"
+  },
+  "exit": {
+   "kind": "cards and photo burst outward with motion blur while pastel glass bars fly up (f744..f758)",
+   "frames": 14
+  }
+ },
+ {
+  "id": "cursor",
+  "t0": 24.858,
+  "t1": 48.882,
+  "f0": 596,
+  "f1": 1172,
+  "layer": "front, top-most",
+  "what": "3D magenta pointer arrow (Figma-like cursor) with glow",
+  "shape": {
+   "sizePx": "about 34 x 40",
+   "form": "arrow head with a notch, slight bevel"
+  },
+  "fill": {
+   "gradient": [
+    "#F040F0",
+    "#A020E0"
+   ],
+   "angleDeg": 135
+  },
+  "glow": {
+   "color": "#E040F0",
+   "blurPx": 10,
+   "opacity": 0.6
+  },
+  "motion": "moves on smooth ease-in-out arcs between targets (about 12 to 20 frames per move); a tap is a 2 frame dip to 90 % scale with the target highlighting"
+ },
+ {
+  "id": "glass_bars",
+  "t0": 30.948,
+  "t1": 31.782,
+  "f0": 742,
+  "f1": 762,
+  "layer": "front",
+  "what": "transition shards: tall pastel glass rectangles (cyan #A8F0F8, pink #F8C8E8, white #FFFFFF at 70 %) flying upward past the camera with motion blur while the panel rises",
+  "shape": {
+   "sizePx": "24 to 60 wide, 120 to 300 tall",
+   "cornerRadiusPx": 4
+  },
+  "enter": {
+   "kind": "fly up through the frame",
+   "frames": 16
+  }
+ },
+ {
+  "id": "intelligent_panel",
+  "t0": 31.198,
+  "t1": 33.7,
+  "f0": 748,
+  "f1": 808,
+  "layer": "front",
+  "what": "white glass settings card titled \"Intelligent\" with three list rows: AI setter, AI suggestion, Voice clone (chevrons on the right); the cursor taps \"Voice clone\"",
+  "bbox": [
+   0.27,
+   0.209,
+   0.722,
+   0.748
+  ],
+  "shape": {
+   "cardRadiusPx": 17,
+   "rowRadiusPx": 10,
+   "rowSizePx": "about 485 x 64"
+  },
+  "fill": {
+   "card": "#F8F4FC, inner glow white, about 90 % opaque over the lavender background #F2D5FE",
+   "row": "#FFFFFF",
+   "title": "#111111 Inter SemiBold, cap 18 px",
+   "rows": "#111111 Inter Medium, cap 11 px (later zoomed 2.4 x)",
+   "chevron": "#222222, 2 px"
+  },
+  "shadow": {
+   "x": 0,
+   "y": 10,
+   "blur": 30,
+   "color": "#9A60D0",
+   "opacity": 0.35,
+   "rows": "0 2 6 rgba(120,80,160,0.25)"
+  },
+  "enter": {
+   "kind": "rises from the bottom while scaling up from about 70 %, content assembles blurred then sharp",
+   "frames": 12,
+   "easing": "out"
+  },
+  "camera": "push-in to 2.4 x on the list f772..f790 (the panel overfills the frame), the tapped row tints violet and the panel dissolves in a grain/pixel dissolve f804..f810",
+  "exit": {
+   "kind": "pixel-grain dissolve into the prompt bar",
+   "frames": 6
+  }
+ },
+ {
+  "id": "prompt_bar",
+  "t0": 33.784,
+  "t1": 35.035,
+  "f0": 810,
+  "f1": 840,
+  "layer": "front",
+  "what": "white rounded prompt bar with typed text \"...to build a voice clone\" and a \"Start\" button; cursor taps Start",
+  "bbox": [
+   0.0,
+   0.29,
+   0.719,
+   0.653
+  ],
+  "shape": {
+   "cornerRadiusPx": 26,
+   "button": "pill 90 x 44 px, 1.5 px grey border #9A9A9A, radius 10"
+  },
+  "fill": {
+   "bar": "#FCFAFE",
+   "text": "#555060 Inter Medium, cap 22 px",
+   "buttonActive": "magenta glow fill #F0A0F8 -> #E060F0 on tap (f830..f834)"
+  },
+  "shadow": {
+   "x": 0,
+   "y": 8,
+   "blur": 24,
+   "color": "#C080E0",
+   "opacity": 0.3
+  },
+  "enter": {
+   "kind": "slides in from the right while the text types on with letter-spacing collapsing (wide tracking about +0.3 em -> 0 over 6 frames per word)",
+   "frames": 14
+  },
+  "exit": {
+   "kind": "whip/zoom into the next scene (f836..f842), dark blue fills from the right",
+   "frames": 6
+  }
+ },
+ {
+  "id": "circle_reveal",
+  "t0": 38.538,
+  "t1": 42.876,
+  "f0": 924,
+  "f1": 1028,
+  "layer": "speaker footage inside a circular mask, over the dark-blue motion graphic",
+  "what": "large circle (radius 566 px = 0.79 frame height, centre x 1195 / 0.937 W, y 357) slides in from the right revealing a second shot of the speaker; glowing white-lavender rim",
+  "shape": {
+   "radiusPx": 566,
+   "rim": "5 to 6 px white #F4F0FF ring with 20 px violet bloom #9A80FF"
+  },
+  "enter": {
+   "kind": "slide from the right, ease-out",
+   "frames": 22,
+   "curve": "left edge of the circle x: 951 (f926), 852, 791, 745, 710, 682 (f936), 661, 646, 637, 631 (f944), 630 (rest)"
+  },
+  "exit": {
+   "kind": "slide back to the right, ease-in",
+   "frames": 16,
+   "curve": "left edge 630 (f1006), 643 (f1010), 676 (f1014), 736 (f1018), 835 (f1022), off by f1026"
+  },
+  "notes": "The person is not cut out here: the whole shot is masked by the circle (a rounded-mask picture-in-picture)."
+ },
+ {
+  "id": "progress_bar",
+  "t0": 39.206,
+  "t1": 42.876,
+  "f0": 940,
+  "f1": 1028,
+  "layer": "front",
+  "what": "\"Building your voice clone\" label with a pill progress bar under it",
+  "bbox": [
+   0.094,
+   0.728,
+   0.392,
+   0.827
+  ],
+  "shape": {
+   "track": "pill 250 x 6 px, radius 3",
+   "fill": "pill, grows left to right"
+  },
+  "fill": {
+   "filled": "gradient #E890F8 -> #F4C8FF",
+   "track": "#6A2A70 at 70 %",
+   "label": "white Inter Medium cap 21 px"
+  },
+  "enter": {
+   "kind": "label types word by word, bar fills from 0 % (f940) to about 75 % (f1020), roughly linear",
+   "frames": 80
+  }
+ },
+ {
+  "id": "chat_composer",
+  "t0": 46.546,
+  "t1": 49.049,
+  "f0": 1116,
+  "f1": 1176,
+  "layer": "front",
+  "what": "white chat input bar \"This is more than just a voice clone.\" with left icons (image, edit), right icons (mic, waveform chip, blue send button); a dropdown card above it: \"Scene: Car\", \"x Clear all\", \"Convert\"",
+  "bbox": [
+   0.0,
+   0.54,
+   0.705,
+   0.659
+  ],
+  "shape": {
+   "barRadiusPx": 12,
+   "send": "rounded square 28 px, radius 7, #4A6CF0 with white arrow",
+   "dropdownRadiusPx": 7,
+   "chipRadiusPx": 4
+  },
+  "fill": {
+   "bar": "#FFFFFF",
+   "text": "#222222 Inter Medium cap 12 px, typed",
+   "dropdown": "#F4ECFA with 1 px #D8C8E8 border",
+   "convert": "magenta #E070F0 button with white text, glow when tapped"
+  },
+  "shadow": {
+   "x": 0,
+   "y": 6,
+   "blur": 20,
+   "color": "#000000",
+   "opacity": 0.4
+  },
+  "enter": {
+   "kind": "bar slides up from below the frame with motion blur (f1116..f1124), text types on (f1124..f1134, about 3.4 characters per frame), dropdown pops from the send button f1142..f1146 (scale 0.8 -> 1, blur)",
+   "frames": 10
+  },
+  "exit": {
+   "kind": "cursor taps Convert (f1160..f1170, button flares), then a vertical swap: the composer drops out of the bottom with motion blur while the voice-note pill drops in from the top (f1172..f1175)",
+   "frames": 4
+  }
+ },
+ {
+  "id": "voice_note_pill",
+  "t0": 49.049,
+  "t1": 51.551,
+  "f0": 1176,
+  "f1": 1236,
+  "layer": "front",
+  "what": "voice-message player pill: grey play button, grey waveform bars, \"0:05\", \"1x\" chip, black round close button with white x at the top-right",
+  "bbox": [
+   0.234,
+   0.412,
+   0.776,
+   0.603
+  ],
+  "shape": {
+   "cornerRadiusPx": "full (pill, about 36 px)",
+   "play": "circle 36 px #B4B4B8 with black triangle",
+   "close": "circle 28 px #111111 with white x, 2 px",
+   "chip": "\"1x\" pill #C8C8CC"
+  },
+  "fill": {
+   "pill": "white to lavender vertical gradient #FFFFFF -> #E8E0F0",
+   "text": "#111111 Inter Medium cap 13 px"
+  },
+  "glow": {
+   "color": "#FFFFFF",
+   "blurPx": 16,
+   "opacity": 0.35,
+   "note": "soft white bloom around the pill on the dark purple background"
+  },
+  "enter": {
+   "kind": "drops in from the top with vertical motion blur (vertical swap with the composer), lands at full size with about +3 % overshoot (width 577, 632, 645, 634, 626, 624 px at f1175..f1180), then the play icon, waveform and the close button (growing from a dot) appear (f1176..f1186); slow push-in afterwards (+0.45 % per frame)",
+   "frames": 6,
+   "easing": "out"
+  },
+  "exit": {
+   "kind": "close button collapses to a dot and the play icon morphs to a stop square then a dot (f1226..f1232), then the pill drops out of the bottom with motion blur as the first notification card rises in (f1233..f1236)",
+   "frames": 10
+  }
+ },
+ {
+  "id": "notification_stack",
+  "t0": 51.551,
+  "t1": 56.139,
+  "f0": 1236,
+  "f1": 1346,
+  "layer": "front",
+  "what": "a tall stack of white DM notification cards scrolling up fast then slowing; the last card stays: \"Ronald / You: Sent a voice message - 2m\"",
+  "shape": {
+   "cornerRadiusPx": 15,
+   "sizePx": "about 250 x 52 (rest), 300 x 64 for the final card",
+   "gapPx": 10,
+   "avatar": "circle 30 px, lavender-blue gradient #8090FF -> #C8A0FF"
+  },
+  "fill": {
+   "card": "#F2F0F6 with 1 px white inner border",
+   "skeleton": "grey lines #8A8A90 and #C0C0C8, 6 px tall, radius 3",
+   "name": "#333333 Inter SemiBold cap 9 px",
+   "body": "#8A8A90 Inter Regular"
+  },
+  "shadow": {
+   "x": 0,
+   "y": 8,
+   "blur": 24,
+   "color": "#000000",
+   "opacity": 0.35
+  },
+  "enter": {
+   "kind": "rises in from the bottom (swap with the pill), then a fast upward scroll with heavy motion blur (f1240..f1286), decelerating: content speed 20, 18, 16, 14, 12, 10, 9, 7, 6, 4, 3, 1.5, 0.5 px per frame over f1288..f1314",
+   "frames": 74,
+   "easing": "out"
+  },
+  "exit": {
+   "kind": "remaining cards slide up and out; the last card shrinks slightly and fades with blur (f1330..f1346)",
+   "frames": 16
+  },
+  "background": "purple #4A2080 to #1A0A30 gradient with drifting white sparkle dots"
+ },
+ {
+  "id": "logo_reveal",
+  "t0": 56.139,
+  "t1": 58.267,
+  "f0": 1346,
+  "f1": 1397,
+  "layer": "front",
+  "what": "light-streak reveal of \"VOICE CLONE 2.0\": white-violet light beams converge, the word appears as a thin chrome outline (stroke only), then fills solid white with a dark purple glow while zooming out, then shrinks away",
+  "enter": {
+   "kind": "streaks f1346..f1352, outline letters stretched wide (scaleX about 3) f1352..f1360, settle to 1:1 outline f1362, fill to solid white f1380..f1390",
+   "frames": 44
+  },
+  "exit": {
+   "kind": "scale down to about 20 % in 6 frames with motion blur (f1392..f1397)",
+   "frames": 6
+  },
+  "style": "product_caps (white), outline phase: 1.5 px white stroke, no fill, slight chromatic sheen"
+ },
+ {
+  "id": "mochi_endcard",
+  "t0": 61.895,
+  "t1": 66.108,
+  "f0": 1484,
+  "f1": 1585,
+  "layer": "front",
+  "what": "Mochi mascot (pink-violet blob with face and a green dot) and the lowercase \"mochi\" wordmark",
+  "enter": {
+   "kind": "dither/pixel dissolve ring (f1482..f1488), mascot pops with 3 small stars, wordmark types on m-o-c-h-i in violet then turns white (f1488..f1500)",
+   "frames": 18
+  },
+  "exit": {
+   "kind": "fade to the purple background (f1566..f1585)",
+   "frames": 19
+  },
+  "notes": "wordmark: rounded geometric heavy lowercase (close free match: Fredoka 700 or Nunito 900), white #FFFFFF, cap-free, x-height 28 px"
+ },
+ {
+  "id": "backgrounds",
+  "what": "motion-graphic backgrounds behind the UI",
+  "items": [
+   {
+    "frames": "395..597",
+    "look": "deep purple radial gradient #2A0A40 (centre) to #0A0510 (edges) with fine dot grain"
+   },
+   {
+    "frames": "598..836",
+    "look": "lavender #F2D5FE with concentric soft rings (white 30 % and #E0B8F8) centred on the orb"
+   },
+   {
+    "frames": "837..1030",
+    "look": "near-black navy #0A0820 with concentric deep-blue arcs #2A20A0 rising from the bottom"
+   },
+   {
+    "frames": "1030..1484",
+    "look": "dark purple #1A0A2A with slow liquid marbling and occasional dot grain"
+   }
+  ]
+ }
+]

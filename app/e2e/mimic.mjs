@@ -2,6 +2,8 @@
 //   node e2e/mimic.mjs --ref ad.mp4 --raw raw.mp4 [--extra a.jpg ...] [--music m.mp3] [--clip]
 //                      [--placement auto|reference] [--fake-gemini] [--sfx none|moves|script] [--mix]
 //                      [--stills 1,2.5,20] [--design stacked | --design-json d.json] [--again] [--no-render] [--out DIR]
+//   node e2e/mimic.mjs --ref ad.mp4 --study-only [--out DIR]   (the reference's template, nothing else)
+//   node e2e/mimic.mjs --ref ad.mp4 --raw raw.mp4 --designs stacked,karaoke --stills 1,2.5   (stills per design)
 // Serves a built copy (E2E_DIST, with the speech model at dist/models/parakeet-v3),
 // saves screenshots of the page, the template, the plan and the finished video in --out.
 import { chromium } from "playwright";
@@ -54,6 +56,17 @@ try {
     }
   };
   await inputs.nth(0).setInputFiles(resolve(opt("--ref")));
+  if (args.includes("--study-only")) {
+    // Just the reference, studied: its template (with any caption design read off it) saved.
+    await until((s) => s.study.stage === "ready", "studying");
+    const tpl = await page.evaluate(() => window.__mimic.get().template);
+    writeFileSync(resolve(outDir, "template.json"), JSON.stringify(tpl, null, 1));
+    // The words the caption design was read from (when it was), for a look.
+    const ds = await page.evaluate(() => window.__designSamples ?? null);
+    if (ds) writeFileSync(resolve(outDir, "design-samples.json"), JSON.stringify(ds));
+    log("studied", JSON.stringify({ captions: !!tpl.captions, design: !!tpl.captions?.design, notes: tpl.notes }));
+    process.exit(0);
+  }
   await inputs.nth(1).setInputFiles(resolve(opt("--raw")));
   const extras = many("--extra");
   if (extras.length) await inputs.nth(2).setInputFiles(extras.map((e) => resolve(e)));
@@ -219,6 +232,29 @@ try {
     log("mix", "mix.wav");
   }
   const stills = opt("--stills");
+  // Stills for each of several designs in turn (--designs a,b,c), each set in its own folder.
+  if (stills && opt("--designs")) {
+    const times = stills.split(",").map(Number);
+    for (const id of opt("--designs").split(",")) {
+      await page.evaluate((i) => window.__mimic.usePreset(i), id);
+      await page.waitForTimeout(300);
+      const shots = await page.evaluate(async (times) => {
+        const urls = await window.__mimic.preview(times);
+        const out = [];
+        for (const u of urls) {
+          const buf = new Uint8Array(await (await fetch(u)).arrayBuffer());
+          let s = "";
+          for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+          out.push(btoa(s));
+        }
+        return out;
+      }, times);
+      mkdirSync(resolve(outDir, id), { recursive: true });
+      shots.forEach((b64, i) => writeFileSync(resolve(outDir, id, `still-${times[i].toFixed(2)}.jpg`), Buffer.from(b64, "base64")));
+      log("stills", id, times.join(", "));
+    }
+    process.exit(0);
+  }
   if (stills) {
     const times = stills.split(",").map(Number);
     const shots = await page.evaluate(async (times) => {

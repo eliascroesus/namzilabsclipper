@@ -1,0 +1,1200 @@
+[
+ {
+  "t0": 0.167,
+  "t1": 0.792,
+  "f0": 4,
+  "f1": 19,
+  "lines": [
+   {
+    "text": "let me tell you a",
+    "words": [
+     {
+      "text": "let",
+      "style": "base",
+      "onsetFrame": 4,
+      "onsetSec": 0.167,
+      "asrStart": 0.16
+     },
+     {
+      "text": "me",
+      "style": "base",
+      "onsetFrame": 6,
+      "onsetSec": 0.25,
+      "asrStart": 0.32
+     },
+     {
+      "text": "tell",
+      "style": "base",
+      "onsetFrame": 9,
+      "onsetSec": 0.375,
+      "asrStart": 0.48
+     },
+     {
+      "text": "you",
+      "style": "base",
+      "onsetFrame": 11,
+      "onsetSec": 0.459,
+      "asrStart": 0.8
+     },
+     {
+      "text": "a",
+      "style": "base",
+      "onsetFrame": 14,
+      "onsetSec": 0.584,
+      "asrStart": 0.96
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.2516,
+   0.2326,
+   0.7476,
+   0.3343
+  ],
+  "head": [
+   0.431,
+   0.312,
+   0.5564,
+   0.5543
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "rise + fade (per word, on its spoken onset)",
+   "frames": 8,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0.03,
+    "dx": 0,
+    "dy": 0.6
+   },
+   "stagger": "each word on its own spoken onset (no fixed stagger)",
+   "easing": "cubic out on both position and opacity (dy remaining 0.82, 0.54, 0.33, 0.18, 0.08, 0.03 of the start per frame)"
+  },
+  "exit": {
+   "kind": "hard cut (replaced on f20 by the thin line that becomes \"secret\")",
+   "frames": 0,
+   "from": null,
+   "stagger": 0,
+   "easing": null
+  },
+  "spokenAt": 0.16,
+  "notes": "One centred line above the head (centre x 0.4996, baseline y 0.313), x-height 44 px (style base at size 0.119). \"tell\" fit: dy 50.7, 29.5, 17.8, 11.0, 6.2, 2.7, 0 px with opacity 0.16, 0.48, 0.73, 0.85, 0.94, 0.99, 1. The whole composite (footage and text) zooms out 10 to 12 % over f11 to f19 (\"l\" of \"let\" 66 -> 58 px tall, head 192 -> 174 px), so the line also drifts +38 px right and -9 px up. Bottom of \"tell\" touches the top of the hair at f19 without being cut. ASR start times lag the visual onsets for \"you\" and \"a\" (audio energy shows \"you\" at about 0.52 s)."
+ },
+ {
+  "t0": 0.834,
+  "t1": 1.835,
+  "f0": 20,
+  "f1": 44,
+  "lines": [
+   {
+    "text": "secret",
+    "words": [
+     {
+      "text": "secret",
+      "style": "hook",
+      "onsetFrame": 20,
+      "onsetSec": 0.834,
+      "asrStart": 1.12
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.1089,
+   0.2549,
+   0.8926,
+   0.5181
+  ],
+  "head": [
+   0.424,
+   0.3134,
+   0.5494,
+   0.507
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "vertical stretch from a 2 px line on the baseline (scaleY), with horizontal speed streaks and sparkles",
+   "frames": 13,
+   "from": {
+    "scale": "x 1.06, y 0.02",
+    "opacity": 1.0,
+    "blur": "horizontal smear on f21 to f22",
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": 0,
+   "easing": "y heights (px, x-height 157 at rest): f20 2, f21 ~70, f22 224, f23 235, f24 237 (peak 1.21), f25 232, f26 221, f27 213, f28 208, f29 205, f30 202, f31 199, f32 197, f33 195 (settled); width 1062 -> 999 px from f22 to f41 (ease out)"
+  },
+  "exit": {
+   "kind": "vertical collapse onto the baseline (scaleY 1 -> 0) with horizontal blur",
+   "frames": 5,
+   "from": {
+    "scale": "y 1.0 -> 0",
+    "opacity": 1,
+    "blur": "horizontal 6 to 10 px",
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": 0,
+   "easing": "ease in: top edge at y 185, 192, 208, 236, 298 on f40 to f44, gone f45"
+  },
+  "spokenAt": 1.12,
+  "notes": "Behind the person: the head and hair cover about 10 % of the word ink (57 % of the \"c\" and the stem of the \"r\"), every frame f20 to f44, the cut-out follows the head (hidden share 0.098 at f24, 0.105 at f32, 0.082 at f42 as he moves). Occlusion edge: full text colour to hair over 6 to 8 px at the sides (half-max width about 3 px), 2 to 4 px at the crown; clean hair outline, no strand detail, no spill. Four-point star sparkles (pink #ffb3d9 and white, 10 to 40 px, rotating, flying outward) from f21 to f34. Visual onset f20 is 4 frames before the /s/ (audio high band rises at 0.96 s)."
+ },
+ {
+  "t0": 2.002,
+  "t1": 3.212,
+  "f0": 48,
+  "f1": 77,
+  "lines": [
+   {
+    "text": "because",
+    "words": [
+     {
+      "text": "because",
+      "style": "base",
+      "onsetFrame": 48,
+      "onsetSec": 2.002,
+      "asrStart": 1.92
+     }
+    ]
+   },
+   {
+    "text": "you",
+    "words": [
+     {
+      "text": "you",
+      "style": "base",
+      "onsetFrame": 51,
+      "onsetSec": 2.127,
+      "asrStart": 2.24
+     }
+    ]
+   },
+   {
+    "text": "are",
+    "words": [
+     {
+      "text": "are",
+      "style": "base",
+      "onsetFrame": 61,
+      "onsetSec": 2.544,
+      "asrStart": 2.56
+     }
+    ]
+   },
+   {
+    "text": "probably",
+    "words": [
+     {
+      "text": "probably",
+      "style": "base",
+      "onsetFrame": 65,
+      "onsetSec": 2.711,
+      "asrStart": 2.8
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.5509,
+   0.3593,
+   0.8182,
+   0.6017
+  ],
+  "head": [
+   0.3582,
+   0.2758,
+   0.4875,
+   0.5209
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "rise + fade (per word, on its spoken onset)",
+   "frames": 8,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0.03,
+    "dx": 0,
+    "dy": 0.65
+   },
+   "stagger": "each word on its own spoken onset (no fixed stagger)",
+   "easing": "cubic out on both position and opacity (dy remaining 0.82, 0.54, 0.33, 0.18, 0.08, 0.03 of the start per frame)"
+  },
+  "exit": {
+   "kind": "fade (whole caption)",
+   "frames": 4,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": 0,
+   "easing": "linear (opacity 1, 0.77, 0.52, 0.26, 0)"
+  },
+  "spokenAt": 1.92,
+  "notes": "Four stacked lines right of the head, left edges zig-zag: because x 703, you +36, are +105, probably +49 px (indents 0, 0.55, 1.6, 0.75 em). Baselines 302, 340, 380, 421.5 (gaps 38, 40, 41.5 px at x-height 34): lines touch (y descender of \"you\" reaches the x-height of \"are\"). Fits: \"probably\" dy 40.4, 33.0, 17.7, 9.6, 5.2, 2.7, 0.9 px and opacity 0.04, 0.23, 0.58, 0.76, 0.85, 0.93, 0.98 on f65 to f71; \"are\" dy 38, 30, 15, 7, 2.7, 0 on f61 to f66. Blur at most 1.7 to 3 px in the first 2 frames. Composite push-in: the block grows 8.8 % from f52 to f72 (because 250 -> 272 px wide) with the footage."
+ },
+ {
+  "t0": 3.337,
+  "t1": 5.13,
+  "f0": 80,
+  "f1": 123,
+  "lines": [
+   {
+    "text": "answering",
+    "words": [
+     {
+      "text": "answering",
+      "style": "base",
+      "onsetFrame": 80,
+      "onsetSec": 3.337,
+      "asrStart": 3.28
+     }
+    ]
+   },
+   {
+    "text": "your",
+    "words": [
+     {
+      "text": "your",
+      "style": "base",
+      "onsetFrame": 88,
+      "onsetSec": 3.67,
+      "asrStart": 3.92
+     }
+    ]
+   },
+   {
+    "text": "Instagram",
+    "words": [
+     {
+      "text": "Instagram",
+      "style": "base-big",
+      "onsetFrame": 100,
+      "onsetSec": 4.171,
+      "asrStart": 4.16
+     }
+    ]
+   },
+   {
+    "text": "DMs",
+    "words": [
+     {
+      "text": "DMs",
+      "style": "base-small",
+      "onsetFrame": 110,
+      "onsetSec": 4.588,
+      "asrStart": 4.8
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.5118,
+   0.3663,
+   0.8715,
+   0.6184
+  ],
+  "head": [
+   0.2955,
+   0.2604,
+   0.4475,
+   0.539
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "rise + fade (per word, on its spoken onset)",
+   "frames": 8,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0.03,
+    "dx": 0,
+    "dy": 0.55
+   },
+   "stagger": "each word on its own spoken onset (no fixed stagger)",
+   "easing": "cubic out on both position and opacity (dy remaining 0.82, 0.54, 0.33, 0.18, 0.08, 0.03 of the start per frame)"
+  },
+  "exit": {
+   "kind": "fade (whole caption) on a 1.15x punch-in cut at f120",
+   "frames": 4,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": 0,
+   "easing": "linear (opacity 1, 0.77, 0.52, 0.26, 0)"
+  },
+  "spokenAt": 3.28,
+  "notes": "Stack right of the head: answering x 653..997 (x-height 33), your 762..916 (+109 px indent, x-height 34), Instagram 706..1112 (+53, x-height 41, cap 54), DMs 951..1076 (x-height 30, cap 39; right side of the block, 36 px short of the Instagram right edge). Baselines 306.5, 345, 397.5, 444. \"answering\" fit dy 36.3, 23.8, 16.2, 11.8, 8.1, 5.1, 2.7, 1.0 px with opacity 0.24, 0.44, 0.62, 0.71, 0.82, 0.87, 0.97, 1 (f80 to f87). At the f120 cut the footage and the text punch in together by about 1.13 to 1.15 while the caption fades (0.65, 0.44, 0.19, 0.04)."
+ },
+ {
+  "t0": 5.255,
+  "t1": 7.174,
+  "f0": 126,
+  "f1": 172,
+  "lines": [
+   {
+    "text": "in the",
+    "words": [
+     {
+      "text": "in",
+      "style": "base-small",
+      "onsetFrame": 126,
+      "onsetSec": 5.255,
+      "asrStart": 5.44
+     },
+     {
+      "text": "the",
+      "style": "base-small",
+      "onsetFrame": 132,
+      "onsetSec": 5.505,
+      "asrStart": 5.68
+     }
+    ]
+   },
+   {
+    "text": "wrong order",
+    "words": [
+     {
+      "text": "wrong",
+      "style": "emph-red",
+      "onsetFrame": 138,
+      "onsetSec": 5.756,
+      "asrStart": 5.84
+     },
+     {
+      "text": "order",
+      "style": "emph-blue",
+      "onsetFrame": 148,
+      "onsetSec": 6.173,
+      "asrStart": 6.4
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.0987,
+   0.422,
+   0.9028,
+   0.5864
+  ],
+  "head": [
+   0.4318,
+   0.3148,
+   0.5509,
+   0.5279
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "small words: rise + fade; big words: vertical stretch from a line on the baseline like \"secret\"",
+   "frames": 9,
+   "from": {
+    "scale": "y 0.2",
+    "opacity": 1,
+    "blur": "speed streaks on the first frame",
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "per word on its onset",
+   "easing": "\"order\" scaleY by frame: 0.20, 0.95, 1.11, 1.125 (peak), 1.11, 1.06, 1.05, 1.02, 1.0 (f148 to f156); \"wrong\" peaks 1.23 at f140 and settles by f150"
+  },
+  "exit": {
+   "kind": "drop + fade + blur (all words together)",
+   "frames": 6,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0.03,
+    "dx": 0,
+    "dy": 0.5
+   },
+   "stagger": 0,
+   "easing": "ease in: dy 1.7, 5.8, 14.8, 25.4, 40.5, 58.2 px and opacity 1, 1, 0.83, 0.65, 0.47, 0.33 on f167 to f172, blur 2 to 3.4 px"
+  },
+  "spokenAt": 5.44,
+  "notes": "Words placed around the head: \"in the\" (x 179..287, baseline 330, x-height 21) sits on top of \"wrong\" (x 126..518, baseline 397, x-height 60); \"order\" (x 808..1152, baseline 397, x-height 61) is right of the head on the same baseline. Gap between \"wrong\" and \"order\" 290 px is exactly the head (551..703). The two big words read as one gradient across the line (red -> magenta | violet -> blue) with animated colours (see styles). No occlusion."
+ },
+ {
+  "t0": 67.192,
+  "t1": 68.735,
+  "f0": 1611,
+  "f1": 1648,
+  "lines": [
+   {
+    "text": "you don't need more leads",
+    "words": [
+     {
+      "text": "you",
+      "style": "base",
+      "onsetFrame": 1611,
+      "onsetSec": 67.192,
+      "asrStart": 66.72
+     },
+     {
+      "text": "don't",
+      "style": "base",
+      "onsetFrame": 1614,
+      "onsetSec": 67.317,
+      "asrStart": 66.88
+     },
+     {
+      "text": "need",
+      "style": "base",
+      "onsetFrame": 1616,
+      "onsetSec": 67.401,
+      "asrStart": 67.2
+     },
+     {
+      "text": "more",
+      "style": "base",
+      "onsetFrame": 1618,
+      "onsetSec": 67.484,
+      "asrStart": 67.36
+     },
+     {
+      "text": "leads",
+      "style": "base",
+      "onsetFrame": 1621,
+      "onsetSec": 67.609,
+      "asrStart": 67.6
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.2798,
+   0.6992,
+   0.7226,
+   0.7744
+  ],
+  "head": [
+   0.424,
+   0.1755,
+   0.6183,
+   0.5028
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "rise + fade (per word, on its spoken onset)",
+   "frames": 8,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0.03,
+    "dx": 0,
+    "dy": 0.8
+   },
+   "stagger": "each word on its own spoken onset (no fixed stagger)",
+   "easing": "cubic out on both position and opacity (dy remaining 0.82, 0.54, 0.33, 0.18, 0.08, 0.03 of the start per frame)"
+  },
+  "exit": {
+   "kind": "last word rolls up and out (\"leads\" rises 30 px and fades) while the replacement word rolls in from below; the rest of the line stays",
+   "frames": 5,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0.05,
+    "dx": 0,
+    "dy": -0.7
+   },
+   "stagger": 0,
+   "easing": "out"
+  },
+  "spokenAt": 66.72,
+  "notes": "One centred line in the lower part of the frame over his hands (centre x 0.501, baseline y 0.765), x-height 23 px (size 0.062), 560 px wide. In front of the hands: the fingers pass under \"don't\" on f1631 to f1643 and the white letters stay whole (the matte shows letter-shaped holes, see extra/front_dont_fingers.jpg). \"you\" is already on screen during the iris-in transition (f1611)."
+ },
+ {
+  "t0": 68.735,
+  "t1": 70.028,
+  "f0": 1648,
+  "f1": 1679,
+  "lines": [
+   {
+    "text": "you don't need more messages",
+    "words": [
+     {
+      "text": "you",
+      "style": "base"
+     },
+     {
+      "text": "don't",
+      "style": "base"
+     },
+     {
+      "text": "need",
+      "style": "base"
+     },
+     {
+      "text": "more",
+      "style": "base"
+     },
+     {
+      "text": "messages",
+      "style": "base",
+      "onsetFrame": 1648,
+      "onsetSec": 68.735,
+      "asrStart": 69.2
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.2798,
+   0.688,
+   0.721,
+   0.7312
+  ],
+  "head": [
+   0.3966,
+   0.2354,
+   0.5517,
+   0.5084
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "word swap: \"messages\" rolls up into the slot of \"leads\"; whole line re-fits to the same width",
+   "frames": 5,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0.05,
+    "dx": 0,
+    "dy": 0.7
+   },
+   "stagger": 0,
+   "easing": "out"
+  },
+  "exit": {
+   "kind": "drop + fade + blur",
+   "frames": 7,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0.1,
+    "dx": 0,
+    "dy": 0.75
+   },
+   "stagger": 0,
+   "easing": "ease in: opacity 0.92, 0.80, 0.55, 0.39, 0.19, 0 and dy 3, 5, 7.5, 11, 15, 23, 30 px (f1673 to f1679), blur 3 to 4.5 px"
+  },
+  "spokenAt": 69.2,
+  "notes": "Same line width as the previous caption (563 px) with a smaller font (x-height 19 px vs 23, size 0.051): the line is scaled to fit a fixed width when the longer word replaces the shorter one. Baseline moves up to y 518 (0.721)."
+ },
+ {
+  "t0": 70.028,
+  "t1": 70.946,
+  "f0": 1679,
+  "f1": 1701,
+  "lines": [
+   {
+    "text": "you just need to",
+    "words": [
+     {
+      "text": "you",
+      "style": "base",
+      "onsetFrame": 1679,
+      "onsetSec": 70.028,
+      "asrStart": 70.08
+     },
+     {
+      "text": "just",
+      "style": "base",
+      "onsetFrame": 1683,
+      "onsetSec": 70.195,
+      "asrStart": 70.32
+     },
+     {
+      "text": "need",
+      "style": "base",
+      "onsetFrame": 1686,
+      "onsetSec": 70.32,
+      "asrStart": 70.56
+     },
+     {
+      "text": "to",
+      "style": "base",
+      "onsetFrame": 1688,
+      "onsetSec": 70.404,
+      "asrStart": 70.8
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.203,
+   0.4749,
+   0.4491,
+   0.5223
+  ],
+  "head": [
+   0.4843,
+   0.1908,
+   0.6654,
+   0.5167
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "rise + fade (per word, on its spoken onset)",
+   "frames": 8,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0.03,
+    "dx": 0,
+    "dy": 0.3
+   },
+   "stagger": "each word on its own spoken onset (no fixed stagger)",
+   "easing": "cubic out on both position and opacity (dy remaining 0.82, 0.54, 0.33, 0.18, 0.08, 0.03 of the start per frame)"
+  },
+  "exit": {
+   "kind": "hard cut (next caption starts at the same left edge on f1702)",
+   "frames": 0,
+   "from": null,
+   "stagger": 0,
+   "easing": null
+  },
+  "spokenAt": 70.08,
+  "notes": "Left-aligned at x 0.203, baseline y 0.513, x-height 21 px (size 0.057), left of the head over the red practical light. \"you\" fit: dy 9.6, 5.8, 3.5, 1.8, 1.2, 0.6 px, opacity 0.41, 0.71, 0.83, 0.91, 0.95, 0.99 (f1681 to f1686)."
+ },
+ {
+  "t0": 70.988,
+  "t1": 73.699,
+  "f0": 1702,
+  "f1": 1767,
+  "lines": [
+   {
+    "text": "convert the ones you already have",
+    "words": [
+     {
+      "text": "convert",
+      "style": "accent-magenta",
+      "onsetFrame": 1702,
+      "onsetSec": 70.988,
+      "asrStart": 70.96
+     },
+     {
+      "text": "the",
+      "style": "accent-magenta",
+      "onsetFrame": 1707,
+      "onsetSec": 71.196,
+      "asrStart": 71.52
+     },
+     {
+      "text": "ones",
+      "style": "accent-magenta",
+      "onsetFrame": 1711,
+      "onsetSec": 71.363,
+      "asrStart": 71.68
+     },
+     {
+      "text": "you",
+      "style": "accent-violet",
+      "onsetFrame": 1731,
+      "onsetSec": 72.197,
+      "asrStart": 72.16
+     },
+     {
+      "text": "already",
+      "style": "accent-violet",
+      "onsetFrame": 1735,
+      "onsetSec": 72.364,
+      "asrStart": 72.4
+     },
+     {
+      "text": "have",
+      "style": "accent-violet",
+      "onsetFrame": 1739,
+      "onsetSec": 72.531,
+      "asrStart": 72.96
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.1646,
+   0.4624,
+   0.837,
+   0.5223
+  ],
+  "head": [
+   0.4436,
+   0.1838,
+   0.6199,
+   0.4847
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "rise + fade (per word, on its spoken onset)",
+   "frames": 8,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0.03,
+    "dx": 0,
+    "dy": 0.8
+   },
+   "stagger": "each word on its own spoken onset (no fixed stagger)",
+   "easing": "cubic out on both position and opacity (dy remaining 0.82, 0.54, 0.33, 0.18, 0.08, 0.03 of the start per frame)"
+  },
+  "exit": {
+   "kind": "none: the caption holds while the footage blurs and fades to black (f1716 to f1756); video ends",
+   "frames": 0,
+   "from": null,
+   "stagger": 0,
+   "easing": null
+  },
+  "spokenAt": 70.96,
+  "notes": "Starts left-aligned at x 241 (0.189), baseline 373, x-height 30 px (size 0.081). \"the\" fit: dy 39.4, 21.6, 12.8, 7.5, 4.0, 1.7, 0 px with opacity 0.37, 0.69, 0.82, 0.89, 0.95, 0.99, 1 (f1707 to f1713) = cubic out over 8 frames. \"ones\" at f1711 to f1713 is still rising (47 to 15 px below, 25 to 71 % opacity) over his chin, which is why it looks half hidden at 71.4 s; the matte shows it is drawn in front (letter-shaped holes in the person mask at f1714 to f1718). Colour: magenta, then a left-to-right white wipe f1714 to f1726; words added later come in violet and get the same wipe f1742 to f1756. The line layer slowly scales 1.0 -> 0.875 and moves 28 px left between f1716 and f1750 so the finished sentence ends centred (x 210..1068, centre 0.501, x-height 26)."
+ },
+ {
+  "t0": 17.142,
+  "t1": 18.685,
+  "f0": 411,
+  "f1": 448,
+  "segment": "motion-graphic",
+  "lines": [
+   {
+    "text": "that's nice!",
+    "words": [
+     {
+      "text": "that's",
+      "style": "ui-statement"
+     },
+     {
+      "text": "nice!",
+      "style": "ui-statement"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.4083,
+   0.5529,
+   0.5831,
+   0.6003
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "per word: rise 20 px + fade, 4 to 6 frames, on the spoken onset",
+   "frames": 5,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0.05,
+    "dx": 0,
+    "dy": 0.45
+   },
+   "stagger": "per spoken word",
+   "easing": "out"
+  },
+  "exit": {
+   "kind": "cut to the dark scene with a blur",
+   "frames": 2
+  },
+  "spokenAt": 17.04,
+  "notes": "Centred under the DM icon at y 0.57; \"that's\" f411, \"nice!\" f415. Colour #353138 on #f4eef9."
+ },
+ {
+  "t0": 18.769,
+  "t1": 19.603,
+  "f0": 450,
+  "f1": 470,
+  "segment": "motion-graphic",
+  "lines": [
+   {
+    "text": "is it nice?",
+    "words": [
+     {
+      "text": "is",
+      "style": "ui-statement"
+     },
+     {
+      "text": "it",
+      "style": "ui-statement"
+     },
+     {
+      "text": "nice?",
+      "style": "ui-statement"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.3691,
+   0.6058,
+   0.6497,
+   0.7089
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "per word rise + fade; \"it\" enters smaller and later (f452 to f456) between \"is\" and \"nice\"",
+   "frames": 5,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0.05,
+    "dx": 0,
+    "dy": 0.45
+   },
+   "stagger": "per spoken word",
+   "easing": "out"
+  },
+  "exit": {
+   "kind": "zoom + blur into the next scene",
+   "frames": 6
+  },
+  "spokenAt": 18.8,
+  "notes": "Light grey #c6bcbf on dark red #1f1114, grows with a camera push (x-height 25 -> 33 px over 16 frames)."
+ },
+ {
+  "t0": 34.868,
+  "t1": 35.702,
+  "f0": 836,
+  "f1": 856,
+  "segment": "motion-graphic",
+  "lines": [
+   {
+    "text": "Qualified Lead",
+    "words": [
+     {
+      "text": "Qualified",
+      "style": "ui-label"
+     },
+     {
+      "text": "Lead",
+      "style": "ui-label"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.2759,
+   0.3426,
+   0.4828,
+   0.4011
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "typewriter, letter by letter, purple",
+   "frames": 10,
+   "from": {
+    "opacity": 0
+   },
+   "stagger": "about 1 letter per frame",
+   "easing": "linear"
+  },
+  "exit": {
+   "kind": "leaves with the card",
+   "frames": 6
+  },
+  "spokenAt": null,
+  "notes": "Label above the Richard Sean card, left-aligned with the card text, #ba54c6."
+ },
+ {
+  "t0": 35.702,
+  "t1": 37.204,
+  "f0": 856,
+  "f1": 892,
+  "segment": "motion-graphic",
+  "lines": [
+   {
+    "text": "could still be sitting there",
+    "words": [
+     {
+      "text": "could",
+      "style": "ui-typed"
+     },
+     {
+      "text": "still",
+      "style": "ui-typed"
+     },
+     {
+      "text": "be",
+      "style": "ui-typed"
+     },
+     {
+      "text": "sitting",
+      "style": "ui-typed"
+     },
+     {
+      "text": "there",
+      "style": "ui-typed"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.3002,
+   0.4721,
+   0.7014,
+   0.532
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "per word rise + fade in purple #b968cc, turns grey #463c4a about 8 frames later (active-word colour)",
+   "frames": 5,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0.05,
+    "dx": 0,
+    "dy": 0.45
+   },
+   "stagger": "per spoken word",
+   "easing": "out"
+  },
+  "exit": {
+   "kind": "desaturates with the background to grey, then cut",
+   "frames": 6
+  },
+  "spokenAt": 35.76,
+  "notes": "Centred at y 0.50. Onsets: could f856, still f862, be f866, sitting f868, there f872."
+ },
+ {
+  "t0": 37.204,
+  "t1": 38.372,
+  "f0": 892,
+  "f1": 920,
+  "segment": "motion-graphic",
+  "lines": [
+   {
+    "text": "waiting..",
+    "words": [
+     {
+      "text": "waiting..",
+      "style": "ui-statement"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.3895,
+   0.4471,
+   0.6089,
+   0.5515
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "typed in red #ff2020 on grey (f892 to f896), turns white with red dots (f900)",
+   "frames": 8,
+   "from": {
+    "opacity": 0
+   },
+   "stagger": "letters",
+   "easing": "linear"
+  },
+  "exit": {
+   "kind": "letters explode: each glyph flies outward and rotates (up to 90 deg) while fading, 12 frames",
+   "frames": 12
+  },
+  "spokenAt": 37.12,
+  "notes": "Centred; the background darkens to near black during the word."
+ },
+ {
+  "t0": 38.83,
+  "t1": 45.879,
+  "f0": 931,
+  "f1": 1100,
+  "segment": "motion-graphic",
+  "lines": [
+   {
+    "text": "Qualified Lead",
+    "words": [
+     {
+      "text": "Qualified",
+      "style": "ui-label"
+     },
+     {
+      "text": "Lead",
+      "style": "ui-label"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.2147,
+   0.3343,
+   0.5,
+   0.3983
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "wipe in from the left with the card light sweep",
+   "frames": 8,
+   "from": {
+    "opacity": 0
+   },
+   "stagger": 0,
+   "easing": "out"
+  },
+  "exit": {
+   "kind": "tilts and blurs with the card",
+   "frames": 16
+  },
+  "spokenAt": 40.32,
+  "notes": "Dark scene, muted #775d7b; zooms 2.2x with the camera push."
+ },
+ {
+  "t0": 46.88,
+  "t1": 50.467,
+  "f0": 1124,
+  "f1": 1210,
+  "segment": "motion-graphic",
+  "lines": [
+   {
+    "text": "Priority Inbox",
+    "words": [
+     {
+      "text": "Priority",
+      "style": "ui-statement"
+     },
+     {
+      "text": "Inbox",
+      "style": "ui-statement"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.4091,
+   0.4721,
+   0.5909,
+   0.5237
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "typewriter in magenta inside the pill, then left-to-right sweep to #2c282d",
+   "frames": 22,
+   "from": {
+    "opacity": 0
+   },
+   "stagger": "about 1 letter per frame",
+   "easing": "linear"
+  },
+  "exit": {
+   "kind": "moves up as the menu header",
+   "frames": 10
+  },
+  "spokenAt": 47.76,
+  "notes": "Text inside the pill button, SF Pro Medium."
+ },
+ {
+  "t0": 58.892,
+  "t1": 61.812,
+  "f0": 1412,
+  "f1": 1482,
+  "segment": "motion-graphic",
+  "lines": [
+   {
+    "text": "more conversations move forward",
+    "words": [
+     {
+      "text": "more",
+      "style": "ui-typed"
+     },
+     {
+      "text": "conversations",
+      "style": "ui-typed"
+     },
+     {
+      "text": "move",
+      "style": "ui-typed"
+     },
+     {
+      "text": "forward",
+      "style": "ui-typed"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.2704,
+   0.4777,
+   0.7304,
+   0.5195
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "per word rise + fade in purple, settles to warm grey (#60472f on the yellow)",
+   "frames": 5,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0.05,
+    "dx": 0,
+    "dy": 0.45
+   },
+   "stagger": "per spoken word",
+   "easing": "out"
+  },
+  "exit": {
+   "kind": "slides left with horizontal motion blur",
+   "frames": 10
+  },
+  "spokenAt": 59.2,
+  "notes": "Centred at y 0.50 on the yellow scene; cursor under it."
+ },
+ {
+  "t0": 62.98,
+  "t1": 67.192,
+  "f0": 1510,
+  "f1": 1611,
+  "segment": "motion-graphic",
+  "lines": [
+   {
+    "text": "Booked calls",
+    "words": [
+     {
+      "text": "Booked",
+      "style": "ui-label"
+     },
+     {
+      "text": "calls",
+      "style": "ui-label"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.4146,
+   0.2019,
+   0.5909,
+   0.2451
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "typewriter, white at about 70 % opacity",
+   "frames": 14,
+   "from": {
+    "opacity": 0
+   },
+   "stagger": "letters",
+   "easing": "linear"
+  },
+  "exit": {
+   "kind": "iris transition",
+   "frames": 4
+  },
+  "spokenAt": null,
+  "notes": "Label above the phone icon (not spoken)."
+ }
+]

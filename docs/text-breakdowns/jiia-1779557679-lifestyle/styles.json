@@ -1,0 +1,486 @@
+[
+ {
+  "id": "sub",
+  "role": "base subtitle: every spoken phrase not given a title card; one line, bottom centre, white with a soft drop shadow",
+  "font": {
+   "family": "Google Sans Medium",
+   "candidates": [
+    {
+     "name": "Google Sans 500",
+     "source": "Google Fonts / @fontsource-variable/google-sans",
+     "license": "OFL-1.1",
+     "match": "best of 49 sans fitted to 3 clean lines on black: residual 0.0104"
+    },
+    {
+     "name": "Google Sans Flex 500",
+     "source": "Google Fonts / @fontsource-variable/google-sans-flex",
+     "license": "OFL-1.1",
+     "match": "0.0117 (same design, variable)"
+    },
+    {
+     "name": "Figtree 500 (bundled: figtree)",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.0158, best bundled stand-in"
+    },
+    {
+     "name": "Reddit Sans 500",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.0170"
+    },
+    {
+     "name": "TikTok Sans 500 (bundled)",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.0179"
+    },
+    {
+     "name": "Inter 500 (bundled)",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.0235"
+    },
+    {
+     "name": "Poppins 500",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.0252"
+    },
+    {
+     "name": "Montserrat 500 (bundled)",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.0323"
+    },
+    {
+     "name": "Product Sans (Google, restricted)",
+     "source": "Google",
+     "license": "proprietary",
+     "match": "likely the original look (same skeleton as Google Sans)"
+    }
+   ],
+   "weight": 500,
+   "width": 100,
+   "style": "normal"
+  },
+  "case": "as-said",
+  "capHeightPct": 2.92,
+  "xHeightPct": 2.08,
+  "trackingPct": -2.0,
+  "lineSpacing": null,
+  "fontPx": 29.4,
+  "measured": {
+   "capPx": 21.0,
+   "xHeightPx": 15.0,
+   "baselineY": 666,
+   "ascenderTopY": 645,
+   "centerX": 480,
+   "maxLineWidthPx": 277,
+   "edgeSigmaPx": 0.55
+  },
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#FFFFFF"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "color": "#000000",
+   "opacity": 0.5,
+   "sigmaPx": 6.6,
+   "dxPx": 0.0,
+   "dyPx": 3.4,
+   "sigmaEm": 0.224,
+   "dyEm": 0.117,
+   "evidence": "fitted on the solid cream flash f232: rmse 2.76 with shadow vs 11.27 without"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "google-sans",
+   "weight": 500,
+   "stretch": null,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.0408,
+   "tracking": -0.02,
+   "fill": {
+    "kind": "solid",
+    "color": "#ffffff"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.5)",
+    "blur": 0.45,
+    "x": 0,
+    "y": 0.117
+   },
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Pure #FFFFFF (sampled 255,255,255) and sharp (edge sigma 0.55 px), unlike the red titles, so it was added on top of the graded edit. Engine shadow.blur is canvas shadowBlur in ems = 2 x sigma / font px. If google-sans is not added yet, use figtree 500 at the same size."
+ },
+ {
+  "id": "title",
+  "role": "title card: one key phrase per beat in huge red condensed capitals over the speaker's neck and chest (or split beside the head)",
+  "font": {
+   "family": "Anton",
+   "candidates": [
+    {
+     "name": "Anton",
+     "source": "Google Fonts / @fontsource/anton (bundled: anton)",
+     "license": "OFL-1.1",
+     "match": "residual 0.0031 on SWITCH with free width 1.007 (no squeeze); 0.0023 on 99, 0.006 to 0.012 on the other cards"
+    },
+    {
+     "name": "League Gothic",
+     "source": "Google Fonts (bundled: league-gothic)",
+     "license": "OFL-1.1",
+     "match": "0.038 and only after a 1.26x horizontal stretch"
+    },
+    {
+     "name": "Antonio 700",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.039 (needs 1.12x stretch)"
+    },
+    {
+     "name": "Bebas Neue",
+     "source": "Google Fonts (bundled: bebas)",
+     "license": "OFL-1.1",
+     "match": "0.042, and it has no lowercase for 'is at'"
+    },
+    {
+     "name": "Big Shoulders Display 900",
+     "source": "Google Fonts (bundled)",
+     "license": "OFL-1.1",
+     "match": "0.096"
+    },
+    {
+     "name": "Barlow Condensed 900",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.107"
+    },
+    {
+     "name": "Oswald 700",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.110"
+    },
+    {
+     "name": "Fjalla One",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.122"
+    },
+    {
+     "name": "Impact (paid, Microsoft)",
+     "source": "system font",
+     "license": "proprietary",
+     "match": "the usual look-alike; not needed, Anton itself fits to the pixel"
+    }
+   ],
+   "weight": 400,
+   "width": 100,
+   "style": "normal"
+  },
+  "case": "upper",
+  "capHeightPct": 20.5,
+  "xHeightPct": 9.2,
+  "trackingPct": -0.8,
+  "lineSpacing": 1.0,
+  "fontPx": {
+   "SWITCH": 171.6,
+   "WITH MINE": 148.5,
+   "START UP SEASON": 79.8,
+   "I'M STILL IN IT": 79.7,
+   "is at": 90.1,
+   "99": 179.8
+  },
+  "capHeightPctByCard": {
+   "SWITCH": 20.5,
+   "WITH MINE": 17.7,
+   "START UP SEASON": 9.5,
+   "I'M STILL IN IT": 9.5,
+   "99 (figure height)": 21.9,
+   "is at (x-height)": 9.2
+  },
+  "measured": {
+   "color": "#C70001 (199,0,1); cores 195 to 202 / 0 / 0 to 2 on every card",
+   "blurSigmaPx": "2.3 to 2.9, mean 2.7, the same in px at every size",
+   "trackingPx": "-0.7 to -1.2"
+  },
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#C70001"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "blur": {
+   "sigmaPx": 2.7,
+   "sigmaFrame": 0.0037,
+   "sigmaEm": {
+    "SWITCH": 0.016,
+    "WITH MINE": 0.018,
+    "START UP SEASON": 0.036,
+    "99": 0.013
+   },
+   "evidence": "luma and chroma edges both 6 px from 10 to 90 percent; the white subtitles (0.55 px) and the picture-in-picture border (2 px) are sharp, so the softness belongs to the red layer"
+  },
+  "engine": {
+   "font": "anton",
+   "weight": 400,
+   "stretch": null,
+   "italic": false,
+   "case": "upper",
+   "size": 0.238,
+   "tracking": -0.008,
+   "fill": {
+    "kind": "solid",
+    "color": "#c70001"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Normal blend, fully opaque: the core is identical over his face (199.5,0.7,1.1), the dark room (198.3,0.3,1.1), the bright cafe wall and plant (202,0,0) and a white flash frame (198,0,4). Sizes are set per card (0.111 to 0.250 of H); the engine size 0.238 is SWITCH, and a place width of 0.60 shrinks WITH MINE to 0.205 (measured 0.206). 'is at' uses Anton lowercase. The engine has no static blur: add one (canvas filter blur(2.7px at 720p))."
+ },
+ {
+  "id": "tag",
+  "role": "small red words: the lead-in words spread across the frame (you / would / not / wanna) and the line justified under a title (your current lifestyle)",
+  "font": {
+   "family": "Google Sans Bold",
+   "candidates": [
+    {
+     "name": "Google Sans Flex 700",
+     "source": "Google Fonts / @fontsource-variable/google-sans-flex",
+     "license": "OFL-1.1",
+     "match": "best: total residual 0.0244 over 7 words"
+    },
+    {
+     "name": "Inter 800 / 700 (bundled: inter)",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.0254 / 0.0258, best bundled stand-in"
+    },
+    {
+     "name": "Figtree 700 (bundled: figtree)",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.0259"
+    },
+    {
+     "name": "Google Sans 700",
+     "source": "Google Fonts / @fontsource-variable/google-sans",
+     "license": "OFL-1.1",
+     "match": "0.0265 (same design as the Flex cut)"
+    },
+    {
+     "name": "Poppins 700",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.0272"
+    },
+    {
+     "name": "DM Sans 700 (bundled: dm-sans)",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.0282"
+    },
+    {
+     "name": "Google Sans 600",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "0.0369 (too light)"
+    }
+   ],
+   "weight": 700,
+   "width": 100,
+   "style": "normal"
+  },
+  "case": "lower",
+  "capHeightPct": 4.25,
+  "xHeightPct": 3.03,
+  "trackingPct": -2.8,
+  "lineSpacing": null,
+  "fontPx": 42.7,
+  "measured": {
+   "xHeightPx": 21.8,
+   "baselineY": {
+    "you would not wanna": 375.5,
+    "your current lifestyle": 444.8
+   },
+   "wordGapsEm": {
+    "you would not wanna": [
+     2.0,
+     4.4,
+     2.0
+    ],
+    "your current lifestyle": [
+     0.81,
+     0.81
+    ]
+   },
+   "blurSigmaPx": 2.8
+  },
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#C70001"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "blur": {
+   "sigmaPx": 2.8,
+   "sigmaEm": 0.065
+  },
+  "engine": {
+   "font": "google-sans",
+   "weight": 700,
+   "stretch": null,
+   "italic": false,
+   "case": "lower",
+   "size": 0.0593,
+   "tracking": -0.028,
+   "fill": {
+    "kind": "solid",
+    "color": "#c70001"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Same red and same absolute blur as the titles (thin strokes therefore peak at about 157 instead of 199). The 2.8 px blur makes the family ranking soft (the top six fonts are within 15 percent, and single words flip, e.g. Poppins wins on 'lifestyle'); the weight is clear (700; 600 is 50 percent worse). Google Sans Bold keeps one family with the subtitles. Word gaps are far wider than a space: 2.0 em between the words of each pair and 4.4 em across the centre in 'you would | not wanna'; 0.81 em (justified to the title's width) in 'your current lifestyle'."
+ },
+ {
+  "id": "flash",
+  "role": "state of a title during a 3 frame flash cut (WITH MINE f137 to f139): the letters invert",
+  "font": {
+   "family": "Anton",
+   "candidates": [],
+   "weight": 400,
+   "width": 100,
+   "style": "normal"
+  },
+  "case": "upper",
+  "capHeightPct": 17.7,
+  "xHeightPct": null,
+  "trackingPct": -0.7,
+  "lineSpacing": null,
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#0299D5"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "difference-like (inverting)",
+  "measured": {
+   "onSolidFlash_f138": "(2,153,213) on cream (251,243,238)",
+   "onHalfFlash_f137_f139": "(1..3,153..155,212..213) where the picture is near white, up to (49,179,188) where it is grey (204,215,215)",
+   "regression": "letter R falls 0.95 per unit of background brightness and B rises 1.05: only an inverting blend does that"
+  },
+  "engine": {
+   "font": "anton",
+   "weight": 400,
+   "stretch": null,
+   "italic": false,
+   "case": "upper",
+   "size": 0.206,
+   "tracking": -0.007,
+   "fill": {
+    "kind": "solid",
+    "color": "#0299d5"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Not a style the editor picks: a transition state. Normal #0299D5 reproduces the solid flash frame exactly and the two half-flash frames closely. The same red title does NOT invert in the later flash at f519 to f522 (stays 198,0,4), so this is a deliberate effect on that card."
+ },
+ {
+  "id": "glitch",
+  "role": "state during the title-to-title glitch (f496, 498, 500, 502): the incoming title drawn as a white difference layer over the outgoing red one",
+  "font": {
+   "family": "Anton",
+   "candidates": [],
+   "weight": 400,
+   "width": 100,
+   "style": "normal"
+  },
+  "case": "upper",
+  "capHeightPct": 9.5,
+  "xHeightPct": null,
+  "trackingPct": -0.9,
+  "lineSpacing": null,
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#FFFFFF"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "difference",
+  "measured": {
+   "onDarkBackground": "cream (231,220,182)",
+   "overRedLetters": "teal (8,165,165)",
+   "outgoingAlone": "red (189,1,2)",
+   "offset": "dx 0, dy 0 (overlap score 0.925 with the clean incoming title)"
+  },
+  "engine": {
+   "font": "anton",
+   "weight": 400,
+   "stretch": null,
+   "italic": false,
+   "case": "upper",
+   "size": 0.111,
+   "tracking": -0.01,
+   "fill": {
+    "kind": "solid",
+    "color": "#ffffff"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "difference",
+   "opacity": 1
+  },
+  "notes": "Every other frame for 8 frames (0.33 s at 12 flips per second) before the hard cut to the incoming red title."
+ }
+]

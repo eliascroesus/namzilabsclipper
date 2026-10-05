@@ -226,7 +226,16 @@ export class MimicPainter {
     if (d) {
       let laid = this.laidDesign.get(page);
       if (!laid) this.laidDesign.set(page, (laid = layoutDesign(ctx, d, page, W, H)));
-      drawDesign(ctx, d, laid, page, t);
+      // Riding the footage's zoom: scaled about the middle as the picture has been since the caption came on.
+      const k = d.ride ? zoomAt(plan.zoom, t) / Math.max(1e-6, zoomAt(plan.zoom, page.start)) : 1;
+      if (Math.abs(k - 1) > 1e-4) {
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.scale(k, k);
+        ctx.translate(-W / 2, -H / 2);
+        drawDesign(ctx, d, laid, page, t);
+        ctx.restore();
+      } else drawDesign(ctx, d, laid, page, t);
       return;
     }
     let laid = this.laid.get(page);

@@ -1,0 +1,555 @@
+[
+ {
+  "id": "cursor",
+  "t0": 7.257,
+  "t1": 65.065,
+  "f0": 174,
+  "f1": 1560,
+  "kind": "magenta arrow cursor (recurs in TH-A f174 to f200, phone f204 to f300, menu f1200 to f1350, yellow scene f1353 to f1470, booked calls f1488 to f1560)",
+  "shape": {
+   "size_px": [
+    70,
+    74
+   ],
+   "fill": "#ce36ed solid (edges #d96eec, tail #c354d4)",
+   "shape": "sharp 3-point arrowhead pointing up-left (paper-plane style)",
+   "shadow": {
+    "dx": -4,
+    "dy": 6,
+    "blur": 8,
+    "color": "rgba(60,0,80,0.35)"
+   }
+  },
+  "text": null,
+  "enter": {
+   "kind": "slides in from the right frame edge",
+   "frames": 6,
+   "from": {
+    "x": "+120 px off-frame",
+    "opacity": 1
+   },
+   "easing": "out"
+  },
+  "exit": {
+   "kind": "leaves with its scene (cut or blur)",
+   "frames": 0
+  },
+  "stacking_and_camera": "always top-most layer, above cards; moves on smooth ease-in-out paths, 6 to 12 frames per move, a 2 to 3 frame click dip (scale 0.9) on \"Qualified\" at f1246",
+  "notes": "Same cursor across every scene: a brand element.",
+  "evidence": "extra/popup_cursor.jpg"
+ },
+ {
+  "id": "purple_wash",
+  "t0": 7.758,
+  "t1": 8.342,
+  "f0": 186,
+  "f1": 200,
+  "kind": "colour wash over the talking head before the graphics",
+  "shape": {
+   "effect": "dark room re-graded to saturated violet-blue",
+   "samples": {
+    "(60,100)": "#1b0f19 -> #4d2fdd",
+    "(640,60)": "#24101b -> #6c21b2",
+    "(1200,300)": "#140e10 -> #542ed3"
+   },
+   "texture": "fine halftone/scanline dot pattern visible over the footage (about 4 px pitch)"
+  },
+  "text": null,
+  "enter": {
+   "kind": "ramp in",
+   "frames": 6,
+   "easing": "in-out"
+  },
+  "exit": {
+   "kind": "continues into the shrink",
+   "frames": 0
+  },
+  "stacking_and_camera": "full-frame adjustment layer over footage and cursor",
+  "notes": "Screen-like lift of the shadows (black goes to violet), highlights keep skin tones."
+ },
+ {
+  "id": "footage_to_post",
+  "t0": 8.342,
+  "t1": 8.842,
+  "f0": 200,
+  "f1": 212,
+  "kind": "talking head shrinks into the Instagram post image",
+  "shape": {
+   "scale_by_frame": {
+    "f200": 1.0,
+    "f201": 0.97,
+    "f202": 0.88,
+    "f203": 0.66,
+    "f204": 0.47,
+    "f205": 0.375,
+    "f206": 0.3,
+    "f208": 0.27
+   },
+   "frame": "white rounded phone card grows around it",
+   "blur": "zoom blur on f202 to f204"
+  },
+  "text": null,
+  "enter": {
+   "kind": "scale down (ease in-out) into a card",
+   "frames": 8
+  },
+  "exit": null,
+  "stacking_and_camera": "the post card then becomes part of the phone mockup; camera re-centres on the phone",
+  "notes": "A shrink-to-card transition; the cursor rides along on top.",
+  "evidence": "extra/transition_tha_to_post.jpg"
+ },
+ {
+  "id": "phone_mockup",
+  "t0": 8.508,
+  "t1": 13.013,
+  "f0": 204,
+  "f1": 312,
+  "kind": "Instagram post in a white phone screen; camera zooms into the bottom nav bar",
+  "shape": {
+   "screen": {
+    "fill": "#fbf9fc",
+    "radius_px_at_rest": "about 40 at a 430 px wide screen (0.09 of width)",
+    "shadow": "soft violet, y +12, blur 30, 25 %"
+   },
+   "nav_bar": {
+    "fill": "#e9e7ec",
+    "radius": "full pill (h/2)",
+    "icons": "home, reels, DM paper plane, search, profile; slate #2b2b30"
+   },
+   "badge": {
+    "shape": "circle d 48 px (at 2.9x zoom)",
+    "fill": "#ff2a2a",
+    "text": "white SF Pro Semibold, counts up 6, 20, 36, 54, 73, 93, 103, 126, 141, 150 (f252 to f300)"
+   }
+  },
+  "text": {
+   "caption": "\"Manage your Instagram inbox to get more ideal customers with Mochi\", SF Pro Text Regular, #1c1c1e; \"Liked by Nicholas\""
+  },
+  "enter": {
+   "kind": "post image comes from the footage card; UI fades up around it",
+   "frames": 10
+  },
+  "exit": {
+   "kind": "whip: fast pan up-right with heavy motion blur",
+   "frames": 8,
+   "frames_range": "f304 to f316"
+  },
+  "stacking_and_camera": "camera: push from 1.0 to about 2.9x into the nav bar (f216 to f264, ease in-out), pull back to 1.2x (f280 to f300); DM icon swaps to a heavy black paper plane when the badge appears (f252)",
+  "notes": "Background: pastel mesh gradient (pink #ff9cf5 bottom-left, cyan #b5f7ff top-right, periwinkle #9d9cff bottom-right, white glow centre) with faint concentric arcs.",
+  "evidence": "extra/popup_phone_badge.jpg"
+ },
+ {
+  "id": "chat_composer",
+  "t0": 13.055,
+  "t1": 16.683,
+  "f0": 313,
+  "f1": 400,
+  "kind": "iOS message composer that types and sends",
+  "shape": {
+   "bar": {
+    "w_px": 680,
+    "h_px": 97,
+    "radius_px": 40,
+    "fill": "#fcfafd",
+    "icons": "sticker left, paperclip and camera right (#8e8e93)"
+   },
+   "button": {
+    "shape": "circle d 92 px",
+    "fill": "#34c759 green",
+    "glyph": "mic, then white send arrow"
+   },
+   "sent_bubble": {
+    "fill": "green #34c759",
+    "text": "\"Lots of unread messages, reply ASAP!\" white, timestamp 10:00 am",
+    "radius": "full pill"
+   },
+   "reply_bubble": {
+    "fill": "#d9d9de grey",
+    "text": "\"On it!\" dark"
+   },
+   "background": "black centre vignette, green #0f6b00 left, olive #8a7d00 right, deep red top-right"
+  },
+  "text": {
+   "typing": "about 2.5 characters per frame (f330 to f346)"
+  },
+  "enter": {
+   "kind": "flies in from the left with motion blur, tilted -4 deg, settles flat; mic button scale 0.3 -> 1 (f321 to f324)",
+   "frames": 13,
+   "easing": "expo out"
+  },
+  "exit": {
+   "kind": "zoom out + blur, bubbles drift up",
+   "frames": 8
+  },
+  "stacking_and_camera": "camera tracks the bar; after send the text lifts into a bubble above the bar (f356 to f368); grey reply pops in at left (scale 0.6 -> 1, 4 frames, f380 to f384)",
+  "notes": "Pill radius 40 px on a 97 px bar (0.41 of h).",
+  "evidence": "extra/popup_composer.jpg"
+ },
+ {
+  "id": "dm_icon_counter",
+  "t0": 16.683,
+  "t1": 19.603,
+  "f0": 400,
+  "f1": 470,
+  "kind": "big DM icon with a badge counting down, statement text under it",
+  "shape": {
+   "icon": {
+    "shape": "paper plane",
+    "fill": "#3f5468 slate",
+    "size_px": "about 120"
+   },
+   "badge": {
+    "shape": "circle d 50 px",
+    "fill": "#ff2b2b (pastel scene) then #2ad4e0 teal (dark red scene f450+)",
+    "text": "white, counts 147 -> 132, then 130 -> 123"
+   }
+  },
+  "text": {
+   "statement": "\"that's nice!\" then \"is it nice?\" (style ui-statement)"
+  },
+  "enter": {
+   "kind": "icon drops in from above with blur; badge pops",
+   "frames": 6
+  },
+  "exit": {
+   "kind": "scene darkens to red-black and zooms; blur out",
+   "frames": 10
+  },
+  "stacking_and_camera": "camera slowly pushes in (about 1.6x over f448 to f470)",
+  "notes": "The badge numbers tick every 2 frames.",
+  "evidence": "extra/popup_dm_counter.jpg"
+ },
+ {
+  "id": "inbox_phone",
+  "t0": 19.603,
+  "t1": 26.86,
+  "f0": 470,
+  "f1": 644,
+  "kind": "Instagram DM inbox screen (stories row, Message/Requests, list)",
+  "shape": {
+   "avatars": "pastel gradient circles (violet #a78bfa->#f0abfc, pink #f472b6->#fbcfe8, blue #93c5fd, teal #5eead4)",
+   "accent_text": "\"Requests (1)\" blue #4a5cff; time stamps blue",
+   "search": "grey pill \"Search or ask Meta AI\""
+  },
+  "text": {
+   "rows": "name SF Pro Medium #1c1c1e, preview SF Pro Regular #8e8e93, time in blue"
+  },
+  "enter": {
+   "kind": "phone grows from a white sliver (f480 to f504), camera pushes into the list",
+   "frames": 24
+  },
+  "exit": {
+   "kind": "rows removed one by one (slide up, 4 to 6 frames each), then blur out f640 to f644",
+   "frames": 40
+  },
+  "stacking_and_camera": "a \"Reply\" chip (white glowing arrow + \"Reply\" text on slate #5a5a8c) swipes in from the right f563 to f572 while the inbox slides left",
+  "notes": null,
+  "evidence": "extra/popup_inbox_reply.jpg"
+ },
+ {
+  "id": "story_reply",
+  "t0": 26.86,
+  "t1": 30.03,
+  "f0": 644,
+  "f1": 720,
+  "kind": "story preview card with a fire reaction and a blue reply bubble",
+  "shape": {
+   "story_card": {
+    "tilt_deg": -5,
+    "radius": "about 24 px",
+    "header": "\"YOU CAN NOW CLONE YOUR VOICE INSIDE INSTAGRAM DMS\" red/purple caps"
+   },
+   "reaction": {
+    "shape": "grey pill",
+    "content": "three fire emoji"
+   },
+   "reply": {
+    "fill": "#5f4fea",
+    "text": "\"Hey, totally feel the energy!\" white",
+    "radius": "full pill"
+   }
+  },
+  "text": null,
+  "enter": {
+   "kind": "card slides up with blur; reaction pill pops; reply slides in from the right",
+   "frames": 12
+  },
+  "exit": {
+   "kind": "camera pans up and out",
+   "frames": 8
+  },
+  "stacking_and_camera": "reply bubble slide matches bubble_slide below",
+  "notes": null
+ },
+ {
+  "id": "bubble_slide",
+  "t0": 29.696,
+  "t1": 31.198,
+  "f0": 712,
+  "f1": 748,
+  "kind": "outgoing message bubble slides in from the right edge (typical of every blue bubble)",
+  "shape": {
+   "w_px": 607,
+   "h_px": 84,
+   "radius_px": 41.5,
+   "fill": "#5f4fea",
+   "text": "\"Hey, how's everything going?\" white, SF Pro Text Regular, cap height about 17 px",
+   "incoming": {
+    "fill": "#efefef",
+    "text": "\"Heyy!\" #1c1c1e",
+    "avatar": "dark grey circle d 36 with person glyph"
+   }
+  },
+  "text": {
+   "typing": "letters appear left to right while it slides (trailing letters smeared)"
+  },
+  "enter": {
+   "kind": "slide from off-frame right with horizontal motion blur",
+   "frames": 12,
+   "from": {
+    "dx_px": "+650 (off-frame)"
+   },
+   "easing": "expo out: remaining offset 184, 128, 82, 46, 28, 21, 15, 11, 7, 4, 2, 1, 0 px on f719 to f731"
+  },
+  "exit": {
+   "kind": "scrolls up with the conversation",
+   "frames": 0
+  },
+  "stacking_and_camera": "camera scrolls the whole conversation up about 150 px while the bubble lands",
+  "notes": null,
+  "evidence": "extra/popup_bubble_slide.jpg"
+ },
+ {
+  "id": "skeleton_stack",
+  "t0": 31.198,
+  "t1": 34.868,
+  "f0": 748,
+  "f1": 836,
+  "kind": "stack of placeholder message cards scrolling, then the real lead card",
+  "shape": {
+   "card": {
+    "fill": "#f4f2f6",
+    "radius": "about 0.3 of h",
+    "avatar": "violet gradient circle",
+    "bars": "grey #8e8e93 and #3a3a3c placeholder lines"
+   },
+   "spacing": "about 64 px pitch (0.5 scale)",
+   "background": "slate violet #6b6496 with falling white particles (rain streaks, 2 to 10 px long)"
+  },
+  "text": {
+   "real_card": "\"Richard Sean\" / \"can you send me the link? · 4h\""
+  },
+  "enter": {
+   "kind": "fast vertical scroll with motion blur (f748 to f770), ease out",
+   "frames": 22
+  },
+  "exit": {
+   "kind": "placeholders fade, real card lands and background turns pastel (f800 to f816)",
+   "frames": 16
+  },
+  "stacking_and_camera": "cards stack in one column, slight depth blur on the top and bottom cards",
+  "notes": null
+ },
+ {
+  "id": "lead_card_dark",
+  "t0": 38.372,
+  "t1": 46.046,
+  "f0": 920,
+  "f1": 1104,
+  "kind": "lead card in a dark void with an orbiting light; waiting time counts up",
+  "shape": {
+   "card": {
+    "w_px": 730,
+    "h_px": 163,
+    "radius_px": 54,
+    "fill": "#eae8eb, lit by a white sweep from the right (dark on the left on reveal)"
+   },
+   "avatar": "violet-blue gradient circle d 110",
+   "orb": "white glowing dot d 10 to 20 px orbiting the card",
+   "time": "\"4h\" grey, counting 6h, 7h ... 17h, 18h in red #e03a3a, then 1d, 2d, 3d",
+   "label": "\"Qualified Lead\" (style ui-label, #775d7b)",
+   "background": "black #130915 with a soft grey radial lift"
+  },
+  "text": {
+   "name": "SF Pro Medium #1c1c1e",
+   "preview": "SF Pro Regular #6e6e73"
+  },
+  "enter": {
+   "kind": "light sweep reveal right to left over 12 frames while the card slides in; label wipes in",
+   "frames": 12
+  },
+  "exit": {
+   "kind": "3D tilt (about 6 deg), blur and fade as a pink orb appears",
+   "frames": 16,
+   "frames_range": "f1084 to f1104"
+  },
+  "stacking_and_camera": "camera push to about 2.2x (f956 to f1050) with drift, pull back on a cut (f1056)",
+  "notes": null,
+  "evidence": "extra/popup_lead_card_dark.jpg"
+ },
+ {
+  "id": "priority_pill",
+  "t0": 46.046,
+  "t1": 50.467,
+  "f0": 1104,
+  "f1": 1210,
+  "kind": "pink orb morphs into the \"Priority Inbox\" pill button",
+  "shape": {
+   "orb": "magenta #e040e0, d 20 -> 40 px, bursts with radial lines at f1116",
+   "pill": {
+    "fill": "white #fbf9fc",
+    "bottom_edge": "magenta #e451ea about 3 px (3D button)",
+    "shadow": "violet glow y +8, blur 16",
+    "radius": "full pill"
+   },
+   "sparkles": "pink four-point stars, 10 to 30 px, burst outward f1118 to f1132"
+  },
+  "text": {
+   "label": "\"Priority Inbox\" typed letter by letter in magenta #d23fe0 (f1124 to f1132), then a left-to-right sweep to dark #2c282d (f1132 to f1146)"
+  },
+  "enter": {
+   "kind": "liquid morph: orb -> vertical blob -> wide pill with magenta end, pill scale about 1.4 -> 1.0",
+   "frames": 20,
+   "easing": "out with small overshoot"
+  },
+  "exit": {
+   "kind": "moves up to become the menu header (f1170 to f1180)",
+   "frames": 10
+  },
+  "stacking_and_camera": "pill later sits on top of the menu column",
+  "notes": null,
+  "evidence": "extra/popup_priority_pill.jpg"
+ },
+ {
+  "id": "priority_menu",
+  "t0": 48.715,
+  "t1": 56.39,
+  "f0": 1168,
+  "f1": 1352,
+  "kind": "four-row menu (New lead, In contact, Qualified, Call booked) that the cursor opens",
+  "shape": {
+   "row": {
+    "fill": "#fcfafd",
+    "radius": "about 0.3 of h (50 px at h 167 when zoomed)",
+    "shadow": "soft violet, y +6, blur 18"
+   },
+   "icons": {
+    "shape": "rounded square, radius 0.25",
+    "colours": {
+     "New lead": "#ff4f9a pink",
+     "In contact": "#6c4dff violet",
+     "Qualified": "#ff9f0a orange star",
+     "Call booked": "#6e6e73 grey phone"
+    }
+   },
+   "chevron": "grey #b0b0b8 \">\" (turns to \"v\" when open)"
+  },
+  "text": {
+   "labels": "SF Pro Medium #1c1c1e, typed in after the rows land"
+  },
+  "enter": {
+   "kind": "purple gradient bars (#c44dff -> #8a00ff) wipe in from the left, 2-frame stagger per row, then turn into white rows",
+   "frames": 24,
+   "frames_range": "f1168 to f1192"
+  },
+  "exit": {
+   "kind": "Qualified expands: three message cards (Tyler Brown, Andrew Marcus, Jessica Olivia) slide down from under it with a 3-frame stagger (f1256 to f1272)",
+   "frames": 16
+  },
+  "stacking_and_camera": "camera zooms 2x into the rows with motion blur (f1204 to f1212) and follows the cursor; list cards: white, radius 0.3 h, avatar gradient circles",
+  "notes": null,
+  "evidence": "extra/popup_menu.jpg"
+ },
+ {
+  "id": "star_app_icon",
+  "t0": 56.39,
+  "t1": 58.809,
+  "f0": 1352,
+  "f1": 1410,
+  "kind": "orange star app icon with floating notification cards",
+  "shape": {
+   "icon": {
+    "size_px": "about 140",
+    "shape": "squircle radius about 0.25",
+    "fill": "yellow #ffee00 at entry -> orange gradient #fdb32a to #ff8a00",
+    "glow": "orange #ffb000, 30 px",
+    "glyph": "white star, outline first then filled (f1360 to f1372)"
+   },
+   "cards": "small white notification cards (radius 0.3 h) with pastel avatars, drifting",
+   "background": "warm yellow radial #f6ca55 to peach"
+  },
+  "text": null,
+  "enter": {
+   "kind": "pop with rotation -15 -> 0 deg and scale 0.6 -> 1.0, colour shifts yellow -> orange",
+   "frames": 13,
+   "easing": "back out"
+  },
+  "exit": {
+   "kind": "blur and fade, camera drifts",
+   "frames": 8
+  },
+  "stacking_and_camera": "cursor taps the icon (f1366 to f1372)",
+  "notes": null,
+  "evidence": "extra/popup_star.jpg"
+ },
+ {
+  "id": "booked_calls",
+  "t0": 61.812,
+  "t1": 67.192,
+  "f0": 1482,
+  "f1": 1611,
+  "kind": "phone icon in glowing concentric rings, count-up chip, stacked lead cards",
+  "shape": {
+   "rings": "5 to 6 concentric rings, white 40 to 60 % with soft glow, expanding from the centre f1488 to f1500",
+   "icon": {
+    "w_px": 147,
+    "h_px": 153,
+    "radius_px": 39,
+    "fill": "#436ee5 blue gradient",
+    "glyph": "white phone"
+   },
+   "chip": {
+    "w_px": 127,
+    "h_px": 57,
+    "radius_px": 27.5,
+    "fill": "#7188fe",
+    "text": "white count 3+ -> 90+ (f1510 to f1604)"
+   },
+   "label": "\"Booked calls\" white at about 70 % opacity",
+   "stack": "5 pink-white cards (#ffe0f6), each further card about 90 % width and 22 px higher (perspective stack): Victoria, Hannah Nora, Mia Olivia, Tyler Brown, Daniel Kenzie"
+  },
+  "text": null,
+  "enter": {
+   "kind": "rings expand, icon rises from below with a 3D tilt and settles (f1492 to f1498), cards rise into the stack",
+   "frames": 16
+  },
+  "exit": {
+   "kind": "icon content cross-fades to the talking head (f1606 to f1609), then iris",
+   "frames": 4
+  },
+  "stacking_and_camera": "background violet gradient (#c084fc left to #6366f1 right)",
+  "notes": null,
+  "evidence": "extra/popup_booked_calls.jpg"
+ },
+ {
+  "id": "iris_to_talking_head",
+  "t0": 67.067,
+  "t1": 67.317,
+  "f0": 1608,
+  "f1": 1614,
+  "kind": "talking head revealed through a growing soft circle from the phone icon",
+  "shape": {
+   "mask": "circle centred on the icon, radius about 60 -> 900 px over 5 frames, feather about 60 px",
+   "under": "rings scene stays visible around until f1612"
+  },
+  "text": null,
+  "enter": {
+   "kind": "iris open (expo in)",
+   "frames": 5
+  },
+  "exit": null,
+  "stacking_and_camera": "first caption word \"you\" is already visible inside the iris at f1611",
+  "notes": null,
+  "evidence": "extra/transition_iris.jpg"
+ }
+]

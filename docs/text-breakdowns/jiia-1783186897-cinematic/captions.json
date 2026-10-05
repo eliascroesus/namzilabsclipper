@@ -1,0 +1,1672 @@
+[
+ {
+  "t0": 0.417,
+  "t1": 1.125,
+  "f0": 10,
+  "f1": 26,
+  "lines": [
+   {
+    "text": "even",
+    "words": [
+     {
+      "text": "even",
+      "style": "base-m"
+     }
+    ]
+   },
+   {
+    "text": "when",
+    "words": [
+     {
+      "text": "when",
+      "style": "base-m"
+     }
+    ]
+   },
+   {
+    "text": "i was",
+    "words": [
+     {
+      "text": "i",
+      "style": "base-xl"
+     },
+     {
+      "text": "was",
+      "style": "base-xl"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.2108,
+   0.3556,
+   0.4381,
+   0.6139
+  ],
+  "head": [
+   0.66,
+   0.22,
+   0.72,
+   0.32
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "fade",
+   "frames": 3,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": "linear (opacity about 0.40, 0.80, 1.0 on frames +0,+1,+2)",
+   "words": {
+    "even": 10,
+    "when": 18,
+    "i": 20,
+    "was": 22
+   },
+   "measured": {
+    "even": [
+     0.44,
+     0.85,
+     1.0
+    ],
+    "when": [
+     0.42,
+     0.83,
+     0.97,
+     1.0
+    ],
+    "was": [
+     0.43,
+     0.84,
+     1.0
+    ]
+   }
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null
+  },
+  "spokenAt": [
+   {
+    "word": "even",
+    "captionFrame": 10,
+    "captionTime": 0.417,
+    "asrWord": "Even",
+    "asrStart": 0.24,
+    "delayFrames": 4
+   },
+   {
+    "word": "when",
+    "captionFrame": 18,
+    "captionTime": 0.75,
+    "asrWord": "when",
+    "asrStart": 0.56,
+    "delayFrames": 5
+   },
+   {
+    "word": "i",
+    "captionFrame": 20,
+    "captionTime": 0.833,
+    "asrWord": "I",
+    "asrStart": 0.72,
+    "delayFrames": 3
+   },
+   {
+    "word": "was",
+    "captionFrame": 22,
+    "captionTime": 0.917,
+    "asrWord": "was",
+    "asrStart": 0.88,
+    "delayFrames": 1
+   }
+  ],
+  "notes": "Gym. Staggered 3-line stack: even (x 282-427, baseline 312), when indented +92 px (x 371-559, baseline 361), i was (x 269-544, baseline 440). No scale, slide or blur on entry (bbox and edge sharpness constant from the first frame). Runner far right, no overlap. Cut at f27."
+ },
+ {
+  "t0": 1.167,
+  "t1": 1.833,
+  "f0": 28,
+  "f1": 43,
+  "lines": [
+   {
+    "text": "Feeling",
+    "words": [
+     {
+      "text": "Feeling",
+      "style": "script"
+     }
+    ]
+   },
+   {
+    "text": "Low",
+    "words": [
+     {
+      "text": "Low",
+      "style": "script"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.4632,
+   0.3625,
+   0.8934,
+   0.7014
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "fade",
+   "frames": 6,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": "linear",
+   "words": {
+    "Feeling": 28,
+    "Low": 37
+   },
+   "measured": {
+    "Feeling": [
+     0.18,
+     0.35,
+     0.5,
+     0.58
+    ],
+    "Low": [
+     0.32,
+     0.64,
+     1.0
+    ]
+   }
+  },
+  "exit": {
+   "kind": "blur (whole-frame transition, text included)",
+   "frames": 3,
+   "from": {
+    "scale": 1.0,
+    "opacity": 1.0,
+    "blur": "edge sharpness 257 to 53 over f40-43",
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": null,
+   "easing": "in"
+  },
+  "spokenAt": [
+   {
+    "word": "Feeling",
+    "captionFrame": 28,
+    "captionTime": 1.167,
+    "asrWord": "feeling",
+    "asrStart": 1.04,
+    "delayFrames": 3
+   },
+   {
+    "word": "Low",
+    "captionFrame": 37,
+    "captionTime": 1.542,
+    "asrWord": "low",
+    "asrStart": 1.44,
+    "delayFrames": 2
+   }
+  ],
+  "notes": "Starts on a grey-wall portrait (f28-30) where difference over mid grey makes it almost invisible, f31 is a 1-frame full-frame invert (text turns black), f32-43 eye close-up where it reads light blue-white over brown skin (difference). Low sits under the right half of Feeling, its L loop under the g. Exit: frame blurs f41-43, cut f44 (f43 also shows a 1-frame white silhouette of the next shot's subject)."
+ },
+ {
+  "t0": 1.833,
+  "t1": 2.708,
+  "f0": 44,
+  "f1": 64,
+  "lines": [
+   {
+    "text": "i kept on",
+    "words": [
+     {
+      "text": "i",
+      "style": "base-s"
+     },
+     {
+      "text": "kept",
+      "style": "base-s"
+     },
+     {
+      "text": "on",
+      "style": "base-s"
+     }
+    ]
+   },
+   {
+    "text": "going",
+    "words": [
+     {
+      "text": "going",
+      "style": "base-l"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.5933,
+   0.1417,
+   0.8824,
+   0.3361
+  ],
+  "head": [
+   0.2,
+   0.45,
+   0.3,
+   0.62
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "cut",
+   "frames": 0,
+   "from": {
+    "scale": 1.0,
+    "opacity": 1.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": null,
+   "words": {
+    "i": 44,
+    "kept": 49,
+    "on": 53,
+    "going": 58
+   }
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null
+  },
+  "spokenAt": [
+   {
+    "word": "i",
+    "captionFrame": 44,
+    "captionTime": 1.833,
+    "asrWord": "(not recognised)",
+    "asrStart": null,
+    "delayFrames": null
+   },
+   {
+    "word": "kept",
+    "captionFrame": 49,
+    "captionTime": 2.042,
+    "asrWord": "(not recognised)",
+    "asrStart": null,
+    "delayFrames": null
+   },
+   {
+    "word": "on",
+    "captionFrame": 53,
+    "captionTime": 2.208,
+    "asrWord": "(not recognised)",
+    "asrStart": null,
+    "delayFrames": null
+   },
+   {
+    "word": "going",
+    "captionFrame": 58,
+    "captionTime": 2.417,
+    "asrWord": "(not recognised)",
+    "asrStart": null,
+    "delayFrames": null
+   }
+  ],
+  "notes": "Hotel forecourt. Words pop on at full opacity on their first frame (alpha 0.93 = settled). i arrives under the shot's opening blur (f44-47). going (Inter 112 px) starts +115 px right of line 1, baseline 219; line 1 baseline 147. Top-right block, never near the people."
+ },
+ {
+  "t0": 2.708,
+  "t1": 3.292,
+  "f0": 65,
+  "f1": 78,
+  "lines": [
+   {
+    "text": "i weren't",
+    "words": [
+     {
+      "text": "i",
+      "style": "base-s"
+     },
+     {
+      "text": "weren't",
+      "style": "base-s"
+     }
+    ]
+   },
+   {
+    "text": "gon'",
+    "words": [
+     {
+      "text": "gon'",
+      "style": "base-s"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.6097,
+   0.1417,
+   0.7955,
+   0.2847
+  ],
+  "head": [
+   0.2,
+   0.45,
+   0.3,
+   0.62
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "cut",
+   "frames": 0,
+   "from": {
+    "scale": 1.0,
+    "opacity": 1.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": null,
+   "words": {
+    "i": 65,
+    "weren't": 69,
+    "gon'": 73
+   }
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null,
+   "note": "text gone on f79, one empty frame before Quit"
+  },
+  "spokenAt": [
+   {
+    "word": "i",
+    "captionFrame": 65,
+    "captionTime": 2.708,
+    "asrWord": "I",
+    "asrStart": 2.64,
+    "delayFrames": 2
+   },
+   {
+    "word": "weren't",
+    "captionFrame": 69,
+    "captionTime": 2.875,
+    "asrWord": "walk",
+    "asrStart": 2.8,
+    "delayFrames": 2
+   },
+   {
+    "word": "gon'",
+    "captionFrame": 73,
+    "captionTime": 3.042,
+    "asrWord": "on",
+    "asrStart": 3.04,
+    "delayFrames": 0
+   }
+  ],
+  "notes": "Same place as E3 (line 1 baseline 147) but starts at x 778. gon' is indented +141 px, baseline 190. Straight wedge apostrophes."
+ },
+ {
+  "t0": 3.333,
+  "t1": 3.5,
+  "f0": 80,
+  "f1": 83,
+  "lines": [
+   {
+    "text": "Quit",
+    "words": [
+     {
+      "text": "Quit",
+      "style": "script"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.2594,
+   0.2972,
+   0.7845,
+   0.7389
+  ],
+  "head": [
+   0.38,
+   0.28,
+   0.42,
+   0.35
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "cut",
+   "frames": 0,
+   "from": {
+    "scale": 1.0,
+    "opacity": 1.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": null,
+   "words": {
+    "Quit": 80
+   }
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null,
+   "note": "survives the light-streak flash f81-83 (turns dark over the bright streaks), then a flat grey frame f84"
+  },
+  "spokenAt": [
+   {
+    "word": "Quit",
+    "captionFrame": 80,
+    "captionTime": 3.333,
+    "asrWord": "(not recognised)",
+    "asrStart": null,
+    "delayFrames": null
+   }
+  ],
+  "notes": "Huge script (x-height 125 px, Q 257 px). Difference: over the white shirt the Q turns near black (25,27,47); over the dark car it is near white. Drawn over the man (front)."
+ },
+ {
+  "t0": 3.75,
+  "t1": 4.333,
+  "f0": 90,
+  "f1": 103,
+  "lines": [
+   {
+    "text": "i can't wait",
+    "words": [
+     {
+      "text": "i",
+      "style": "base-diff"
+     },
+     {
+      "text": "can't",
+      "style": "base-diff"
+     },
+     {
+      "text": "wait",
+      "style": "base-diff"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.6199,
+   0.4597,
+   0.8401,
+   0.5389
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "cut",
+   "frames": 0,
+   "from": {
+    "scale": 1.0,
+    "opacity": 1.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": null,
+   "words": {
+    "i": 90,
+    "can't": 94,
+    "wait": 99
+   }
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null
+  },
+  "spokenAt": [
+   {
+    "word": "i",
+    "captionFrame": 90,
+    "captionTime": 3.75,
+    "asrWord": "I'm",
+    "asrStart": 3.6,
+    "delayFrames": 4
+   },
+   {
+    "word": "can't",
+    "captionFrame": 94,
+    "captionTime": 3.917,
+    "asrWord": "gonna",
+    "asrStart": 3.84,
+    "delayFrames": 2
+   },
+   {
+    "word": "wait",
+    "captionFrame": 99,
+    "captionTime": 4.125,
+    "asrWord": "(not recognised)",
+    "asrStart": null,
+    "delayFrames": null
+   }
+  ],
+  "notes": "Steering wheel. One line, baseline 384, Inter 64 px. Whole caption in difference: the final t of wait turns lavender (173,187,219) over the yellow trim."
+ },
+ {
+  "t0": 4.333,
+  "t1": 4.875,
+  "f0": 104,
+  "f1": 116,
+  "lines": [
+   {
+    "text": "for the day i",
+    "words": [
+     {
+      "text": "for",
+      "style": "base-diff"
+     },
+     {
+      "text": "the",
+      "style": "base-diff"
+     },
+     {
+      "text": "day",
+      "style": "base-diff"
+     },
+     {
+      "text": "i",
+      "style": "base-diff"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.5729,
+   0.4181,
+   0.8229,
+   0.5556
+  ],
+  "head": [
+   0.24,
+   0.0,
+   0.49,
+   0.55
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "fade",
+   "frames": 3,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": "linear (opacity about 0.40, 0.80, 1.0 on frames +0,+1,+2)",
+   "words": {
+    "for": 104,
+    "the": 107,
+    "day": 111,
+    "i": 114
+   },
+   "measured": {
+    "for": "cut-in with the shot",
+    "the": [
+     0.65,
+     0.76,
+     1.0
+    ],
+    "i": [
+     0.41,
+     0.88,
+     1.0
+    ]
+   }
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null,
+   "note": "gone on f117, one empty frame before Make"
+  },
+  "spokenAt": [
+   {
+    "word": "for",
+    "captionFrame": 104,
+    "captionTime": 4.333,
+    "asrWord": "(not recognised)",
+    "asrStart": null,
+    "delayFrames": null
+   },
+   {
+    "word": "the",
+    "captionFrame": 107,
+    "captionTime": 4.458,
+    "asrWord": "(not recognised)",
+    "asrStart": null,
+    "delayFrames": null
+   },
+   {
+    "word": "day",
+    "captionFrame": 111,
+    "captionTime": 4.625,
+    "asrWord": "(not recognised)",
+    "asrStart": null,
+    "delayFrames": null
+   },
+   {
+    "word": "i",
+    "captionFrame": 114,
+    "captionTime": 4.75,
+    "asrWord": "I",
+    "asrStart": 4.72,
+    "delayFrames": 1
+   }
+  ],
+  "notes": "Driver profile, bright windscreen. Difference makes the line navy over the sky (for: (21,16,30) over (235,228,205)) and grey over the mirror. One line, baseline about 389, size about 0.09 to 0.10."
+ },
+ {
+  "t0": 4.917,
+  "t1": 5.417,
+  "f0": 118,
+  "f1": 129,
+  "lines": [
+   {
+    "text": "Make",
+    "words": [
+     {
+      "text": "Make",
+      "style": "script-normal"
+     }
+    ]
+   },
+   {
+    "text": "it",
+    "words": [
+     {
+      "text": "it",
+      "style": "script-normal"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.4201,
+   0.3278,
+   0.9044,
+   0.6722
+  ],
+  "head": [
+   0.24,
+   0.0,
+   0.49,
+   0.55
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "fade",
+   "frames": 5,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": "linear (opacity about 0.40, 0.80, 1.0 on frames +0,+1,+2)",
+   "words": {
+    "Make": 118,
+    "it": 122
+   },
+   "measured": {
+    "Make": [
+     0.25,
+     0.5,
+     0.77,
+     0.86,
+     1.0
+    ],
+    "it": [
+     0.25,
+     0.54,
+     0.87,
+     1.0
+    ]
+   }
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null
+  },
+  "spokenAt": [
+   {
+    "word": "Make",
+    "captionFrame": 118,
+    "captionTime": 4.917,
+    "asrWord": "make",
+    "asrStart": 4.88,
+    "delayFrames": 1
+   },
+   {
+    "word": "it",
+    "captionFrame": 122,
+    "captionTime": 5.083,
+    "asrWord": "it",
+    "asrStart": 5.12,
+    "delayFrames": -1
+   }
+  ],
+  "notes": "Normal blend, white over the bright windscreen with a faint drop shadow. The M entry swash ends right at the chin (x 615-625) but is never cut by it. it is centred under ke, baseline 480."
+ },
+ {
+  "t0": 5.458,
+  "t1": 6.042,
+  "f0": 131,
+  "f1": 144,
+  "lines": [
+   {
+    "text": "next",
+    "words": [
+     {
+      "text": "next",
+      "style": "base-diff"
+     }
+    ]
+   },
+   {
+    "text": "in Line",
+    "words": [
+     {
+      "text": "in",
+      "style": "base-xl"
+     },
+     {
+      "text": "Line",
+      "style": "script-normal"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.1575,
+   0.3208,
+   0.5055,
+   0.6597
+  ],
+  "head": [
+   0.63,
+   0.03,
+   0.72,
+   0.22
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "fade",
+   "frames": 5,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": "linear (opacity about 0.40, 0.80, 1.0 on frames +0,+1,+2)",
+   "words": {
+    "next": 131,
+    "in": 136,
+    "Line": 140
+   },
+   "measured": {
+    "next": [
+     0.16,
+     0.32,
+     0.5,
+     0.61
+    ],
+    "in": [
+     0.34,
+     1.0
+    ],
+    "Line": [
+     0.22,
+     0.38,
+     0.54,
+     0.64,
+     0.72
+    ]
+   }
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null
+  },
+  "spokenAt": [
+   {
+    "word": "next",
+    "captionFrame": 131,
+    "captionTime": 5.458,
+    "asrWord": "next",
+    "asrStart": 5.36,
+    "delayFrames": 2
+   },
+   {
+    "word": "in",
+    "captionFrame": 136,
+    "captionTime": 5.667,
+    "asrWord": "in",
+    "asrStart": 5.6,
+    "delayFrames": 2
+   },
+   {
+    "word": "Line",
+    "captionFrame": 140,
+    "captionTime": 5.833,
+    "asrWord": "line",
+    "asrStart": 5.76,
+    "delayFrames": 2
+   }
+  ],
+  "notes": "next is difference (navy n over the bright lamp, peach ext over blue: dark-bg (12,30,57) reads (244,220,206)); this is what looks like the lamp being in front. in is normal white with shadow; Line is normal script. next and in are left-aligned at x 201 with the i dot sitting at the next baseline (reads .next). Line starts at x 291, overlapping below next."
+ },
+ {
+  "t0": 6.042,
+  "t1": 6.625,
+  "f0": 145,
+  "f1": 158,
+  "lines": [
+   {
+    "text": "i feel like a",
+    "words": [
+     {
+      "text": "i",
+      "style": "base-xxl"
+     },
+     {
+      "text": "feel",
+      "style": "base-xxl"
+     },
+     {
+      "text": "like",
+      "style": "base-xxl"
+     },
+     {
+      "text": "a",
+      "style": "base-xxl"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.2202,
+   0.2486,
+   0.7955,
+   0.45
+  ],
+  "head": [
+   0.46,
+   0.37,
+   0.55,
+   0.56
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "cut",
+   "frames": 0,
+   "from": {
+    "scale": 1.0,
+    "opacity": 1.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": null,
+   "words": {
+    "i": 145,
+    "feel": 148,
+    "like": 152,
+    "a": 155
+   }
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null
+  },
+  "spokenAt": [
+   {
+    "word": "i",
+    "captionFrame": 145,
+    "captionTime": 6.042,
+    "asrWord": "I",
+    "asrStart": 6.16,
+    "delayFrames": -3
+   },
+   {
+    "word": "feel",
+    "captionFrame": 148,
+    "captionTime": 6.167,
+    "asrWord": "feel",
+    "asrStart": 6.24,
+    "delayFrames": -2
+   },
+   {
+    "word": "like",
+    "captionFrame": 152,
+    "captionTime": 6.333,
+    "asrWord": "like",
+    "asrStart": 6.4,
+    "delayFrames": -2
+   },
+   {
+    "word": "a",
+    "captionFrame": 155,
+    "captionTime": 6.458,
+    "asrWord": "a",
+    "asrStart": 6.56,
+    "delayFrames": -2
+   }
+  ],
+  "notes": "BEHIND the diner: his head and hair cut the second l of feel and the l and i of like (f152-158). 0 bright text px inside the eroded person mask in every frame f150-158 while text fills 30-35% of the band. Huge line: x-height 100 px, baseline 313, letters overlapping, soft shadow (5,9) px sigma 5 opacity 0.49."
+ },
+ {
+  "t0": 6.625,
+  "t1": 6.917,
+  "f0": 159,
+  "f1": 165,
+  "lines": [
+   {
+    "text": "King",
+    "words": [
+     {
+      "text": "King",
+      "style": "script-normal"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.239,
+   0.1417,
+   0.848,
+   0.6528
+  ],
+  "head": [
+   0.47,
+   0.55,
+   0.52,
+   0.65
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "zoom + blur (no fade)",
+   "frames": 7,
+   "from": {
+    "scale": 0.79,
+    "opacity": 1.0,
+    "blur": "10 px sigma (0.029 em at 347 px)",
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": null,
+   "easing": "out (scale 0.79,0.84,0.89,0.92,0.95,0.98,1.00; blur 10,8,5,4,2,1,0 px)",
+   "anchor": "about (659,401) px, near the swimmer's head"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null
+  },
+  "spokenAt": [
+   {
+    "word": "King",
+    "captionFrame": 159,
+    "captionTime": 6.625,
+    "asrWord": "king",
+    "asrStart": 6.64,
+    "delayFrames": 0
+   }
+  ],
+  "notes": "Rooftop pool. Scale grows 1.34x over f159-165 while the background grows only 1.05x, so it is the text's own animation. BEHIND: the swimmer's raised fists cover the bottom strokes of i and n on f163-165. Normal blend cream (237,239,236) over the night sky."
+ },
+ {
+  "t0": 6.917,
+  "t1": 7.208,
+  "f0": 166,
+  "f1": 172,
+  "lines": [
+   {
+    "text": "my time",
+    "words": [
+     {
+      "text": "my",
+      "style": "base-diff"
+     },
+     {
+      "text": "time",
+      "style": "base-diff"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.4201,
+   0.4472,
+   0.5831,
+   0.5167
+  ],
+  "head": [
+   0.5,
+   0.0,
+   0.86,
+   0.55
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "cut",
+   "frames": 0,
+   "from": {
+    "scale": 1.0,
+    "opacity": 1.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": null,
+   "words": {
+    "my": 166,
+    "time": 166
+   }
+  },
+  "exit": {
+   "kind": "replace",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null
+  },
+  "spokenAt": [
+   {
+    "word": "my",
+    "captionFrame": 166,
+    "captionTime": 6.917,
+    "asrWord": "My",
+    "asrStart": 6.96,
+    "delayFrames": -1
+   },
+   {
+    "word": "time",
+    "captionFrame": 166,
+    "captionTime": 6.917,
+    "asrWord": "time",
+    "asrStart": 7.12,
+    "delayFrames": -5
+   }
+  ],
+  "notes": "Gym close-up. Difference: near black over the blown-out skin (18,14,10 over 242,240,229), teal where the skin is darker. It is drawn OVER the head (inside the person mask and still visible), not behind it. Small: x-height about 28 px."
+ },
+ {
+  "t0": 7.208,
+  "t1": 7.333,
+  "f0": 173,
+  "f1": 175,
+  "lines": [
+   {
+    "text": "will",
+    "words": [
+     {
+      "text": "will",
+      "style": "base-diff"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.4624,
+   0.4472,
+   0.5408,
+   0.5167
+  ],
+  "head": [
+   0.5,
+   0.0,
+   0.86,
+   0.55
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "cut",
+   "frames": 0,
+   "from": {
+    "scale": 1.0,
+    "opacity": 1.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": null,
+   "words": {
+    "will": 173
+   }
+  },
+  "exit": {
+   "kind": "replace",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null
+  },
+  "spokenAt": [
+   {
+    "word": "will",
+    "captionFrame": 173,
+    "captionTime": 7.208,
+    "asrWord": "won't",
+    "asrStart": 7.28,
+    "delayFrames": -2
+   }
+  ],
+  "notes": "Single word replacing my time in the same centre spot; teal (28,90,116) over orange skin (227,184,132)."
+ },
+ {
+  "t0": 7.333,
+  "t1": 7.792,
+  "f0": 176,
+  "f1": 186,
+  "lines": [
+   {
+    "text": "come",
+    "words": [
+     {
+      "text": "come",
+      "style": "base-diff"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.4428,
+   0.4514,
+   0.5525,
+   0.5167
+  ],
+  "head": [
+   0.45,
+   0.2,
+   0.8,
+   0.75
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "cut",
+   "frames": 0,
+   "from": {
+    "scale": 1.0,
+    "opacity": 1.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": null,
+   "words": {
+    "come": 176
+   }
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null
+  },
+  "spokenAt": [
+   {
+    "word": "come",
+    "captionFrame": 176,
+    "captionTime": 7.333,
+    "asrWord": "(not recognised)",
+    "asrStart": null,
+    "delayFrames": null
+   }
+  ],
+  "notes": "Stays put across the cut at f177; reads teal over the face, white over dark machine parts."
+ },
+ {
+  "t0": 7.792,
+  "t1": 8.833,
+  "f0": 187,
+  "f1": 211,
+  "lines": [
+   {
+    "text": "i just",
+    "words": [
+     {
+      "text": "i",
+      "style": "base-s"
+     },
+     {
+      "text": "just",
+      "style": "base-s"
+     }
+    ]
+   },
+   {
+    "text": "gotta be",
+    "words": [
+     {
+      "text": "gotta",
+      "style": "base-s"
+     },
+     {
+      "text": "be",
+      "style": "base-s"
+     }
+    ]
+   },
+   {
+    "text": "Patient",
+    "words": [
+     {
+      "text": "Patient",
+      "style": "script"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.4216,
+   0.3611,
+   0.7947,
+   0.6083
+  ],
+  "head": [
+   0.26,
+   0.28,
+   0.36,
+   0.46
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "cut",
+   "frames": 0,
+   "from": {
+    "scale": 1.0,
+    "opacity": 1.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": null,
+   "words": {
+    "i just": 187,
+    "gotta be": 191,
+    "Patient": 200
+   },
+   "measured": {
+    "Patient": [
+     0.36,
+     0.73,
+     1.0
+    ],
+    "i just": "cut-in with the shot",
+    "gotta be": "cut-in"
+   }
+  },
+  "exit": {
+   "kind": "blur (whole-frame transition, text included)",
+   "frames": 5,
+   "from": {
+    "scale": 1.0,
+    "opacity": 1.0,
+    "blur": "frame sharpness 567 to 10 over f206-211",
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": null,
+   "easing": "in"
+  },
+  "spokenAt": [
+   {
+    "word": "i",
+    "captionFrame": 187,
+    "captionTime": 7.792,
+    "asrWord": "I",
+    "asrStart": 7.6,
+    "delayFrames": 5
+   },
+   {
+    "word": "just",
+    "captionFrame": 187,
+    "captionTime": 7.792,
+    "asrWord": "just",
+    "asrStart": 7.76,
+    "delayFrames": 1
+   },
+   {
+    "word": "gotta",
+    "captionFrame": 191,
+    "captionTime": 7.958,
+    "asrWord": "gon'",
+    "asrStart": 7.92,
+    "delayFrames": 1
+   },
+   {
+    "word": "be",
+    "captionFrame": 191,
+    "captionTime": 7.958,
+    "asrWord": "be",
+    "asrStart": 8.16,
+    "delayFrames": -5
+   },
+   {
+    "word": "Patient",
+    "captionFrame": 200,
+    "captionTime": 8.333,
+    "asrWord": "patient",
+    "asrStart": 8.32,
+    "delayFrames": 0
+   }
+  ],
+  "notes": "Desk, daylight. Two-word chunks. gotta be indented +54 px; Patient (difference) overlaps under gotta be, starting at x 538. Shadow visible on i just / gotta be over the bright monitor."
+ },
+ {
+  "t0": 8.833,
+  "t1": 9.417,
+  "f0": 212,
+  "f1": 225,
+  "lines": [
+   {
+    "text": "keep",
+    "words": [
+     {
+      "text": "keep",
+      "style": "base-m"
+     }
+    ]
+   },
+   {
+    "text": "on",
+    "words": [
+     {
+      "text": "on",
+      "style": "base-m"
+     }
+    ]
+   },
+   {
+    "text": "Pushing",
+    "words": [
+     {
+      "text": "Pushing",
+      "style": "script"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.4875,
+   0.3736,
+   0.8182,
+   0.6347
+  ],
+  "head": [
+   0.31,
+   0.28,
+   0.41,
+   0.47
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "fade",
+   "frames": 3,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": "linear (opacity about 0.40, 0.80, 1.0 on frames +0,+1,+2)",
+   "words": {
+    "keep": 212,
+    "on": 216,
+    "Pushing": 223
+   },
+   "measured": {
+    "keep": "arrives under the shot's opening blur f212-213",
+    "on": [
+     0.64,
+     0.79,
+     0.9,
+     1.0
+    ],
+    "Pushing": [
+     0.87,
+     0.95,
+     1.0
+    ]
+   }
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null,
+   "note": "cut into a light-streak flash f226-228"
+  },
+  "spokenAt": [
+   {
+    "word": "keep",
+    "captionFrame": 212,
+    "captionTime": 8.833,
+    "asrWord": "Keep",
+    "asrStart": 8.8,
+    "delayFrames": 1
+   },
+   {
+    "word": "on",
+    "captionFrame": 216,
+    "captionTime": 9.0,
+    "asrWord": "on",
+    "asrStart": 8.96,
+    "delayFrames": 1
+   },
+   {
+    "word": "Pushing",
+    "captionFrame": 223,
+    "captionTime": 9.292,
+    "asrWord": "pushing",
+    "asrStart": 9.12,
+    "delayFrames": 4
+   }
+  ],
+  "notes": "Desk at night (grade flickers blue, orange, purple). on starts under the p of keep (+117 px). Pushing is difference script (dark bg reads (242,239,240), blue-grey bg (67,84,86) reads (206,199,189))."
+ },
+ {
+  "t0": 9.542,
+  "t1": 10.333,
+  "f0": 229,
+  "f1": 247,
+  "lines": [
+   {
+    "text": "and",
+    "words": [
+     {
+      "text": "and",
+      "style": "base-s"
+     }
+    ]
+   },
+   {
+    "text": "take",
+    "words": [
+     {
+      "text": "take",
+      "style": "base-l"
+     }
+    ]
+   },
+   {
+    "text": "these",
+    "words": [
+     {
+      "text": "these",
+      "style": "base-l"
+     }
+    ]
+   },
+   {
+    "text": "Risk",
+    "words": [
+     {
+      "text": "Risk",
+      "style": "script"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.5337,
+   0.2861,
+   0.866,
+   0.7
+  ],
+  "head": [
+   0.34,
+   0.06,
+   0.5,
+   0.33
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "fade",
+   "frames": 3,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": "each word on its own spoken onset",
+   "easing": "linear (opacity about 0.40, 0.80, 1.0 on frames +0,+1,+2)",
+   "words": {
+    "and": 229,
+    "take": 235,
+    "these": 239,
+    "Risk": 244
+   },
+   "measured": {
+    "and": [
+     0.55,
+     0.85,
+     1.0
+    ],
+    "take": "cut-in",
+    "these": [
+     0.48,
+     0.84,
+     1.0
+    ],
+    "Risk": [
+     0.22,
+     0.45,
+     0.64,
+     0.71
+    ]
+   }
+  },
+  "exit": {
+   "kind": "end of video",
+   "frames": 0,
+   "from": null,
+   "stagger": null,
+   "easing": null
+  },
+  "spokenAt": [
+   {
+    "word": "and",
+    "captionFrame": 229,
+    "captionTime": 9.542,
+    "asrWord": "and",
+    "asrStart": 9.44,
+    "delayFrames": 2
+   },
+   {
+    "word": "take",
+    "captionFrame": 235,
+    "captionTime": 9.792,
+    "asrWord": "take",
+    "asrStart": 9.6,
+    "delayFrames": 5
+   },
+   {
+    "word": "these",
+    "captionFrame": 239,
+    "captionTime": 9.958,
+    "asrWord": "these",
+    "asrStart": 9.84,
+    "delayFrames": 3
+   },
+   {
+    "word": "Risk",
+    "captionFrame": 244,
+    "captionTime": 10.167,
+    "asrWord": "risk",
+    "asrStart": 10.0,
+    "delayFrames": 4
+   }
+  ],
+  "notes": "Right-aligned growing stack (ends at x 930, 899, 929): and 0.094, take 0.126, these 0.154. Risk (difference script) fades in slowly and is still only 71% in on the last frame; it is drawn over the rising hand (front)."
+ }
+]

@@ -1,0 +1,234 @@
+{
+ "styles": [
+  {
+   "id": "base",
+   "name": "Base",
+   "font": "zalando-sans",
+   "weight": 700,
+   "italic": false,
+   "stretch": 112.5,
+   "case": "lower",
+   "size": 0.092,
+   "tracking": -0.06,
+   "fill": {
+    "kind": "solid",
+    "color": "#fdf9fb"
+   },
+   "fillSpan": "word",
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "box": null,
+   "opacity": 1,
+   "blend": "normal"
+  },
+  {
+   "id": "emph",
+   "name": "Gradient key word",
+   "font": "zalando-sans",
+   "weight": 700,
+   "italic": false,
+   "stretch": 112.5,
+   "case": "lower",
+   "size": 0.164,
+   "tracking": -0.01,
+   "fill": {
+    "kind": "linear",
+    "colors": [
+     "#f61f58",
+     "#ff11c7",
+     "#b436fe",
+     "#8863ff",
+     "#37b6ff"
+    ],
+    "stops": [
+     0,
+     0.38,
+     0.64,
+     0.82,
+     1
+    ],
+    "angle": 0
+   },
+   "fillSpan": "line",
+   "stroke": {
+    "color": "#f8a0c0",
+    "width": 0.008
+   },
+   "shadow": null,
+   "glow": {
+    "color": "#ff2a8a",
+    "blur": 0.04,
+    "strength": 0.4
+   },
+   "box": null,
+   "opacity": 1,
+   "blend": "normal"
+  },
+  {
+   "id": "hook",
+   "name": "Hook word behind the speaker",
+   "font": "zalando-sans",
+   "weight": 700,
+   "italic": false,
+   "stretch": 112.5,
+   "case": "lower",
+   "size": 0.42,
+   "tracking": -0.022,
+   "fill": {
+    "kind": "linear",
+    "colors": [
+     "#fe0532",
+     "#fe1b9c",
+     "#b738fe",
+     "#48a7fe"
+    ],
+    "stops": [
+     0,
+     0.35,
+     0.68,
+     1
+    ],
+    "angle": 0
+   },
+   "fillSpan": "word",
+   "stroke": null,
+   "shadow": null,
+   "glow": {
+    "color": "#ff2a8a",
+    "blur": 0.03,
+    "strength": 0.35
+   },
+   "box": null,
+   "opacity": 1,
+   "blend": "normal"
+  },
+  {
+   "id": "big",
+   "name": "Size-up word",
+   "font": "zalando-sans",
+   "weight": 700,
+   "italic": false,
+   "stretch": 112.5,
+   "case": "as-said",
+   "size": 0.111,
+   "tracking": -0.06,
+   "fill": {
+    "kind": "solid",
+    "color": "#fdf9fb"
+   },
+   "fillSpan": "word",
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "box": null,
+   "opacity": 1,
+   "blend": "normal"
+  },
+  {
+   "id": "accent",
+   "name": "Newest-word accent (TH-B)",
+   "font": "zalando-sans",
+   "weight": 700,
+   "italic": false,
+   "stretch": 112.5,
+   "case": "lower",
+   "size": 0.081,
+   "tracking": -0.06,
+   "fill": {
+    "kind": "solid",
+    "color": "#e502f0"
+   },
+   "fillSpan": "word",
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "box": null,
+   "opacity": 1,
+   "blend": "normal"
+  }
+ ],
+ "picks": [
+  {
+   "style": "emph",
+   "rule": "keyword",
+   "share": 0.25
+  },
+  {
+   "style": "hook",
+   "rule": "keyword",
+   "share": 0.12
+  },
+  {
+   "style": "big",
+   "rule": "keyword",
+   "share": 0.12
+  }
+ ],
+ "layout": "stack",
+ "leading": 0.77,
+ "words": 1,
+ "lines": 4,
+ "places": [
+  {
+   "x": 0.5,
+   "y": 0.283,
+   "align": "center",
+   "valign": "middle",
+   "width": 0.62
+  },
+  {
+   "x": 0.5,
+   "y": 0.386,
+   "align": "center",
+   "valign": "middle",
+   "width": 0.86,
+   "behind": true
+  },
+  {
+   "x": 0.551,
+   "y": 0.48,
+   "align": "left",
+   "valign": "middle",
+   "width": 0.3
+  },
+  {
+   "x": 0.512,
+   "y": 0.49,
+   "align": "left",
+   "valign": "middle",
+   "width": 0.38
+  },
+  {
+   "x": 0.406,
+   "y": 0.5,
+   "align": "right",
+   "valign": "middle",
+   "width": 0.33
+  }
+ ],
+ "behind": {
+  "share": 0.0
+ },
+ "enter": {
+  "kind": "rise",
+  "dur": 0.33,
+  "unit": "word",
+  "dist": 0.7,
+  "ease": "out"
+ },
+ "exit": {
+  "kind": "fade",
+  "dur": 0.17,
+  "unit": "page",
+  "ease": "linear"
+ },
+ "accentEnter": {
+  "kind": "pop",
+  "dur": 0.42,
+  "unit": "word",
+  "from": 0.2,
+  "overshoot": 0.2,
+  "ease": "back"
+ }
+}

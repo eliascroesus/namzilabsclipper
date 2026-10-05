@@ -1,0 +1,778 @@
+[
+ {
+  "id": "base",
+  "role": "base caption word: white wide lowercase grotesk, stacked lines beside the head (TH-A) or one line (TH-B)",
+  "font": {
+   "family": "wide grotesk; likely original PP Monument Extended Regular (Pangram Pangram, paid); free match Zalando Sans SemiExpanded Bold",
+   "candidates": [
+    {
+     "name": "Zalando Sans SemiExpanded Bold (Zalando Sans wdth 112.5, wght 700)",
+     "source": "Google Fonts (families \"Zalando Sans\" with wdth 75..125, or static \"Zalando Sans SemiExpanded\"); Fontsource slug likely @fontsource-variable/zalando-sans (unverified, jsdelivr blocked)",
+     "license": "OFL",
+     "match": "best free: mean glyph IoU 0.825 over 43 glyphs from 3 frames; 0.830 word IoU on the clean end line f1764; same double-story a, single-story g, flat-foot y, flag r"
+    },
+    {
+     "name": "TikTok Sans wdth 125 wght 700",
+     "source": "bundled id tiktok-sans",
+     "license": "OFL",
+     "match": "0.824 glyph IoU; a has a bottom spur and y has no foot; best bundled option"
+    },
+    {
+     "name": "Mona Sans wdth 125 wght 700",
+     "source": "Google Fonts, @fontsource-variable/mona-sans",
+     "license": "OFL",
+     "match": "0.836 IoU but single-story a, rejected on shape"
+    },
+    {
+     "name": "Archivo wdth 118 wght 750",
+     "source": "bundled id archivo",
+     "license": "OFL",
+     "match": "0.821 IoU but binocular g, rejected on shape"
+    },
+    {
+     "name": "Unbounded 500",
+     "source": "bundled id unbounded",
+     "license": "OFL",
+     "match": "0.794 word IoU, single-story a, rejected"
+    }
+   ],
+   "weight": 700,
+   "width": "semi-expanded (o width 1.17 x x-height, e 1.10, n 1.10)",
+   "style": "normal"
+  },
+  "case": "lower (proper nouns keep caps: Instagram, DMs)",
+  "capHeightPct": 6.2,
+  "xHeightPct": 4.7,
+  "trackingPct": -6.0,
+  "lineSpacing": "stacks: baseline to baseline 38 to 41.5 px at x-height 34 px (0.60 em), lines overlap their descenders; engine leading 0.77 on cap height",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#fdf9fb"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "zalando-sans",
+   "weight": 700,
+   "stretch": 112.5,
+   "italic": false,
+   "case": "lower",
+   "size": 0.092,
+   "tracking": -0.06,
+   "fill": {
+    "kind": "solid",
+    "color": "#fdf9fb"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "x-height 34 px (4.7 %) in the TH-A stacks (f72, f116); first caption \"let me tell you a\" is larger, x-height 44 px (6.1 %, size 0.119); TH-B single lines x-height 19 to 30 px (2.6 to 4.2 %, size 0.051 to 0.081). Ascender/x-height 1.31, cap/x-height 1.31 (Zalando 1.39). Tracking fit -2.6 to -7.6 % em (median -6 %); ink gap between words 0.19 to 0.25 em. Core colour #fdf9fb (slightly warm white), no stroke, no shadow, no glow (edge profile drops to background within 2 px). Footage and captions share the camera move: text scales with the push-ins."
+ },
+ {
+  "id": "base-big",
+  "role": "size-up word inside a base stack (\"Instagram\")",
+  "font": {
+   "family": "wide grotesk; likely original PP Monument Extended Regular (Pangram Pangram, paid); free match Zalando Sans SemiExpanded Bold",
+   "candidates": [
+    {
+     "name": "Zalando Sans SemiExpanded Bold (Zalando Sans wdth 112.5, wght 700)",
+     "source": "Google Fonts (families \"Zalando Sans\" with wdth 75..125, or static \"Zalando Sans SemiExpanded\"); Fontsource slug likely @fontsource-variable/zalando-sans (unverified, jsdelivr blocked)",
+     "license": "OFL",
+     "match": "best free: mean glyph IoU 0.825 over 43 glyphs from 3 frames; 0.830 word IoU on the clean end line f1764; same double-story a, single-story g, flat-foot y, flag r"
+    },
+    {
+     "name": "TikTok Sans wdth 125 wght 700",
+     "source": "bundled id tiktok-sans",
+     "license": "OFL",
+     "match": "0.824 glyph IoU; a has a bottom spur and y has no foot; best bundled option"
+    }
+   ],
+   "weight": 700,
+   "width": "semi-expanded",
+   "style": "normal"
+  },
+  "case": "as-said",
+  "capHeightPct": 7.5,
+  "xHeightPct": 5.7,
+  "trackingPct": -6.0,
+  "lineSpacing": "baseline gap from \"your\" 52.5 px, to \"DMs\" 46.5 px",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#fdf9fb"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "zalando-sans",
+   "weight": 700,
+   "stretch": 112.5,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.111,
+   "tracking": -0.06,
+   "fill": {
+    "kind": "solid",
+    "color": "#fdf9fb"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "x-height 41 px, cap I 54 px at f116; 1.21 x the stack base size; same colour and entry"
+ },
+ {
+  "id": "base-small",
+  "role": "size-down word inside a base stack (\"DMs\", \"in the\")",
+  "font": {
+   "family": "wide grotesk; likely original PP Monument Extended Regular (Pangram Pangram, paid); free match Zalando Sans SemiExpanded Bold",
+   "candidates": [
+    {
+     "name": "Zalando Sans SemiExpanded Bold (Zalando Sans wdth 112.5, wght 700)",
+     "source": "Google Fonts (families \"Zalando Sans\" with wdth 75..125, or static \"Zalando Sans SemiExpanded\"); Fontsource slug likely @fontsource-variable/zalando-sans (unverified, jsdelivr blocked)",
+     "license": "OFL",
+     "match": "best free: mean glyph IoU 0.825 over 43 glyphs from 3 frames; 0.830 word IoU on the clean end line f1764; same double-story a, single-story g, flat-foot y, flag r"
+    },
+    {
+     "name": "TikTok Sans wdth 125 wght 700",
+     "source": "bundled id tiktok-sans",
+     "license": "OFL",
+     "match": "0.824 glyph IoU; a has a bottom spur and y has no foot; best bundled option"
+    }
+   ],
+   "weight": 700,
+   "width": "semi-expanded",
+   "style": "normal"
+  },
+  "case": "as-said",
+  "capHeightPct": 5.4,
+  "xHeightPct": 4.2,
+  "trackingPct": -6.0,
+  "lineSpacing": "\"DMs\" baseline 46.5 px under \"Instagram\", right part of the block; \"in the\" sits 7 px above the x-height top of \"wrong\"",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#fdf9fb"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "zalando-sans",
+   "weight": 700,
+   "stretch": 112.5,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.081,
+   "tracking": -0.06,
+   "fill": {
+    "kind": "solid",
+    "color": "#fdf9fb"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "\"DMs\": x-height 30 px, cap D 39 px (0.88 x base). \"in the\": x-height 21 px (2.9 %, size 0.057), white, left-indented 50 px over \"wrong\"."
+ },
+ {
+  "id": "hook",
+  "role": "giant hook word behind the speaker (\"secret\")",
+  "font": {
+   "family": "wide grotesk; likely original PP Monument Extended Regular (Pangram Pangram, paid); free match Zalando Sans SemiExpanded Bold",
+   "candidates": [
+    {
+     "name": "Zalando Sans SemiExpanded Bold (Zalando Sans wdth 112.5, wght 700)",
+     "source": "Google Fonts (families \"Zalando Sans\" with wdth 75..125, or static \"Zalando Sans SemiExpanded\"); Fontsource slug likely @fontsource-variable/zalando-sans (unverified, jsdelivr blocked)",
+     "license": "OFL",
+     "match": "best free: mean glyph IoU 0.825 over 43 glyphs from 3 frames; 0.830 word IoU on the clean end line f1764; same double-story a, single-story g, flat-foot y, flag r"
+    },
+    {
+     "name": "TikTok Sans wdth 125 wght 700",
+     "source": "bundled id tiktok-sans",
+     "license": "OFL",
+     "match": "0.824 glyph IoU; a has a bottom spur and y has no foot; best bundled option"
+    }
+   ],
+   "weight": 700,
+   "width": "semi-expanded",
+   "style": "normal"
+  },
+  "case": "lower",
+  "capHeightPct": null,
+  "xHeightPct": 21.9,
+  "trackingPct": -2.2,
+  "lineSpacing": "single word",
+  "fill": {
+   "type": "linear",
+   "colors": [
+    "#fe0532",
+    "#fe1b9c",
+    "#b738fe",
+    "#48a7fe"
+   ],
+   "stops": [
+    0,
+    0.35,
+    0.68,
+    1
+   ],
+   "angleDeg": 0
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": {
+   "color": "same hue as the fill under it",
+   "blurPx": 4,
+   "opacityAtEdge": 0.35,
+   "extentPx": 8
+  },
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "zalando-sans",
+   "weight": 700,
+   "stretch": 112.5,
+   "italic": false,
+   "case": "lower",
+   "size": 0.425,
+   "tracking": -0.022,
+   "fill": {
+    "kind": "linear",
+    "colors": [
+     "#fe0532",
+     "#fe1b9c",
+     "#b738fe",
+     "#48a7fe"
+    ],
+    "stops": [
+     0,
+     0.35,
+     0.68,
+     1
+    ],
+    "angle": 0
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": {
+    "color": "#ff2a8a",
+    "blur": 0.03,
+    "strength": 0.35
+   },
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "x-height 157 px (21.9 % of frame), word 1000 px wide (78 % of frame width) at f38. Gradient left to right red #fe0532 -> pink #fe1b9c (35 %) -> violet #b738fe (68 %) -> sky blue #48a7fe; it animates during the hold (at f23 the right end is only #8770f7, by f33 #49a4ff; tilt flips between +20 and -20 deg). Faint outer glow in the letter colour, about 8 px wide (blue channel 95 -> 26 over 8 px outside the t stem). Drawn behind the person cutout."
+ },
+ {
+  "id": "emph-red",
+  "role": "emphasis word left of the head (\"wrong\")",
+  "font": {
+   "family": "wide grotesk; likely original PP Monument Extended Regular (Pangram Pangram, paid); free match Zalando Sans SemiExpanded Bold",
+   "candidates": [
+    {
+     "name": "Zalando Sans SemiExpanded Bold (Zalando Sans wdth 112.5, wght 700)",
+     "source": "Google Fonts (families \"Zalando Sans\" with wdth 75..125, or static \"Zalando Sans SemiExpanded\"); Fontsource slug likely @fontsource-variable/zalando-sans (unverified, jsdelivr blocked)",
+     "license": "OFL",
+     "match": "best free: mean glyph IoU 0.825 over 43 glyphs from 3 frames; 0.830 word IoU on the clean end line f1764; same double-story a, single-story g, flat-foot y, flag r"
+    },
+    {
+     "name": "TikTok Sans wdth 125 wght 700",
+     "source": "bundled id tiktok-sans",
+     "license": "OFL",
+     "match": "0.824 glyph IoU; a has a bottom spur and y has no foot; best bundled option"
+    }
+   ],
+   "weight": 700,
+   "width": "semi-expanded",
+   "style": "normal"
+  },
+  "case": "lower",
+  "capHeightPct": null,
+  "xHeightPct": 8.4,
+  "trackingPct": -1.0,
+  "lineSpacing": "shares the baseline with \"order\"",
+  "fill": {
+   "type": "linear",
+   "colors": [
+    "#f61f58",
+    "#fd1f8a",
+    "#ff11c7"
+   ],
+   "stops": [
+    0,
+    0.5,
+    1
+   ],
+   "angleDeg": 0
+  },
+  "stroke": {
+   "color": "#f8707e",
+   "widthPx": 2,
+   "kind": "light inner rim"
+  },
+  "shadow": null,
+  "glow": {
+   "color": "#ff1e50",
+   "blurPx": 4,
+   "extentPx": 8
+  },
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "zalando-sans",
+   "weight": 700,
+   "stretch": 112.5,
+   "italic": false,
+   "case": "lower",
+   "size": 0.163,
+   "tracking": -0.01,
+   "fill": {
+    "kind": "linear",
+    "colors": [
+     "#f61f58",
+     "#fd1f8a",
+     "#ff11c7"
+    ],
+    "stops": [
+     0,
+     0.5,
+     1
+    ],
+    "angle": 0
+   },
+   "stroke": {
+    "color": "#f8707e",
+    "width": 0.01
+   },
+   "shadow": null,
+   "glow": {
+    "color": "#ff1e50",
+    "blur": 0.04,
+    "strength": 0.4
+   },
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "x-height 60 px (8.4 %) at f160. Gradient at rest (f166) #f61f58 -> #fd1f8a -> #ff11c7; it starts almost pure red (#ff063a..#fe116c at f142) and warms to magenta over 24 frames. A 2 px light rim (#f8707e) on the letter edge and an 8 px red glow outside. With \"order\" it reads as ONE gradient spanning the line (x 129 -> 1152)."
+ },
+ {
+  "id": "emph-blue",
+  "role": "emphasis word right of the head (\"order\")",
+  "font": {
+   "family": "wide grotesk; likely original PP Monument Extended Regular (Pangram Pangram, paid); free match Zalando Sans SemiExpanded Bold",
+   "candidates": [
+    {
+     "name": "Zalando Sans SemiExpanded Bold (Zalando Sans wdth 112.5, wght 700)",
+     "source": "Google Fonts (families \"Zalando Sans\" with wdth 75..125, or static \"Zalando Sans SemiExpanded\"); Fontsource slug likely @fontsource-variable/zalando-sans (unverified, jsdelivr blocked)",
+     "license": "OFL",
+     "match": "best free: mean glyph IoU 0.825 over 43 glyphs from 3 frames; 0.830 word IoU on the clean end line f1764; same double-story a, single-story g, flat-foot y, flag r"
+    },
+    {
+     "name": "TikTok Sans wdth 125 wght 700",
+     "source": "bundled id tiktok-sans",
+     "license": "OFL",
+     "match": "0.824 glyph IoU; a has a bottom spur and y has no foot; best bundled option"
+    }
+   ],
+   "weight": 700,
+   "width": "semi-expanded",
+   "style": "normal"
+  },
+  "case": "lower",
+  "capHeightPct": null,
+  "xHeightPct": 8.5,
+  "trackingPct": -1.0,
+  "lineSpacing": "shares the baseline with \"wrong\"",
+  "fill": {
+   "type": "linear",
+   "colors": [
+    "#b436fe",
+    "#8863ff",
+    "#37b6ff"
+   ],
+   "stops": [
+    0,
+    0.6,
+    1
+   ],
+   "angleDeg": 0
+  },
+  "stroke": {
+   "color": "#c9a8ff",
+   "widthPx": 1.5,
+   "kind": "light inner rim"
+  },
+  "shadow": null,
+  "glow": {
+   "color": "#7a5cff",
+   "blurPx": 4,
+   "extentPx": 8
+  },
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "zalando-sans",
+   "weight": 700,
+   "stretch": 112.5,
+   "italic": false,
+   "case": "lower",
+   "size": 0.165,
+   "tracking": -0.01,
+   "fill": {
+    "kind": "linear",
+    "colors": [
+     "#b436fe",
+     "#8863ff",
+     "#37b6ff"
+    ],
+    "stops": [
+     0,
+     0.6,
+     1
+    ],
+    "angle": 0
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": {
+    "color": "#7a5cff",
+    "blur": 0.04,
+    "strength": 0.4
+   },
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "x-height 61 px at f160. Gradient at rest #b436fe -> #8863ff (60 %) -> #37b6ff; at entry (f150) it is pink #fe369f..#d65b9d and shifts to violet-blue by f156."
+ },
+ {
+  "id": "accent-magenta",
+  "role": "newest words in TH-B (\"convert the ones\"), magenta then swept to white",
+  "font": {
+   "family": "wide grotesk; likely original PP Monument Extended Regular (Pangram Pangram, paid); free match Zalando Sans SemiExpanded Bold",
+   "candidates": [
+    {
+     "name": "Zalando Sans SemiExpanded Bold (Zalando Sans wdth 112.5, wght 700)",
+     "source": "Google Fonts (families \"Zalando Sans\" with wdth 75..125, or static \"Zalando Sans SemiExpanded\"); Fontsource slug likely @fontsource-variable/zalando-sans (unverified, jsdelivr blocked)",
+     "license": "OFL",
+     "match": "best free: mean glyph IoU 0.825 over 43 glyphs from 3 frames; 0.830 word IoU on the clean end line f1764; same double-story a, single-story g, flat-foot y, flag r"
+    },
+    {
+     "name": "TikTok Sans wdth 125 wght 700",
+     "source": "bundled id tiktok-sans",
+     "license": "OFL",
+     "match": "0.824 glyph IoU; a has a bottom spur and y has no foot; best bundled option"
+    }
+   ],
+   "weight": 700,
+   "width": "semi-expanded",
+   "style": "normal"
+  },
+  "case": "lower",
+  "capHeightPct": null,
+  "xHeightPct": 4.2,
+  "trackingPct": -6.0,
+  "lineSpacing": "single line",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#e502f0"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal (verified)",
+  "engine": {
+   "font": "zalando-sans",
+   "weight": 700,
+   "stretch": 112.5,
+   "italic": false,
+   "case": "lower",
+   "size": 0.081,
+   "tracking": -0.06,
+   "fill": {
+    "kind": "solid",
+    "color": "#e502f0"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Opaque magenta #e502f0. Blend test at f1709: core over dark #24081c = #e402f0, over bright red plant #9d0d1a = #e903f1 (constant). Screen would give R 244 and B 241 on the red, multiply #83..., overlay #40...; so normal blend at 100 % opacity. 8 frames after the last word lands, a left-to-right colour wipe turns the words white (front moves about 30 px per frame, soft edge 120 to 150 px)."
+ },
+ {
+  "id": "accent-violet",
+  "role": "last words of the final line (\"you already have\")",
+  "font": {
+   "family": "wide grotesk; likely original PP Monument Extended Regular (Pangram Pangram, paid); free match Zalando Sans SemiExpanded Bold",
+   "candidates": [
+    {
+     "name": "Zalando Sans SemiExpanded Bold (Zalando Sans wdth 112.5, wght 700)",
+     "source": "Google Fonts (families \"Zalando Sans\" with wdth 75..125, or static \"Zalando Sans SemiExpanded\"); Fontsource slug likely @fontsource-variable/zalando-sans (unverified, jsdelivr blocked)",
+     "license": "OFL",
+     "match": "best free: mean glyph IoU 0.825 over 43 glyphs from 3 frames; 0.830 word IoU on the clean end line f1764; same double-story a, single-story g, flat-foot y, flag r"
+    },
+    {
+     "name": "TikTok Sans wdth 125 wght 700",
+     "source": "bundled id tiktok-sans",
+     "license": "OFL",
+     "match": "0.824 glyph IoU; a has a bottom spur and y has no foot; best bundled option"
+    }
+   ],
+   "weight": 700,
+   "width": "semi-expanded",
+   "style": "normal"
+  },
+  "case": "lower",
+  "capHeightPct": null,
+  "xHeightPct": 3.6,
+  "trackingPct": -6.0,
+  "lineSpacing": "appended to the same line",
+  "fill": {
+   "type": "linear",
+   "colors": [
+    "#e502f0",
+    "#c41fd8",
+    "#a600c8"
+   ],
+   "stops": [
+    0,
+    0.5,
+    1
+   ],
+   "angleDeg": 0
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "zalando-sans",
+   "weight": 700,
+   "stretch": 112.5,
+   "italic": false,
+   "case": "lower",
+   "size": 0.07,
+   "tracking": -0.06,
+   "fill": {
+    "kind": "linear",
+    "colors": [
+     "#e502f0",
+     "#c41fd8",
+     "#a600c8"
+    ],
+    "angle": 0
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Magenta to purple across the three words (samples mid-entry: #e677e6, #ce40e4, #b41aba, #b009b7); white wipe f1742 to f1756."
+ },
+ {
+  "id": "ui-statement",
+  "role": "motion-graphic statement text on the gradient scenes (\"that's nice!\", \"is it nice?\")",
+  "font": {
+   "family": "SF Pro Display Semibold (Apple system UI); free stand-in Inter 600",
+   "candidates": [
+    {
+     "name": "Inter 600",
+     "source": "bundled id inter",
+     "license": "OFL",
+     "match": "visual: same grotesk skeleton; SF has the slanted cut on t"
+    },
+    {
+     "name": "SF Pro Display",
+     "source": "Apple, licensed for Apple platforms only",
+     "license": "proprietary",
+     "match": "likely original (iOS look of every UI element)"
+    }
+   ],
+   "weight": 600,
+   "width": "normal",
+   "style": "normal"
+  },
+  "case": "as-said",
+  "capHeightPct": null,
+  "xHeightPct": 3.5,
+  "trackingPct": -1.0,
+  "lineSpacing": "single line",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#353138"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 600,
+   "stretch": null,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.064,
+   "tracking": -0.01,
+   "fill": {
+    "kind": "solid",
+    "color": "#353138"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "\"that's nice!\" x-height 25 px, ascender 34 px, centred under the DM icon, colour #353138 on #f4eef9. \"is it nice?\" same face in light grey #cfc8ca on dark red #1a0909, larger (x-height about 33 px) and zooming with the scene; \"it\" enters later and smaller (rises in)."
+ },
+ {
+  "id": "ui-typed",
+  "role": "typed sentence with a purple active word (\"could still be sitting there\", \"more conversations move forward\")",
+  "font": {
+   "family": "SF Pro Text Medium; free stand-in Inter 500",
+   "candidates": [
+    {
+     "name": "Inter 500",
+     "source": "bundled id inter",
+     "license": "OFL",
+     "match": "visual"
+    }
+   ],
+   "weight": 500,
+   "width": "normal",
+   "style": "normal"
+  },
+  "case": "lower",
+  "capHeightPct": null,
+  "xHeightPct": 3.4,
+  "trackingPct": 0.0,
+  "lineSpacing": "single line, centred",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#463c4a"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 500,
+   "stretch": null,
+   "italic": false,
+   "case": "lower",
+   "size": 0.062,
+   "tracking": 0,
+   "fill": {
+    "kind": "solid",
+    "color": "#463c4a"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "x-height 24 px (3.4 %), dark grey-violet #463c4a on pastel; each new word enters rising and fading in purple #b968cc (measured #90459b to #b968cc mid-fade) and turns grey about 8 frames later. On the yellow scene the settled words read #60472f (warmer); the background there is #f5ca55."
+ },
+ {
+  "id": "ui-label",
+  "role": "small purple label above a card (\"Qualified Lead\")",
+  "font": {
+   "family": "SF Pro Display Regular; stand-in Inter 400",
+   "candidates": [
+    {
+     "name": "Inter 400",
+     "source": "bundled id inter",
+     "license": "OFL",
+     "match": "visual"
+    }
+   ],
+   "weight": 400,
+   "width": "normal",
+   "style": "normal"
+  },
+  "case": "title",
+  "capHeightPct": null,
+  "xHeightPct": 3.6,
+  "trackingPct": 0.0,
+  "lineSpacing": "label sits 8 px above the card",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#ba54c6"
+   ],
+   "stops": null,
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 400,
+   "stretch": null,
+   "italic": false,
+   "case": "title",
+   "size": 0.068,
+   "tracking": 0,
+   "fill": {
+    "kind": "solid",
+    "color": "#ba54c6"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Pastel scene #ba54c6 (typed letter by letter, f836 to f852). Dark scene: muted #775d7b at about 45 % opacity over #130915, x-height 30 px; it zooms with the camera push to 2x."
+ }
+]

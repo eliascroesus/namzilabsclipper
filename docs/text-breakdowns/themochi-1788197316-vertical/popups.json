@@ -1,0 +1,587 @@
+[
+ {
+  "id": "organize-button",
+  "f0": 333,
+  "f1": 351,
+  "t0": 13.875,
+  "t1": 14.667,
+  "layer": "full-screen motion graphic (no footage)",
+  "transitionIn": {
+   "kind": "object wipe",
+   "frames": "f330-f332",
+   "notes": "the plush toy is thrown at the lens, fills the frame with blur, and the gradient scene cuts in at f333"
+  },
+  "background": {
+   "type": "animated mesh gradient (4 soft colour blobs that drift)",
+   "colors": {
+    "topLeft": "#C9A1CE",
+    "topRight": "#F9C595",
+    "bottomLeft": "#B13D6C",
+    "bottomRight": "#E59FAA",
+    "middle": "#CA89AB"
+   },
+   "notes": "blobs drift and pulse; in f372-f398 the lower half swells to hot pink (#F040E0 area) behind the list"
+  },
+  "shape": {
+   "kind": "rounded rectangle button",
+   "sizePx": {
+    "peak": [
+     260,
+     101
+    ],
+    "settled": [
+     201,
+     74
+    ]
+   },
+   "bboxSettled": [
+    0.357,
+    0.464,
+    0.636,
+    0.522
+   ],
+   "cornerRadiusPx": 26,
+   "fill": "#FFFFFF",
+   "border": "1 to 2 px magenta-to-violet rim on the right and bottom edge (#C13BE0 to #8E5BF0)",
+   "shadow": {
+    "color": "rgba(150,40,190,0.35)",
+    "blurPx": 18,
+    "dx": 4,
+    "dy": 8
+   },
+   "glow": "soft white outer halo about 12 px"
+  },
+  "text": {
+   "string": "Organize",
+   "font": "SF Pro Display Semibold (Inter 600 stand-in)",
+   "capHeightPx": 16,
+   "fontPx": 22,
+   "color": "#242225",
+   "highlight": "letters turn #9F2CB0 from left to right after the click (f343-f351), a colour wipe about 1 letter per frame"
+  },
+  "cursor": {
+   "kind": "arrow pointer",
+   "color": "#FA02D7",
+   "sizePx": [
+    47,
+    52
+   ],
+   "path": "first visible f337 at (665,861) entering from the lower right edge, then (562,806) f338, (504,765) f339, (471,732) f340, (450,706) f341, (438,685) f342, (431,669) f343, (426,657) f344, settles at (423,640) f346-f348: exponential ease-out, speed ratio about 0.65 per frame; dips 13 px at f349-f351 (the click)",
+   "motionBlur": "yes while fast"
+  },
+  "enter": {
+   "kind": "grow from a point + type-on",
+   "frames": 7,
+   "from": {
+    "scale": 0.03,
+    "opacity": 1,
+    "blur": 0
+   },
+   "curve": "width 6 > 132 > 195 > 228 > 246 > 257 > 259 > 260 px on f333-f340 (ease-out, no overshoot past f340)",
+   "typeOn": "letters typed one per frame f335-f339 (\"O\", \"Org\", \"Organ\", \"Organiz\", \"Organize\"), each new letter pops up from about 4 px lower",
+   "drift": "button centre slides down from y 525 to y 631 (f334-f350, ease-out)"
+  },
+  "press": {
+   "frames": "f340-f350",
+   "scale": "1.00 to 0.78 (width 260 to 201 px), ease-in-out: the click squash"
+  },
+  "exit": {
+   "kind": "morph",
+   "frames": "f352-f360",
+   "notes": "button stretches to 458 px wide and slides up to y 0.33 H with heavy motion blur, its label fades, and it becomes the header card of the list"
+  }
+ },
+ {
+  "id": "priority-inbox",
+  "f0": 356,
+  "f1": 522,
+  "t0": 14.833,
+  "t1": 21.792,
+  "layer": "full-screen motion graphic",
+  "background": {
+   "type": "animated mesh gradient (4 soft colour blobs that drift)",
+   "colors": {
+    "topLeft": "#C9A1CE",
+    "topRight": "#F9C595",
+    "bottomLeft": "#B13D6C",
+    "bottomRight": "#E59FAA",
+    "middle": "#CA89AB"
+   },
+   "notes": "blobs drift and pulse; in f372-f398 the lower half swells to hot pink (#F040E0 area) behind the list"
+  },
+  "shape": {
+   "kind": "stack: header card + 4 list rows, later 5 conversation cards",
+   "sizePx": {
+    "header": [
+     335,
+     81
+    ],
+    "row": [
+     335,
+     73
+    ],
+    "card": [
+     480,
+     120
+    ]
+   },
+   "cornerRadiusPx": {
+    "header": 20,
+    "row": 18,
+    "card": 22
+   },
+   "fill": "#FFFFFF (slight cool-to-pink vertical sheen at the bottom edge)",
+   "gapPx": 8,
+   "shadow": {
+    "color": "rgba(120,30,90,0.25)",
+    "blurPx": 24,
+    "dy": 10
+   },
+   "glow": "magenta light bar under the header (#E040F0, 120 x 6 px, blurred 8 px)"
+  },
+  "icons": "rounded-square glyph tiles 32 px, radius 8: New lead #F05FA8 (person plus), In contact #7A4CF0 (chat bubbles), Qualified #F7A23A (star), Call booked #8A6E7A (phone); chevron > at right, magenta on the selected row",
+  "text": {
+   "font": "SF Pro Text (Inter stand-in)",
+   "rows": "labels 19 px regular #1C1C1E",
+   "title": "\"Priority Inbox\" 30 px bold #7A1FA2",
+   "cards": "names 18 px semibold, preview 16 px regular #6B6B70, chips 15 px"
+  },
+  "chips": {
+   "kind": "\"Qualified\" tag",
+   "shape": "pill, radius full, 1 px #C9C9CE border, white fill, orange star icon #F5A623",
+   "later": "per-row tags pop in: Offer, Calendly link, Follow-up, Priority, Ready to buy (coloured dot or icon + label, 13 px)"
+  },
+  "avatars": "40 px grey circle with a white letter (A, M, B, D, E) and a green progress ring #34C759 drawn round it",
+  "enter": {
+   "kind": "staggered rows",
+   "stagger": "one row every 2 frames (f360, f362, f364, f366)",
+   "perRow": "a magenta gradient bar (#E020D0 to transparent, left to right) sweeps in from the left over 4 frames, then resolves into the white row and its icon; label text types in after",
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "dx": -0.15,
+    "blur": "motion blur"
+   }
+  },
+  "camera": "from f372 the whole stack is in 3D: rotateY about -12 deg, rotateX about 6 deg, slow push-in; f398-f410 header label retypes to \"Priority Inbox\", rows collapse into dots and drop out; f410-f422 five blank cards drop from the header with motion blur and fill with names; f424-f520 push-in about x1.6 with a tilt so the cards slide past the lens",
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "notes": "f522 to f523 straight cut back to the talking head"
+  }
+ },
+ {
+  "id": "dm-notifications",
+  "f0": 655,
+  "f1": 753,
+  "t0": 27.292,
+  "t1": 31.375,
+  "layer": "over the talking head, above everything (the person is not cut out here)",
+  "shape": {
+   "kind": "iOS notification banner, frosted glass",
+   "sizePx": [
+    390,
+    93
+   ],
+   "bboxSettled": [
+    0.229,
+    0.207,
+    0.771,
+    0.28
+   ],
+   "cornerRadiusPx": 26,
+   "fill": "light frosted glass: brightens the footage by about +8 levels (equivalent to rgba(115,101,114,0.15)) with a soft blur of the curtains behind",
+   "border": "1.5 px light rim, rgba(255,255,255,0.45)",
+   "shadow": "none visible"
+  },
+  "content": [
+   {
+    "f": [
+     660,
+     688
+    ],
+    "name": "Richard",
+    "text": "can you explain more about the voice note feature?",
+    "avatar": "coral radial gradient circle #FF5A4A to #E83A3A, 50 px",
+    "time": "2m"
+   },
+   {
+    "f": [
+     692,
+     718
+    ],
+    "name": "Tyler Jackson",
+    "text": "My team and I are trying to be efficient in our workflow",
+    "avatar": "violet #7B4BEF",
+    "time": "1m"
+   },
+   {
+    "f": [
+     728,
+     752
+    ],
+    "name": "Michael",
+    "text": "I'm super down send me the link",
+    "avatar": "lime #B5F25B",
+    "time": "now"
+   }
+  ],
+  "text": {
+   "font": "SF Pro Text",
+   "name": "19 px semibold white",
+   "message": "17 px regular white, typed word by word over 5 frames",
+   "time": "15 px rgba(255,255,255,0.55)"
+  },
+  "enter": {
+   "kind": "Dynamic Island style morph",
+   "frames": 6,
+   "curve": "small pill 50x25 px (f656) > 95x55 (f657) > 170x80 (f658) > 240x95 with horizontal motion blur (f659) > 340x95 (f660) > 380x95 (f662); slight overshoot then settle; avatar dot grows 4 > 50 px; text types in by word"
+  },
+  "exit": {
+   "kind": "collapse back to a pill that rises and vanishes",
+   "frames": 4,
+   "notes": "f688-f691 and f719-f723; the next banner grows out of the same pill"
+  },
+  "transitionOut": "white flash f754-f756 (frame brightens to about 80 % white, then cuts to the pink room)"
+ },
+ {
+  "id": "voice-note-pill",
+  "f0": 1038,
+  "f1": 1073,
+  "t0": 43.25,
+  "t1": 44.75,
+  "layer": "over the talking head",
+  "shape": {
+   "kind": "glass panel with live audio waveform",
+   "sizePx": [
+    356,
+    144
+   ],
+   "bboxSettled": [
+    0.25,
+    0.155,
+    0.744,
+    0.267
+   ],
+   "cornerRadiusPx": 32,
+   "fill": "barely tinted glass over the footage",
+   "border": "2 px rgba(255,255,255,0.75) rim",
+   "waveform": "about 26 white bars, 7 px wide on a 12 px pitch, rounded caps, heights 6 to 82 px, pink-white glow about 6 px; heights change every frame like a live meter, the middle collapses to dots during pauses"
+  },
+  "enter": {
+   "kind": "pop and stretch",
+   "frames": 4,
+   "curve": "outlined capsule about 16x26 px at f1038, about 60 % width at f1040, full 356x144 at f1042; bars rise from the centre line"
+  },
+  "exit": {
+   "kind": "white flash",
+   "frames": 3,
+   "notes": "f1074-f1076 frame fades to about 70 % white and cuts to the purple title card"
+  }
+ },
+ {
+  "id": "business-side-title",
+  "f0": 1076,
+  "f1": 1126,
+  "kind": "title card text (see styles.json title-glow and captions.json id 15)",
+  "background": {
+   "type": "linear gradient, slowly drifting",
+   "colors": [
+    "#742483",
+    "#823677",
+    "#8A2D62"
+   ],
+   "angleDeg": 20
+  },
+  "transitionOut": "white cards wipe in from the right and bottom with motion blur over f1124-f1132"
+ },
+ {
+  "id": "stats-dashboard",
+  "f0": 1126,
+  "f1": 1280,
+  "t0": 46.917,
+  "t1": 53.333,
+  "layer": "full-screen motion graphic",
+  "background": {
+   "type": "animated mesh gradient (4 soft colour blobs that drift)",
+   "colors": {
+    "topLeft": "#C9A1CE",
+    "topRight": "#F9C595",
+    "bottomLeft": "#B13D6C",
+    "bottomRight": "#E59FAA",
+    "middle": "#CA89AB"
+   },
+   "notes": "blobs drift and pulse; in f372-f398 the lower half swells to hot pink (#F040E0 area) behind the list"
+  },
+  "shape": {
+   "kind": "grid of white stat cards",
+   "sizePx": {
+    "statCard": [
+     150,
+     110
+    ],
+    "smallCard": [
+     95,
+     75
+    ],
+    "wideCard": [
+     310,
+     85
+    ],
+    "chartCard": [
+     310,
+     190
+    ]
+   },
+   "cornerRadiusPx": 16,
+   "fill": "#FFFFFF",
+   "shadow": {
+    "color": "rgba(110,30,80,0.22)",
+    "blurPx": 20,
+    "dy": 8
+   }
+  },
+  "content": "Total Messages Sent 857 (497 outreach, 360 inbound), Total Replies Received 753, Follow-ups Sent 382, Links Sent 20, Booked Calls 4, Setter Replies 68 % / 11m, Active hours bar chart; icons are 22 px rounded squares (violet, teal, red, orange, blue)",
+  "enter": {
+   "kind": "cards fly in",
+   "frames": 10,
+   "notes": "f1126-f1136 large blurred white slabs sweep in from right and bottom (motion blur about 60 px) and lock into the grid"
+  },
+  "counters": {
+   "kind": "count-up",
+   "frames": 29,
+   "curve": "857: 25 (f1138), 532 (f1144), 630 (f1147), 708 (f1150), 768 (f1153), 811 (f1156), 839 (f1159), 854 (f1162), 857 (f1165): cubic ease-out from about f1136"
+  },
+  "bars": "chart bars grow from the baseline over about 12 frames, staggered 1 to 2 frames left to right",
+  "camera": "f1187-f1280 3D camera: zoom to about x1.6 on the Setter Replies card, tilt rotateX about 15 deg, then pull back and re-tilt; fast whip moves with motion blur at f1215 and f1246"
+ },
+ {
+  "id": "member-performance",
+  "f0": 1280,
+  "f1": 1316,
+  "layer": "full-screen motion graphic",
+  "shape": {
+   "kind": "table card in 3D perspective",
+   "cornerRadiusPx": 16,
+   "fill": "#FFFFFF"
+  },
+  "text": "\"Member Performance\" title in #D02BC0 18 px semibold, column headers grey; \"Overall Reply Rate\" 49 > 62 %",
+  "enter": {
+   "kind": "cards rise in 3D from below, staggered 3 frames",
+   "frames": 12
+  },
+  "camera": "tilted (rotateX about 25 deg) and pushes toward the table"
+ },
+ {
+  "id": "script-performance",
+  "f0": 1316,
+  "f1": 1412,
+  "layer": "full-screen motion graphic",
+  "shape": {
+   "kind": "button pill + stacked script cards",
+   "cornerRadiusPx": {
+    "button": 20,
+    "card": 14
+   },
+   "fill": "#FFFFFF"
+  },
+  "text": "button \"Script Performance\" 16 px semibold; cards: quoted opener text 15 px, \"81% reply rate\", \"Used 37 times\", status chips Good (#D6F5DD fill, #2E9E4F text) and Bad (#FBD5D5 fill, #D93B3B text)",
+  "cursor": {
+   "color": "#FA02D7",
+   "notes": "cursor clicks the button at f1352; button label goes magenta like Organize"
+  },
+  "enter": {
+   "kind": "button morph into a list",
+   "frames": 14,
+   "notes": "same morph language as the Organize button: the pill stretches, drops blurred card placeholders downward (f1372-f1380), cards fill in and the list scrolls up fast with motion blur (f1396-f1412)"
+  }
+ },
+ {
+  "id": "video-grid",
+  "f0": 1416,
+  "f1": 1526,
+  "layer": "full-screen motion graphic",
+  "shape": {
+   "kind": "phone-shaped video cards (Reels)",
+   "sizePx": {
+    "card": [
+     105,
+     185
+    ]
+   },
+   "cornerRadiusPx": 12,
+   "fill": "video thumbnails"
+  },
+  "glow": "purple radial glow behind the centre card (#A020F0, radius about 120 px, 60 % opacity)",
+  "text": "stats under the centre card: \"New leads 21 / In contact 11 / Qualified 6\", 13 px, Qualified in #F5A623",
+  "enter": {
+   "kind": "carousel slides left, centre card scales up about x1.25",
+   "frames": 6
+  },
+  "camera": "f1460-f1526 pulls back to a wall of about 30 cards in 3D (rotateY about -20 deg) drifting left; ends with a white flash f1526"
+ },
+ {
+  "id": "app-icon-integrations",
+  "f0": 1556,
+  "f1": 1640,
+  "layer": "full-screen motion graphic",
+  "transitionIn": "white flash f1555-f1558",
+  "shape": {
+   "kind": "iOS app icon (white rounded square, mascot)",
+   "sizePx": {
+    "f1560": 263,
+    "f1564": 211,
+    "f1568": 182,
+    "f1576": 150,
+    "f1590": 130,
+    "f1602": 91
+   },
+   "cornerRadiusPct": 22,
+   "fill": "#FFFFFF with a soft lavender inner shadow",
+   "shadow": {
+    "color": "rgba(120,60,140,0.25)",
+    "blurPx": 16,
+    "dy": 6
+   }
+  },
+  "enter": {
+   "kind": "zoom down from big",
+   "frames": 30,
+   "curve": "263 > 211 > 182 > 150 > 142 px (f1560-f1580): exponential ease-out, about -6.5 % per frame at first"
+  },
+  "then": "f1590-f1602 icon slides left to x 0.22 W while shrinking to 91 px; a small \"x\" and the Claude logo (orange starburst #E0743A, 34 px) pop in to its right; f1620-f1640 Claude rolls up and out while ChatGPT (black logo + wordmark, 22 px semibold) rolls up into its place (vertical slot-machine swap, 5 frames, motion blur)"
+ },
+ {
+  "id": "chat-prompt-and-answer",
+  "f0": 1640,
+  "f1": 1772,
+  "layer": "full-screen motion graphic",
+  "background": {
+   "type": "dark mesh gradient",
+   "colors": [
+    "#1E5A4A",
+    "#2A3A8A",
+    "#5A2A6A",
+    "#C0307A"
+   ]
+  },
+  "shape": {
+   "kind": "dark chat composer bar",
+   "sizePx": [
+    440,
+    70
+   ],
+   "cornerRadiusPx": 18,
+   "fill": "rgba(30,30,32,0.85)",
+   "border": "1 px rgba(255,255,255,0.12)"
+  },
+  "text": "prompt \"what are the biggest objections in the last 2 weeks?\" (51 characters) types in f1658-f1669, about 4 to 5 characters per frame, white 15 px; composer shows a model chip \"Fable 5 High\" and an orange #F26B3A send button 28 px with 8 px radius; after the send the answer paragraph streams in about one line every 1.5 to 2 frames (5 lines at f1708, 14 at f1726) in white 15 px with a slight blur-in, while the block scrolls up",
+  "cursor": {
+   "color": "#FA02D7",
+   "path": "cursor 85x93 px (scene zoomed about x2) moves from (424,702) at f1690 to (414,633) at f1696 and clicks the send button"
+  },
+  "exit": {
+   "kind": "blur-out and vertical streak",
+   "frames": 6,
+   "notes": "f1768-f1772 paragraph smears vertically (directional blur) and the scene changes to the light gradient"
+  }
+ },
+ {
+  "id": "zapier-flow",
+  "f0": 1772,
+  "f1": 1840,
+  "layer": "full-screen motion graphic",
+  "shape": {
+   "kind": "3D-rendered app icons joined by dashed elbow connectors",
+   "sizePx": {
+    "icon": [
+     56,
+     56
+    ]
+   },
+   "connector": "white dashed line about 2 px, dash about 6 px, right-angle elbows"
+  },
+  "content": "Mochi icon > Google Sheets > Gmail > Google Calendar > Slack, Zapier starburst (#FF4F00) appears above",
+  "enter": {
+   "kind": "chain builds icon by icon",
+   "stagger": "about 4 frames per icon (Mochi f1752, Sheets about f1756, Gmail about f1760, Calendar about f1764, Slack f1767)",
+   "perIcon": "pops from about 40 % to slightly over full size in 2 frames, then settles; the dashed connector draws to it first",
+   "camera": "pans right along the chain, whips back left at f1772-f1774 with motion blur to reveal the whole chain and the Zapier starburst, then drifts down-left and pulls back to about 0.6 x by f1836"
+  },
+  "camera": "slow pull-back; whole flow shrinks to about 0.55 x by f1836"
+ },
+ {
+  "id": "qualified-leads-notification",
+  "f0": 1844,
+  "f1": 1910,
+  "layer": "full-screen motion graphic",
+  "shape": {
+   "kind": "notification banner, dark rosy glass",
+   "sizePx": [
+    600,
+    119
+   ],
+   "bboxSettled": [
+    0.076,
+    0.445,
+    0.91,
+    0.537
+   ],
+   "note": "size at f1897 while the camera is pushed in",
+   "cornerRadiusPx": 28,
+   "fill": "darkens the pink background to 75 % (equivalent to rgba(110,62,66,0.40))",
+   "border": "none visible"
+  },
+  "text": "\"Qualified Leads Waiting\" semibold white (cap height about 18 px at f1897), \"4 leads haven't received a reply yet.\" regular white at about 80 %, \"now\" top right; Mochi app icon 70 px with 16 px radius at left",
+  "enter": {
+   "kind": "same Dynamic Island morph as the DM banners",
+   "frames": 6
+  },
+  "cursor": {
+   "color": "#FA02D7",
+   "path": "(570,730) at f1870 drifting to (529,647) at f1906, slow ease-out; size 38x43 px"
+  },
+  "exit": {
+   "kind": "white flash then cut",
+   "frames": 3,
+   "notes": "f1908-f1910 to the final talking head"
+  },
+  "camera": "slow push-in on the banner from f1850 to f1906 (text rises from y 625 to y 603 between f1885 and f1897)"
+ },
+ {
+  "id": "phone-screen-recordings",
+  "f0": 797,
+  "f1": 1032,
+  "kind": "real footage inserts (hands holding an orange iPhone showing the app), not graphics",
+  "ranges": [
+   [
+    797,
+    857
+   ],
+   [
+    883,
+    917
+   ],
+   [
+    965,
+    1032
+   ]
+  ],
+  "notes": "no captions over them; hard cuts in and out"
+ },
+ {
+  "id": "plush-toy",
+  "ranges": [
+   [
+    234,
+    330
+   ],
+   [
+    1977,
+    2194
+   ]
+  ],
+  "kind": "physical Mochi plush toy in shot",
+  "notes": "it is thrown at the lens for the f330-f333 transition; in the final segment it sits in his lap, below the caption block (never overlaps the text)"
+ }
+]

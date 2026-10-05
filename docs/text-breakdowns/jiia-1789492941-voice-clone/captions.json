@@ -1,0 +1,927 @@
+[
+ {
+  "id": 1,
+  "t0": 0.167,
+  "t1": 1.126,
+  "f0": 4,
+  "f1": 27,
+  "lines": [
+   {
+    "text": "Mochi",
+    "words": [
+     {
+      "text": "Mochi",
+      "style": "stack_white",
+      "xHeightPx": 42,
+      "size": 0.1091,
+      "in": 4,
+      "settled": 10
+     }
+    ]
+   },
+   {
+    "text": "has been",
+    "words": [
+     {
+      "text": "has",
+      "style": "stack_white",
+      "xHeightPx": 37.5,
+      "size": 0.0974,
+      "in": 10,
+      "settled": 20
+     },
+     {
+      "text": "been",
+      "style": "stack_white",
+      "xHeightPx": 37.5,
+      "size": 0.0974,
+      "in": 18,
+      "settled": 24
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.213,
+   0.416,
+   0.502,
+   0.585
+  ],
+  "head": [
+   0.555,
+   0.142,
+   0.739,
+   0.56
+  ],
+  "layer": "front",
+  "layerEvidence": "never overlaps the person (head x 0.555..0.739); no occlusion to observe",
+  "enter": {
+   "kind": "rise + fade + blur, per word, on the footage layer",
+   "frames": 9,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": "2 to 8 px on the first 1 to 2 frames, gone by +3 frames",
+    "dx": 0,
+    "dy": "+14 to +19 px below rest (about 2.5 % of frame height; 0.18 to 0.42 em)"
+   },
+   "stagger": "word by word: Mochi f4, has f10, been f18 (6 and 8 frames)",
+   "easing": "ease-out between quadratic and cubic over 8 to 11 frames (into: dy 1, 0.76, 0.49, 0.33, 0.17, 0.07, 0.03, 0.02, 0 of 18.9 px); opacity near-linear 0 -> 1 over the same frames; no overshoot, scale stays 1.00"
+  },
+  "exit": {
+   "kind": "fade",
+   "frames": 3,
+   "from": {
+    "opacity": 1.0
+   },
+   "curve": "f25 1.00, f26 0.72, f27 0.52, f28 0",
+   "easing": "linear",
+   "note": "coincides with the edit zoom-out into \"first\""
+  },
+  "spokenAt": "Mochi 0.08 s (f2); has 0.80 s ASR (envelope onset about 0.64 s); been 1.04 s ASR (onset about 0.94 s). Words start 4 to 11 frames before their ASR onset and settle 0 to 4 frames before it.",
+  "notes": "Layout: Mochi line x 272..515, \"has been\" indented +63 px (x 335..640), line centres step right 94 px. Baselines y 364 and 419. Text is attached to the footage: after undoing the camera zoom (frame scales 0.868 over f0..f17) the word x stays 393..394 and scale 1.00 +- 0.01."
+ },
+ {
+  "id": 2,
+  "t0": 1.126,
+  "t1": 1.877,
+  "f0": 27,
+  "f1": 45,
+  "lines": [
+   {
+    "text": "first",
+    "words": [
+     {
+      "text": "first",
+      "style": "giant_gradient",
+      "xHeightPx": 240,
+      "size": 0.6236
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.115,
+   0.181,
+   0.878,
+   0.628
+  ],
+  "head": [
+   0.47,
+   0.198,
+   0.598,
+   0.514
+  ],
+  "layer": "behind",
+  "layerEvidence": "f30..f44: the person cutout covers x 495..846 of the word (15.8 % of its area): r and the left half of s are hidden behind the head, the raised hand covers the bottom of s. Soft 2 to 4 px edge following the hair, recomputed every frame, no outline or glow on the cutout.",
+  "enter": {
+   "kind": "vertical stretch from the baseline (scaleY only, width constant), spring overshoot",
+   "frames": 11,
+   "from": {
+    "scale": "scaleY 0.05 (x 1.0)",
+    "opacity": 1.0,
+    "blur": "vertical motion blur on f28..f29",
+    "dx": 0,
+    "dy": 0
+   },
+   "curve": "stabilised height / rest: f27 0.05, f28 0.20, f29 1.03, f30 1.17, f31 1.18, f32 1.12, f33 1.07, f34 1.04, f35 1.03, f36 1.02, f37 1.01, f38 1.00",
+   "anchor": "baseline (y 451 constant)",
+   "stagger": null,
+   "easing": "fast rise in 2 frames then damped spring: +18 % peak at +4 frames, settled at +11"
+  },
+  "exit": {
+   "kind": "vertical squash to the baseline",
+   "frames": 6,
+   "curve": "f40 1.00, f41 0.985, f42 0.944, f43 0.868, f44 0.722, f45 0.415, f46 0",
+   "easing": "ease-in cubic (matches 1 - u^3 within 2 %)"
+  },
+  "spokenAt": "\"the\" 1.20 s, \"first\" onset about 1.24 s (ASR 1.44). Stretch starts f27 (1.13 s), full height f29 (1.21 s), peak f31: lands on the word onset.",
+  "notes": "Sparkles: concave 4-point stars, pale pink #FFD6E4 with a soft pink edge, 10 to 35 px, 2 to 5 visible at once, each spinning about 8 deg per frame while drifting and shrinking out over 6 to 8 frames, drawn in front of the word (f30..f40). Gradient animates (see styles giant_gradient). Rides the edit zoom f23..f36 (frame scale 0.72) about anchor (375, 226)."
+ },
+ {
+  "id": 3,
+  "t0": 1.96,
+  "t1": 3.545,
+  "f0": 47,
+  "f1": 85,
+  "lines": [
+   {
+    "text": "only tool",
+    "words": [
+     {
+      "text": "only",
+      "style": "mid_gradient",
+      "xHeightPx": 86,
+      "size": 0.2235,
+      "in": 47
+     },
+     {
+      "text": "tool",
+      "style": "mid_gradient",
+      "xHeightPx": 86,
+      "size": 0.2235,
+      "in": 58
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.119,
+   0.393,
+   0.889,
+   0.596
+  ],
+  "head": [
+   0.473,
+   0.175,
+   0.605,
+   0.487
+  ],
+  "layer": "front",
+  "layerEvidence": "only ends x 500, tool starts x 825, head x 574..783: no overlap at any frame, so the layer is not observable",
+  "enter": {
+   "kind": "vertical stretch from the baseline, per word (same as first)",
+   "frames": 11,
+   "from": {
+    "scale": "scaleY 0.05",
+    "opacity": 1.0,
+    "blur": "vertical motion blur 2 frames",
+    "dx": 0,
+    "dy": 0
+   },
+   "curve": "only: f47 0.05, f48 0.20, f49 1.03, f50 1.19, f51 1.20, f52 1.19, f53 1.14, f54 1.11, f56 1.08, f58 1.05, f60 1.04, f62 1.02, f66 1.01, f70 1.00; tool: f58 0.01, f59 0.17, f60 0.94, f62 1.15, f64 1.10, f66 1.04, f68 1.01, f70 1.00",
+   "stagger": "11 frames (only f47, tool f58)",
+   "easing": "spring, +15 to +20 % overshoot at +4 frames"
+  },
+  "exit": {
+   "kind": "drop + fade + blur (both words together)",
+   "frames": 8,
+   "from": {
+    "opacity": 1.0,
+    "dy": 0
+   },
+   "curve": "dy (px, stabilised) f78 +0.3, f79 +3, f80 +7, f81 +15, f82 +25, f83 +40, f84 +57, f85 +76; opacity f80 1.0, f81 0.83, f82 0.66, f83 0.49, f84 0.30, f85 0.12, f86 0; blur 1, 1, 1, 2, 3, 4 px",
+   "easing": "ease-in (accelerating fall)"
+  },
+  "spokenAt": "only: onset about 2.00 s (ASR 2.08) -> stretch f47 1.96 s; tool: onset about 2.58 s (ASR 2.56) -> f58 2.42 s (6 frames early).",
+  "notes": "One gradient spans the whole line (see styles mid_gradient). Each word's ramp also sweeps after entry: only is solid red for 8 frames, pink arrives from the right f57..f70; tool starts pink and turns violet-blue f61..f66."
+ },
+ {
+  "id": 4,
+  "t0": 3.629,
+  "t1": 5.214,
+  "f0": 87,
+  "f1": 125,
+  "lines": [
+   {
+    "text": "type something",
+    "words": [
+     {
+      "text": "type",
+      "style": "typed_white"
+     },
+     {
+      "text": "something",
+      "style": "typed_white"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.197,
+   0.409,
+   0.486,
+   0.479
+  ],
+  "head": [
+   0.527,
+   0.084,
+   0.708,
+   0.507
+  ],
+  "layer": "front",
+  "layerEvidence": "text ends x 620, head starts x 673",
+  "enter": {
+   "kind": "typewriter, whole characters, no caret, no per-letter fade",
+   "frames": 19,
+   "from": {
+    "scale": 1.0,
+    "opacity": 1.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "curve": "f87 t, f89 ty, f90 typ, f91 type, f94 type s, f96 type so, f97 type som, f99 type some, f100 type somet, f101 type someth, f103 type somethi, f104 type somethin, f106 type something",
+   "rate": "14 characters in 19 frames = 17.7 characters per second (0.74 per frame; holds of 1 frame are frame-rate rounding)",
+   "stagger": null,
+   "easing": "linear"
+  },
+  "exit": {
+   "kind": "whole-frame whip blur (horizontal motion blur, about 40 px) into the next shot",
+   "frames": 4,
+   "curve": "f122 gain 0.77, f123..f126 smeared and fading",
+   "easing": "in"
+  },
+  "spokenAt": "typing starts on \"allow\" (3.60 s), finishes f106 (4.42 s) as \"type\" is spoken (4.32 s); \"something\" at 4.72 s is already on screen.",
+  "notes": "Rides the edit punch-in f80..f88 (frame scale 1.31 about anchor (89, 359)) and a 62 px pan left f104..f112: the text keeps its place on the footage."
+ },
+ {
+  "id": 5,
+  "t0": 5.339,
+  "t1": 6.423,
+  "f0": 128,
+  "f1": 154,
+  "lines": [
+   {
+    "text": "and",
+    "words": [
+     {
+      "text": "and",
+      "style": "stack_white_small",
+      "xHeightPx": 26,
+      "size": 0.0676,
+      "in": 128
+     }
+    ]
+   },
+   {
+    "text": "transform",
+    "words": [
+     {
+      "text": "transform",
+      "style": "stack_white",
+      "xHeightPx": 35,
+      "size": 0.0909,
+      "in": 128,
+      "settled": 139
+     }
+    ]
+   },
+   {
+    "text": "it into",
+    "words": [
+     {
+      "text": "it",
+      "style": "stack_white_small",
+      "xHeightPx": 24,
+      "size": 0.0624,
+      "in": 131,
+      "settled": 141
+     },
+     {
+      "text": "into",
+      "style": "stack_white",
+      "xHeightPx": 40,
+      "size": 0.1039,
+      "in": 138,
+      "settled": 146
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.499,
+   0.393,
+   0.794,
+   0.582
+  ],
+  "head": [
+   0.274,
+   0.113,
+   0.451,
+   0.504
+  ],
+  "layer": "front",
+  "layerEvidence": "block x 637..1013, head x 349..632 during the event",
+  "enter": {
+   "kind": "rise + fade + blur, per word, on the footage layer",
+   "frames": 9,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": "2 to 8 px on the first 1 to 2 frames, gone by +3 frames",
+    "dx": 0,
+    "dy": "+14 to +19 px below rest (about 2.5 % of frame height; 0.18 to 0.42 em)"
+   },
+   "stagger": "and + transform arrive with the whip transition f124..f129; it f131; into f138",
+   "easing": "ease-out between quadratic and cubic over 8 to 11 frames (into: dy 1, 0.76, 0.49, 0.33, 0.17, 0.07, 0.03, 0.02, 0 of 18.9 px); opacity near-linear 0 -> 1 over the same frames; no overshoot, scale stays 1.00",
+   "curve": "it: dy +19.1, +14.9, +11.4, +7.6, +6.3, +4.2, +3.3, +2.4, +1.4, +1.3, +0.2 (f131..f141), opacity 0.03, 0.15, 0.35, 0.50, 0.66, 0.71, 0.81, 0.87, 0.92, 0.95, 0.99; into: dy +18.9, +14.4, +9.3, +6.3, +3.2, +1.3, +0.6, +0.4, 0 (f138..f146), opacity 0.02, 0.18, 0.40, 0.58, 0.70, 0.87, 0.91, 0.96, 1.0"
+  },
+  "exit": {
+   "kind": "carried out by the edit zoom-out (frame scale 0.725 over f143..f164) then cut by the stretch-in of \"voice\"; text gains blur 2 to 8 px f150..f156",
+   "frames": 6
+  },
+  "spokenAt": "and 4.96 s, trans- 5.14 s, it about 5.77 s (ASR 5.92), into about 6.10 s (ASR 6.22). it starts f131 and settles f141 (ASR onset f142); into starts f138 and settles f146 (ASR f149).",
+  "notes": "Cascade layout: and x 666..753 (baseline 315), transform x 637..993 (baseline 360), it x 828..855 + into x 869..1013 (baseline 417). Line centres step right 106 then 105 px. Lines interlock: ascenders of transform reach the baseline of \"and\"."
+ },
+ {
+  "id": 6,
+  "t0": 6.548,
+  "t1": 7.382,
+  "f0": 157,
+  "f1": 177,
+  "lines": [
+   {
+    "text": "voice",
+    "words": [
+     {
+      "text": "voice",
+      "style": "giant_gradient",
+      "xHeightPx": 200,
+      "size": 0.5197
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.097,
+   0.162,
+   0.878,
+   0.536
+  ],
+  "head": [
+   0.426,
+   0.194,
+   0.553,
+   0.492
+  ],
+  "layer": "behind",
+  "layerEvidence": "f159..f176: the head covers the i stem and parts of o and c (x 385..772, 21.6 % of the word area); the i dot (64 x 34 px visible) sits on top of the hair line. Soft hair edge, tracks every frame.",
+  "enter": {
+   "kind": "vertical stretch from the baseline, spring overshoot",
+   "frames": 12,
+   "from": {
+    "scale": "scaleY 0.05",
+    "opacity": 1.0,
+    "blur": "vertical motion blur 2 frames",
+    "dx": 0,
+    "dy": 0
+   },
+   "curve": "f157 0.05, f158 0.17, f159 1.04, f160 1.19, f161 1.21, f162 1.16, f163 1.11, f164 1.08, f165 1.06, f166 1.04, f167 1.03, f168 1.02, f169 1.01, f170 1.00",
+   "anchor": "baseline y 385",
+   "easing": "spring, +21 % at +4 frames"
+  },
+  "exit": {
+   "kind": "vertical squash to the baseline",
+   "frames": 6,
+   "curve": "f172 1.00, f173 0.98, f174 0.94, f175 0.67, f176 0.55, f177 0.33, f178 0",
+   "easing": "ease-in"
+  },
+  "spokenAt": "\"a\" 6.48 s, \"voice\" onset about 6.67 s (ASR 6.72): stretch starts f157 (6.55 s), peak f161 (6.71 s).",
+  "notes": "Sparkles as on \"first\". Gradient left edge swings pink #FA0B58 (f159) -> red #FE000A (f167) -> pink #FE0948 (f175)."
+ },
+ {
+  "id": 7,
+  "t0": 9.968,
+  "t1": 11.887,
+  "f0": 239,
+  "f1": 285,
+  "lines": [
+   {
+    "text": "now",
+    "words": [
+     {
+      "text": "now",
+      "style": "stack_white",
+      "xHeightPx": 35,
+      "size": 0.0909,
+      "in": 239,
+      "settled": 247
+     }
+    ]
+   },
+   {
+    "text": "it gets",
+    "words": [
+     {
+      "text": "it",
+      "style": "stack_white_small",
+      "xHeightPx": 25,
+      "size": 0.065,
+      "in": 244,
+      "settled": 248
+     },
+     {
+      "text": "gets",
+      "style": "stack_white",
+      "xHeightPx": 40,
+      "size": 0.1039,
+      "in": 246,
+      "settled": 256
+     }
+    ]
+   },
+   {
+    "text": "even",
+    "words": [
+     {
+      "text": "even",
+      "style": "stack_white",
+      "xHeightPx": 30,
+      "size": 0.078,
+      "in": 259,
+      "settled": 268
+     }
+    ]
+   },
+   {
+    "text": "better",
+    "words": [
+     {
+      "text": "better",
+      "style": "stack_white",
+      "xHeightPx": 50,
+      "size": 0.1299,
+      "in": 267,
+      "settled": 270
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.219,
+   0.316,
+   0.526,
+   0.571
+  ],
+  "head": [
+   0.554,
+   0.149,
+   0.73,
+   0.552
+  ],
+  "layer": "front",
+  "layerEvidence": "block ends x 671, head starts x 691..719",
+  "enter": {
+   "kind": "rise + fade + blur, per word, on the footage layer",
+   "frames": 9,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": "2 to 8 px on the first 1 to 2 frames, gone by +3 frames",
+    "dx": 0,
+    "dy": "+14 to +19 px below rest (about 2.5 % of frame height; 0.18 to 0.42 em)"
+   },
+   "stagger": "now f239, it f244, gets f246, even f259, better f267",
+   "easing": "ease-out between quadratic and cubic over 8 to 11 frames (into: dy 1, 0.76, 0.49, 0.33, 0.17, 0.07, 0.03, 0.02, 0 of 18.9 px); opacity near-linear 0 -> 1 over the same frames; no overshoot, scale stays 1.00",
+   "curve": "now: dy +10.8, +7.9, +5.5, +4.4, +3.5, +1.5, +1.5, +0.5 (f239..f246), opacity 0.42, 0.59, 0.69, 0.77, 0.82, 0.89, 0.93, 0.98; gets: dy +12.7 (blur 8), +11.3 (blur 5), +7.4, +5.4, +3.5, +2.5, +1.7, +1.7, +0.8 (f246..f254); even: +17.3 (blur 8), +13.3, +7.8, +5.8, +3.8, +2.8, +1.9, +0.9 (f259..f266)"
+  },
+  "exit": {
+   "kind": "fade + blur (4 frames) while the edit zooms out",
+   "frames": 4,
+   "curve": "opacity f281 0.98, f282 0.84, f283 0.64, f284 0.45, f285 0",
+   "easing": "linear"
+  },
+  "spokenAt": "now 10.00 s (f240), it 10.32, gets 10.56 (f253), even 10.88 (f261), better 11.12 (f267): words start 0 to 7 frames before the ASR onset.",
+  "notes": "Four lines, five sizes: now 35, it 25, gets 40, even 30, better 50 px x-height. Line left edges 291 / 280 / 389 / 357, centres 360 / 393 / 454 / 514 (cascade to the right). Baselines 262, 308, 346, 409 (gaps 46, 38, 63 px)."
+ },
+ {
+  "id": 8,
+  "t0": 12.012,
+  "t1": 16.433,
+  "f0": 288,
+  "f1": 394,
+  "lines": [
+   {
+    "text": "Introducing",
+    "words": [
+     {
+      "text": "Introducing",
+      "style": "intro_label"
+     }
+    ]
+   },
+   {
+    "text": "VOICE CLONE 2.0",
+    "words": [
+     {
+      "text": "VOICE",
+      "style": "product_caps"
+     },
+     {
+      "text": "CLONE",
+      "style": "product_caps"
+     },
+     {
+      "text": "2.0",
+      "style": "product_caps"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.317,
+   0.454,
+   0.639,
+   0.556
+  ],
+  "head": [
+   0.475,
+   0.192,
+   0.612,
+   0.467
+  ],
+  "layer": "front",
+  "layerEvidence": "VOICE CLONE 2.0 x 404..816 y 363..399 overlaps the shirt and stays on top; from f322 the orb rises from the bottom over the person and the text stays on top of the orb",
+  "enter": {
+   "kind": "Introducing: letter type-on with collapsing letter spacing; VOICE / CLONE / 2.0: per-word 3D swing-in (rotateY about 70 deg -> 0 with perspective, about 5 frames, 3 to 4 frame stagger); both in magenta, then a left-to-right sweep to white",
+   "frames": 18,
+   "from": {
+    "scale": 1.0,
+    "opacity": 1.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "curve": "Introducing: f290 \"I n t\", f292 \"I n t r o\", f294 \"I n t r o d\", f296 \"I n t r o d u c\", f300 \"Introducing\" (spaced), f302 tight; VOICE swings in f292..f298, CLONE f296..f302, 2.0 f300..f306; magenta #C040E0 -> pink -> white sweep left to right f300..f318; a glowing magenta square rides the right end of the text",
+   "stagger": "about 0.8 characters per frame",
+   "easing": "linear"
+  },
+  "exit": {
+   "kind": "the entry played backwards, right to left: 2.0 swings out first (f395), CLONE f396..f398, VOICE f399..f400, each rotating away about its vertical axis and turning pink-magenta; Introducing spreads its letter spacing and fades (f397..f401); meanwhile the orb ring has wiped to the purple scene (f386..f395)",
+   "frames": 7
+  },
+  "spokenAt": "Introducing 11.76 s (f282), Voice 12.40 (f297), Clones 12.72 (f305), 2.0 13.36 (f320)",
+  "notes": "Decor: a magenta dashed selection rectangle (2 px dashes, about 10 px long) draws from the head to the right f295..f312, glowing magenta diamonds (rotated squares, 10 to 16 px with 12 px bloom) at its corners and at the text ends. Orb: see popups.json."
+ },
+ {
+  "id": 9,
+  "t0": 17.684,
+  "t1": 24.9,
+  "f0": 424,
+  "f1": 597,
+  "lines": [
+   {
+    "text": "This is a voice clone. Isn't that crazy?",
+    "words": [
+     {
+      "text": "This",
+      "style": "ui_transcript"
+     },
+     {
+      "text": "is",
+      "style": "ui_transcript"
+     },
+     {
+      "text": "a",
+      "style": "ui_transcript"
+     },
+     {
+      "text": "voice",
+      "style": "ui_transcript"
+     },
+     {
+      "text": "clone.",
+      "style": "ui_transcript"
+     },
+     {
+      "text": "Isn't",
+      "style": "ui_transcript"
+     },
+     {
+      "text": "that",
+      "style": "ui_transcript"
+     },
+     {
+      "text": "crazy?",
+      "style": "ui_transcript"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.395,
+   0.779,
+   0.608,
+   0.83
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "word fade-in as spoken inside a fixed window; the line scrolls left like a ticker with both ends faded",
+   "frames": 4,
+   "from": {
+    "opacity": 0,
+    "dx": 0,
+    "dy": 0,
+    "blur": 0,
+    "scale": 1
+   },
+   "stagger": "per spoken word",
+   "easing": "linear",
+   "scroll": "eased bursts as each word arrives: 10 to 15 px per frame right after a word, easing to 2 to 4 px per frame (average 5.5 px per frame = 130 px per second); window about 270 px wide (x 505 to 775) with about 60 px alpha ramps at both ends"
+  },
+  "exit": {
+   "kind": "fade",
+   "frames": 6
+  },
+  "spokenAt": "This 17.60 s, voice 18.08, clone 18.40, crazy 19.52; repeated 22.08..24.64 under the settings panel",
+  "notes": "Cap height 23 px, x-height 17 px (Inter size 0.044). Sits 40 px under the waveform. Repeats twice (f424..f478, f530..f597)."
+ },
+ {
+  "id": 10,
+  "t0": 35.452,
+  "t1": 39.248,
+  "f0": 850,
+  "f1": 941,
+  "lines": [
+   {
+    "text": "What do you sell?",
+    "words": [
+     {
+      "text": "What",
+      "style": "ui_transcript"
+     },
+     {
+      "text": "do",
+      "style": "ui_transcript"
+     },
+     {
+      "text": "you",
+      "style": "ui_transcript"
+     },
+     {
+      "text": "sell?",
+      "style": "ui_transcript"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.404,
+   0.73,
+   0.593,
+   0.767
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "word by word fade-in, centred line (centre x 638)",
+   "frames": 3,
+   "from": {
+    "opacity": 0,
+    "blur": 0,
+    "scale": 1,
+    "dx": 0,
+    "dy": 0
+   },
+   "curve": "What f850 (brightness 132, 163, 183, 198 over f850..f853), do f854, you f857, sell? f860; one word per 3.3 frames",
+   "stagger": "3 to 4 frames per word",
+   "easing": "out"
+  },
+  "exit": {
+   "kind": "slides left with the circle reveal (x 497 at f924, 234 at f936) while words fade out right to left: What do you > What do > What, gone f941",
+   "frames": 17
+  },
+  "spokenAt": "UI text (the app asking), not tied to the voice-over; it appears during \"And start talking naturally\" (35.50 s) and the speaker answers \"What do I sell?\" at 38.70 s",
+  "notes": "Inter Medium white, cap 21 to 22 px (inter 0.042), sits 40 px under the orb."
+ },
+ {
+  "id": 11,
+  "t0": 39.498,
+  "t1": 42.793,
+  "f0": 947,
+  "f1": 1026,
+  "lines": [
+   {
+    "text": "Building your voice clone",
+    "words": [
+     {
+      "text": "Building",
+      "style": "ui_transcript"
+     },
+     {
+      "text": "your",
+      "style": "ui_transcript"
+     },
+     {
+      "text": "voice",
+      "style": "ui_transcript"
+     },
+     {
+      "text": "clone",
+      "style": "ui_transcript"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.128,
+   0.728,
+   0.389,
+   0.769
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "word by word fade-in, left aligned at x 163, above the progress bar",
+   "frames": 3,
+   "from": {
+    "opacity": 0,
+    "blur": 0,
+    "scale": 1,
+    "dx": 0,
+    "dy": 0
+   },
+   "curve": "Building f947, your f950, voice f954, clone f957 (each brightens over 3 frames); one word per 3.3 frames",
+   "stagger": "3 to 4 frames per word",
+   "easing": "out"
+  },
+  "exit": {
+   "kind": "slides left out of frame with the scene (f1020..f1030), blurring",
+   "frames": 10
+  },
+  "spokenAt": "UI status text during \"What do I sell? That's a good question\" (38.70..39.98 s), not word-synced",
+  "notes": "Same style as event 12; the progress pill sits 30 px below."
+ },
+ {
+  "id": 12,
+  "t0": 43.085,
+  "t1": 46.296,
+  "f0": 1033,
+  "f1": 1110,
+  "lines": [
+   {
+    "text": "So whenever your team needs to send a personal voice note",
+    "words": [
+     {
+      "text": "So",
+      "style": "kinetic_line"
+     },
+     {
+      "text": "whenever",
+      "style": "kinetic_line"
+     },
+     {
+      "text": "your",
+      "style": "kinetic_line"
+     },
+     {
+      "text": "team",
+      "style": "kinetic_line"
+     },
+     {
+      "text": "needs",
+      "style": "kinetic_line"
+     },
+     {
+      "text": "to",
+      "style": "kinetic_line"
+     },
+     {
+      "text": "send",
+      "style": "kinetic_line"
+     },
+     {
+      "text": "a",
+      "style": "kinetic_line"
+     },
+     {
+      "text": "personal",
+      "style": "accent_glow"
+     },
+     {
+      "text": "voice",
+      "style": "kinetic_line"
+     },
+     {
+      "text": "note",
+      "style": "kinetic_line"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.0,
+   0.444,
+   0.951,
+   0.556
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "character type-on with a trailing brightness ramp; line rises and drifts left",
+   "frames": 22,
+   "curve": "typing front x: 577 (f1034), 669, 700, 744, 788, 829, 874, 904, 945, 948, 973, 995, 1062, 1095, 1116, 1133, 1173 (f1050) = 36 px per frame = about 1.45 characters per frame (35 per second). The bright front lags the faint front by 150 to 200 px (about 5 frames). Line top y 354 -> 320 over f1034..f1045 (rise 34 px, ease-out). Left edge drifts 518 -> 467 over f1034..f1048 (3 to 4 px per frame), then accelerates into the whip.",
+   "colourRamp": "new characters dim magenta #571E66 (about 30 % opacity), then #882C95, full magenta #C850D1 after about 5 frames, pink-lavender #DB79E2 after about 12 frames, white #FCF1FF after the whip",
+   "from": {
+    "opacity": 0.3,
+    "blur": "1 to 2 px",
+    "scale": 1,
+    "dx": 0,
+    "dy": "+34 px for the whole line"
+   },
+   "stagger": "per character, 35 per second",
+   "easing": "linear typing, ease-out colour"
+  },
+  "exit": {
+   "kind": "whip pan left f1055..f1063 (horizontal motion blur 150 px or more, the line slides about 600 px left), lands on \"...team needs to send a personal voice note\" at f1064..f1068; slow push-in f1068..f1100 (text grows about 15 %); vertical whip up f1104..f1110; empty background f1112",
+   "frames": 9
+  },
+  "spokenAt": "So 42.86 s, whenever 43.10, your 43.50, team 43.66, needs 43.98, to 44.22, send 44.30, a 44.54, personal 44.62, voice 44.94, note 45.18. Typing runs 4 to 10 frames ahead of the voice; the whip lands as \"personal\" is said.",
+  "notes": "x-height 25.5 px, cap about 35 px (Inter size 0.065). \"personal\" switches to accent_glow (gradient + bloom) from f1064."
+ },
+ {
+  "id": 13,
+  "t0": 58.475,
+  "t1": 61.812,
+  "f0": 1402,
+  "f1": 1482,
+  "lines": [
+   {
+    "text": "Making every conversation feel personal",
+    "words": [
+     {
+      "text": "Making",
+      "style": "tagline"
+     },
+     {
+      "text": "every",
+      "style": "tagline"
+     },
+     {
+      "text": "conversation",
+      "style": "tagline"
+     },
+     {
+      "text": "feel",
+      "style": "tagline"
+     },
+     {
+      "text": "personal",
+      "style": "accent_glow"
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.253,
+   0.481,
+   0.752,
+   0.54
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "word by word reveal in purple, whole line settles from about 130 % scale to 100 % while drifting right into the centre, colour purple -> white",
+   "frames": 40,
+   "curve": "words: Making f1402, every f1408, conversation f1412, feel f1418, personal f1424. Line left edge 163 (f1402), 208 (f1408), 249 (f1416), 276 (f1424), 294 (f1432), 312 (f1444), 323 (f1468). Cap height 37 px (f1404) -> 31 (f1418) -> 28 (f1430) -> 26 (rest). Mean colour #7B2582 (f1402) -> #A83EAC (f1406) -> #D79BDC (f1422) -> #F5E8F9 (f1438).",
+   "from": {
+    "opacity": 0.5,
+    "blur": 0,
+    "scale": 1.32,
+    "dx": "-160 px",
+    "dy": "+8 px"
+   },
+   "stagger": "4 to 6 frames per word",
+   "easing": "out (slow settle over 1.6 s)"
+  },
+  "exit": {
+   "kind": "fade",
+   "frames": 6,
+   "curve": "f1476 1.0, f1478 0.6, f1480 0.3, f1482 0"
+  },
+  "spokenAt": "Making 58.44 s (f1401), every 58.92, conversation 59.32, feel 60.04, personal 60.44 (f1449). Reveal runs ahead of speech; the accent on \"personal\" (gradient + glow) switches on at f1446..f1450, on its spoken onset.",
+  "notes": "Final line x 323..959 (centre 0.502), baseline y 383 (0.533)."
+ }
+]

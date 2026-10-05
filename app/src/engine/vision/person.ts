@@ -144,6 +144,18 @@ export class PersonMasker {
    * canvas at the working size whose opacity is the person; draw it over the frame's size.
    */
   mask(draw: (ctx: OffscreenCanvasRenderingContext2D, w: number, h: number) => void, w: number, h: number, t: number): OffscreenCanvas {
+    const { data: raw, width: mw, height: mh } = this.plane(draw, w, h, t);
+    const out = this.octx.createImageData(mw, mh);
+    for (let i = 0; i < raw.length; i++) {
+      out.data[i * 4] = out.data[i * 4 + 1] = out.data[i * 4 + 2] = 255;
+      out.data[i * 4 + 3] = Math.round(raw[i] * 255);
+    }
+    this.octx.putImageData(out, 0, 0);
+    return this.out;
+  }
+
+  /** The same, as values 0 to 1 at the working size (for measuring, not drawing). */
+  plane(draw: (ctx: OffscreenCanvasRenderingContext2D, w: number, h: number) => void, w: number, h: number, t: number): { data: Float32Array; width: number; height: number } {
     const [mw, mh] = maskSize(w, h);
     if (this.work.width !== mw || this.work.height !== mh) {
       this.work.width = this.out.width = mw;
@@ -170,13 +182,7 @@ export class PersonMasker {
       if (diff / (guide.length / 7) < 0.08) for (let i = 0; i < raw.length; i++) raw[i] = 0.6 * raw[i] + 0.4 * prev.mask[i];
     }
     this.last = { t, guide, mask: raw, w: mw, h: mh };
-    const out = this.octx.createImageData(mw, mh);
-    for (let i = 0; i < raw.length; i++) {
-      out.data[i * 4] = out.data[i * 4 + 1] = out.data[i * 4 + 2] = 255;
-      out.data[i * 4 + 3] = Math.round(raw[i] * 255);
-    }
-    this.octx.putImageData(out, 0, 0);
-    return this.out;
+    return { data: raw, width: mw, height: mh };
   }
 
   /** Forget the last frame (a new render, or a jump). */

@@ -4,7 +4,7 @@
  * are shares of the frame (0 to 1), times are seconds.
  */
 import type { TextMotion } from "../engine/text/motion";
-import type { TextStyle } from "../engine/text/style";
+import type { Fill, TextStyle } from "../engine/text/style";
 
 export type FontFamily = "sans" | "condensed" | "tall" | "serif";
 
@@ -30,9 +30,25 @@ export interface StylePick {
    * which words: the caption's key word (the longest, least common one), its last word,
    * its first, a number, or the words the user marked
    */
-  rule: "keyword" | "last" | "first" | "number" | "marked";
-  /** at most this share of captions get one (0 to 1) */
+  rule: "keyword" | "last" | "first" | "number" | "marked" | "stopword" | "line2";
+  /** at most this share of captions get one (0 to 1); the small words (stopword) and the second line (line2) take every word they cover */
   share: number;
+}
+
+/** How the word being said looks (karaoke): another colour, outline, glow or weight, a pop, a box behind it. */
+export interface SpokenLook {
+  fill?: Fill;
+  stroke?: TextStyle["stroke"];
+  glow?: TextStyle["glow"];
+  weight?: number;
+  /** grows to this much of its size while said (1.15: to 115%) */
+  scale?: number;
+  /** a box behind it (a pill that moves word to word); pad and radius in font sizes */
+  box?: { color: string; pad: number; radius: number };
+  /** the colour sweeps across the word as it's said (karaoke's fill), rather than all at once */
+  sweep?: boolean;
+  /** said words keep the look (filled up to the word being said) rather than only the one being said */
+  hold?: boolean;
 }
 
 /**
@@ -46,8 +62,11 @@ export interface TextDesign {
   /** the styles, the first the base every other word is in */
   styles: TextStyle[];
   picks: StylePick[];
-  /** each line one size (the base's), or each word its own style's size, lines stacked as a block */
-  layout: "lines" | "stack";
+  /**
+   * each line one size (the base's); each word its own style's size, lines stacked as a
+   * block; or a line's words spread across the place's width (round the speaker)
+   */
+  layout: "lines" | "stack" | "spread";
   /** baseline to baseline, in font sizes (of the bigger line) */
   leading: number;
   /** most words on a line, and lines in a caption */
@@ -62,6 +81,41 @@ export interface TextDesign {
   exit: TextMotion | null;
   /** how a word in another style than the base comes on (as `enter` when unset) */
   accentEnter?: TextMotion;
+  /** other looks a share of the captions take (a big word alone in the middle, words spread round the speaker) */
+  alts?: DesignAlt[];
+  /** the word being said, and words not said yet (shown when a caption comes on whole) */
+  spoken?: SpokenLook;
+  upcoming?: { fill?: Fill; opacity?: number };
+  /** each line sized to fill its place's width (half to three times its style's size) */
+  fit?: boolean;
+  /** each line of a caption set in by this much (font sizes of the base), line by line in turn: a staircase */
+  indents?: number[];
+  /** captions ride the footage's zoom (set in the picture, not over it) */
+  ride?: boolean;
+}
+
+/**
+ * Another look for some of a design's captions: set in their own places and layout,
+ * shorter, behind the speaker or not, every word in one style when given.
+ */
+export interface DesignAlt {
+  /** which captions: those with the strongest key word, a marked word or a number, or every so many in turn */
+  rule: "keyword" | "marked" | "number" | "turn";
+  /** at most this share of captions (0 to 1) */
+  share: number;
+  /** every word in this style (unset: the design's picks as usual) */
+  style?: string;
+  /** the word that chose the look (its strongest, marked, number) in this style instead */
+  keyStyle?: string;
+  /** how its words come on (the design's way when unset) */
+  enter?: TextMotion;
+  layout?: TextDesign["layout"];
+  /** most words on a line, and lines (a longer caption gives up the part round its key word) */
+  words?: number;
+  lines?: number;
+  places?: CaptionPlace[];
+  behind?: boolean;
+  fit?: boolean;
 }
 
 export interface CaptionLook {
@@ -232,6 +286,8 @@ export interface PlanWord {
   style?: string;
   /** the user marked it (for a style picked by marks) */
   mark?: boolean;
+  /** it opens a sentence (so its capital is only there for that) */
+  opens?: boolean;
 }
 
 export interface CaptionPage {
@@ -241,6 +297,10 @@ export interface CaptionPage {
   /** with a design: which of its places it sits in, and whether it's behind the speaker */
   place?: number;
   behind?: boolean;
+  /** which of the design's other looks it takes (unset: the design's own) */
+  alt?: number;
+  /** the speaker's face as the caption comes on (centre and size, 0 to 1 of the frame), for it to keep clear of */
+  face?: { x: number; y: number; w: number; h: number };
 }
 
 export interface PlanCard {

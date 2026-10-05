@@ -1,0 +1,1012 @@
+[
+ {
+  "id": "stack_white",
+  "role": "base caption: white lowercase words stacked beside the head (Mochi / has been, and / transform / it into, now / it gets / even / better)",
+  "font": {
+   "family": "neo-grotesk Extended Bold; likely GT America Extended Bold or Helvetica Now Display Extended Bold (paid). Evidence: flat-topped t, single-storey g with open tail, double-storey a without spur, horizontal cuts on c/e/s terminals, straight-tailed y, pointed v/w, square i dot (74 x 60 px on \"first\"), near-circular o.",
+   "candidates": [
+    {
+     "name": "Mona Sans, wdth 125 (Expanded), wght 700",
+     "source": "Google Fonts; npm @fontsource-variable/mona-sans",
+     "license": "OFL-1.1",
+     "match": "best free: mean glyph IoU 0.852 on 10 giant letters, word IoU 0.77 to 0.89 at tracking -0.02 em"
+    },
+    {
+     "name": "Hubot Sans, wdth 112.5, wght 700",
+     "source": "Google Fonts; @fontsource-variable/hubot-sans",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.846 (more geometric c/e)"
+    },
+    {
+     "name": "Funnel Display 800",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.836, v too narrow"
+    },
+    {
+     "name": "Zalando Sans SemiExpanded 700",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.834"
+    },
+    {
+     "name": "Montserrat 700",
+     "source": "bundled: montserrat",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.827, wrong t and e terminals"
+    },
+    {
+     "name": "Archivo wdth 112.5 wght 800",
+     "source": "bundled: archivo",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.825, c and e too closed"
+    },
+    {
+     "name": "TikTok Sans wdth 125 wght 700",
+     "source": "bundled: tiktok-sans",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.818, needs tracking -0.06 em, y tail curved (video: straight)"
+    },
+    {
+     "name": "Inter Display 800",
+     "source": "bundled: inter",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.802, too narrow (needs 115 to 120 % width)"
+    }
+   ],
+   "weight": 700,
+   "width": "extended (renders at about 118 % of Inter Display width)",
+   "style": "upright"
+  },
+  "case": "as-said (lowercase; proper noun Mochi capitalised)",
+  "capHeightPct": 7.94,
+  "xHeightPct": 5.85,
+  "trackingPct": -2.0,
+  "lineSpacing": "0.78 to 1.0 on the larger line cap height (engine leading), baselines 38 to 64 px apart; lines nearly touch",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#F9F8FF"
+   ],
+   "stops": [
+    0
+   ],
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "x": 2,
+   "y": 3,
+   "blur": 5,
+   "color": "#000000",
+   "opacity": 0.35,
+   "evidence": "clean-plate difference on bright background: -29 levels at 2 to 3 px below, -14 at right, 0 above and left"
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "mona-sans",
+   "weight": 700,
+   "stretch": 125,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.1091,
+   "tracking": -0.02,
+   "fill": {
+    "kind": "solid",
+    "color": "#F9F8FF"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.35)",
+    "blur": 0.06,
+    "x": 0.025,
+    "y": 0.04
+   },
+   "glow": null,
+   "box": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Every word has its own size (x-height 24 to 50 px = engine size 0.062 to 0.130). Content words big, function words small: Mochi 42 px x-height, has/been 37.5, and 26, transform 35, it 24, into 40, now 35, it 25, gets 40, even 30, better 50. Fallback bundled font: tiktok-sans stretch 125 weight 700 tracking -0.06."
+ },
+ {
+  "id": "stack_white_small",
+  "role": "small connector words inside the stack (and, it, has)",
+  "font": {
+   "family": "neo-grotesk Extended Bold; likely GT America Extended Bold or Helvetica Now Display Extended Bold (paid). Evidence: flat-topped t, single-storey g with open tail, double-storey a without spur, horizontal cuts on c/e/s terminals, straight-tailed y, pointed v/w, square i dot (74 x 60 px on \"first\"), near-circular o.",
+   "candidates": [
+    {
+     "name": "Mona Sans, wdth 125 (Expanded), wght 700",
+     "source": "Google Fonts; npm @fontsource-variable/mona-sans",
+     "license": "OFL-1.1",
+     "match": "best free: mean glyph IoU 0.852 on 10 giant letters, word IoU 0.77 to 0.89 at tracking -0.02 em"
+    },
+    {
+     "name": "Hubot Sans, wdth 112.5, wght 700",
+     "source": "Google Fonts; @fontsource-variable/hubot-sans",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.846 (more geometric c/e)"
+    },
+    {
+     "name": "Funnel Display 800",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.836, v too narrow"
+    },
+    {
+     "name": "Zalando Sans SemiExpanded 700",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.834"
+    },
+    {
+     "name": "Montserrat 700",
+     "source": "bundled: montserrat",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.827, wrong t and e terminals"
+    },
+    {
+     "name": "Archivo wdth 112.5 wght 800",
+     "source": "bundled: archivo",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.825, c and e too closed"
+    },
+    {
+     "name": "TikTok Sans wdth 125 wght 700",
+     "source": "bundled: tiktok-sans",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.818, needs tracking -0.06 em, y tail curved (video: straight)"
+    },
+    {
+     "name": "Inter Display 800",
+     "source": "bundled: inter",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.802, too narrow (needs 115 to 120 % width)"
+    }
+   ],
+   "weight": 700,
+   "width": "extended",
+   "style": "upright"
+  },
+  "case": "lower",
+  "capHeightPct": null,
+  "xHeightPct": 3.48,
+  "trackingPct": -2.0,
+  "lineSpacing": "as stack_white",
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#F9F8FF"
+   ],
+   "stops": [
+    0
+   ],
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "x": 2,
+   "y": 3,
+   "blur": 5,
+   "color": "#000000",
+   "opacity": 0.35
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "mona-sans",
+   "weight": 700,
+   "stretch": 125,
+   "italic": false,
+   "case": "lower",
+   "size": 0.065,
+   "tracking": -0.02,
+   "fill": {
+    "kind": "solid",
+    "color": "#F9F8FF"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.35)",
+    "blur": 0.1,
+    "x": 0.04,
+    "y": 0.06
+   },
+   "glow": null,
+   "box": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Same style as stack_white at 0.6 x its size. Our picks cannot choose \"short function word\"; see breakdown section 9."
+ },
+ {
+  "id": "giant_gradient",
+  "role": "giant hook word set BEHIND the speaker (first, voice)",
+  "font": {
+   "family": "neo-grotesk Extended Bold; likely GT America Extended Bold or Helvetica Now Display Extended Bold (paid). Evidence: flat-topped t, single-storey g with open tail, double-storey a without spur, horizontal cuts on c/e/s terminals, straight-tailed y, pointed v/w, square i dot (74 x 60 px on \"first\"), near-circular o.",
+   "candidates": [
+    {
+     "name": "Mona Sans, wdth 125 (Expanded), wght 700",
+     "source": "Google Fonts; npm @fontsource-variable/mona-sans",
+     "license": "OFL-1.1",
+     "match": "best free: mean glyph IoU 0.852 on 10 giant letters, word IoU 0.77 to 0.89 at tracking -0.02 em"
+    },
+    {
+     "name": "Hubot Sans, wdth 112.5, wght 700",
+     "source": "Google Fonts; @fontsource-variable/hubot-sans",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.846 (more geometric c/e)"
+    },
+    {
+     "name": "Funnel Display 800",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.836, v too narrow"
+    },
+    {
+     "name": "Zalando Sans SemiExpanded 700",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.834"
+    },
+    {
+     "name": "Montserrat 700",
+     "source": "bundled: montserrat",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.827, wrong t and e terminals"
+    },
+    {
+     "name": "Archivo wdth 112.5 wght 800",
+     "source": "bundled: archivo",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.825, c and e too closed"
+    },
+    {
+     "name": "TikTok Sans wdth 125 wght 700",
+     "source": "bundled: tiktok-sans",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.818, needs tracking -0.06 em, y tail curved (video: straight)"
+    },
+    {
+     "name": "Inter Display 800",
+     "source": "bundled: inter",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.802, too narrow (needs 115 to 120 % width)"
+    }
+   ],
+   "weight": 700,
+   "width": "extended",
+   "style": "upright"
+  },
+  "case": "lower",
+  "capHeightPct": null,
+  "xHeightPct": 33.43,
+  "trackingPct": -2.0,
+  "lineSpacing": null,
+  "fill": {
+   "type": "linear",
+   "colors": [
+    "#FF0018",
+    "#FF14A6",
+    "#FE2A96",
+    "#BE36FC",
+    "#6688FF"
+   ],
+   "stops": [
+    0.0,
+    0.28,
+    0.52,
+    0.66,
+    1.0
+   ],
+   "angleDeg": 3,
+   "span": "the whole line: x 0.11 to 0.88 of the frame width (first 146..1122 px, voice 124..1128 px, only..tool 152..1134 px)",
+   "animated": "yes: the ramp slides about 10 % of the span back and forth while the word is on screen (e.g. left edge of \"first\" goes #FC0016 at f35 to #FE1062 at f43; \"only\" is solid red f49 to f55, pink sweeps in from the right f57 to f70; \"tool\" starts pink #FE3799 at f61 and settles violet-blue by f66)"
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": {
+   "type": "outer glow tinted by position: red #FF0A2D on the left half, blue #2040FF on the right half",
+   "blurPx": 3,
+   "spreadPx": 0,
+   "profile": "opacity 0.36 at the edge, 0.26 at 1.5 to 3 px, 0.13 at 3 to 5 px, 0.05 at 5 to 8 px, 0 beyond 12 px",
+   "opacity": 0.36
+  },
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "mona-sans",
+   "weight": 700,
+   "stretch": 125,
+   "italic": false,
+   "case": "lower",
+   "size": 0.6236,
+   "tracking": -0.02,
+   "fill": {
+    "kind": "linear",
+    "colors": [
+     "#FF0018",
+     "#FF14A6",
+     "#FF2A98",
+     "#BE36FC",
+     "#6688FF"
+    ],
+    "stops": [
+     0,
+     0.28,
+     0.52,
+     0.66,
+     1
+    ],
+    "angle": 0
+   },
+   "fillSpan": "line",
+   "stroke": null,
+   "shadow": null,
+   "glow": {
+    "color": "#FF1A60",
+    "blur": 0.012,
+    "strength": 0.4
+   },
+   "box": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "x-height 240 px on \"first\" (33 % of frame height, size 0.62), 200 px on \"voice\" (size 0.52). The word spans 76 to 79 % of the frame width, so in our engine set place width 0.8 and let the line shrink-to-fit rule size it. Square i dot 74 x 60 px. 4-point white-pink sparkles pop around it (see captions.json)."
+ },
+ {
+  "id": "mid_gradient",
+  "role": "emphasis pair flanking the head on one line (only ... tool)",
+  "font": {
+   "family": "neo-grotesk Extended Bold; likely GT America Extended Bold or Helvetica Now Display Extended Bold (paid). Evidence: flat-topped t, single-storey g with open tail, double-storey a without spur, horizontal cuts on c/e/s terminals, straight-tailed y, pointed v/w, square i dot (74 x 60 px on \"first\"), near-circular o.",
+   "candidates": [
+    {
+     "name": "Mona Sans, wdth 125 (Expanded), wght 700",
+     "source": "Google Fonts; npm @fontsource-variable/mona-sans",
+     "license": "OFL-1.1",
+     "match": "best free: mean glyph IoU 0.852 on 10 giant letters, word IoU 0.77 to 0.89 at tracking -0.02 em"
+    },
+    {
+     "name": "Hubot Sans, wdth 112.5, wght 700",
+     "source": "Google Fonts; @fontsource-variable/hubot-sans",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.846 (more geometric c/e)"
+    },
+    {
+     "name": "Funnel Display 800",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.836, v too narrow"
+    },
+    {
+     "name": "Zalando Sans SemiExpanded 700",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.834"
+    },
+    {
+     "name": "Montserrat 700",
+     "source": "bundled: montserrat",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.827, wrong t and e terminals"
+    },
+    {
+     "name": "Archivo wdth 112.5 wght 800",
+     "source": "bundled: archivo",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.825, c and e too closed"
+    },
+    {
+     "name": "TikTok Sans wdth 125 wght 700",
+     "source": "bundled: tiktok-sans",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.818, needs tracking -0.06 em, y tail curved (video: straight)"
+    },
+    {
+     "name": "Inter Display 800",
+     "source": "bundled: inter",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.802, too narrow (needs 115 to 120 % width)"
+    }
+   ],
+   "weight": 700,
+   "width": "extended",
+   "style": "upright"
+  },
+  "case": "lower",
+  "capHeightPct": null,
+  "xHeightPct": 11.98,
+  "trackingPct": -1.0,
+  "lineSpacing": null,
+  "fill": {
+   "type": "linear",
+   "colors": [
+    "#FF0018",
+    "#FF14A6",
+    "#FE2A96",
+    "#BE36FC",
+    "#6688FF"
+   ],
+   "stops": [
+    0.0,
+    0.28,
+    0.52,
+    0.66,
+    1.0
+   ],
+   "angleDeg": 3,
+   "span": "the whole line: x 0.11 to 0.88 of the frame width (first 146..1122 px, voice 124..1128 px, only..tool 152..1134 px)",
+   "animated": "yes: the ramp slides about 10 % of the span back and forth while the word is on screen (e.g. left edge of \"first\" goes #FC0016 at f35 to #FE1062 at f43; \"only\" is solid red f49 to f55, pink sweeps in from the right f57 to f70; \"tool\" starts pink #FE3799 at f61 and settles violet-blue by f66)",
+   "note": "one ramp across both words: only #FD1F61 -> #FD2186 -> #FD1AA4, tool #AF3AFC -> #8765FE -> #5E8DFD -> #44A5FF (f74)"
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": {
+   "type": "outer glow tinted by position: red #FF0A2D on the left half, blue #2040FF on the right half",
+   "blurPx": 3,
+   "spreadPx": 0,
+   "profile": "opacity 0.36 at the edge, 0.26 at 1.5 to 3 px, 0.13 at 3 to 5 px, 0.05 at 5 to 8 px, 0 beyond 12 px",
+   "opacity": 0.36
+  },
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "mona-sans",
+   "weight": 700,
+   "stretch": 125,
+   "italic": false,
+   "case": "lower",
+   "size": 0.2235,
+   "tracking": -0.01,
+   "fill": {
+    "kind": "linear",
+    "colors": [
+     "#FF1F5E",
+     "#FF1AA4",
+     "#AF3AFC",
+     "#44A5FF"
+    ],
+    "stops": [
+     0,
+     0.36,
+     0.69,
+     1
+    ],
+    "angle": 0
+   },
+   "fillSpan": "line",
+   "stroke": null,
+   "shadow": null,
+   "glow": {
+    "color": "#FF1A60",
+    "blur": 0.02,
+    "strength": 0.4
+   },
+   "box": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "The two words sit at the ends of one line with the head in the 325 px gap between them (only x 152..500, tool x 826..1134, baseline y 398)."
+ },
+ {
+  "id": "typed_white",
+  "role": "typed line beside the face (type something)",
+  "font": {
+   "family": "neo-grotesk Extended Bold; likely GT America Extended Bold or Helvetica Now Display Extended Bold (paid). Evidence: flat-topped t, single-storey g with open tail, double-storey a without spur, horizontal cuts on c/e/s terminals, straight-tailed y, pointed v/w, square i dot (74 x 60 px on \"first\"), near-circular o.",
+   "candidates": [
+    {
+     "name": "Mona Sans, wdth 125 (Expanded), wght 700",
+     "source": "Google Fonts; npm @fontsource-variable/mona-sans",
+     "license": "OFL-1.1",
+     "match": "best free: mean glyph IoU 0.852 on 10 giant letters, word IoU 0.77 to 0.89 at tracking -0.02 em"
+    },
+    {
+     "name": "Hubot Sans, wdth 112.5, wght 700",
+     "source": "Google Fonts; @fontsource-variable/hubot-sans",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.846 (more geometric c/e)"
+    },
+    {
+     "name": "Funnel Display 800",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.836, v too narrow"
+    },
+    {
+     "name": "Zalando Sans SemiExpanded 700",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.834"
+    },
+    {
+     "name": "Montserrat 700",
+     "source": "bundled: montserrat",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.827, wrong t and e terminals"
+    },
+    {
+     "name": "Archivo wdth 112.5 wght 800",
+     "source": "bundled: archivo",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.825, c and e too closed"
+    },
+    {
+     "name": "TikTok Sans wdth 125 wght 700",
+     "source": "bundled: tiktok-sans",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.818, needs tracking -0.06 em, y tail curved (video: straight)"
+    },
+    {
+     "name": "Inter Display 800",
+     "source": "bundled: inter",
+     "license": "OFL-1.1",
+     "match": "glyph IoU 0.802, too narrow (needs 115 to 120 % width)"
+    }
+   ],
+   "weight": 700,
+   "width": "extended",
+   "style": "upright"
+  },
+  "case": "lower",
+  "capHeightPct": null,
+  "xHeightPct": 3.48,
+  "trackingPct": -2.0,
+  "lineSpacing": null,
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#F9F8FF"
+   ],
+   "stops": [
+    0
+   ],
+   "angleDeg": null
+  },
+  "stroke": null,
+  "shadow": {
+   "x": 2,
+   "y": 3,
+   "blur": 5,
+   "color": "#000000",
+   "opacity": 0.35
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "mona-sans",
+   "weight": 700,
+   "stretch": 125,
+   "italic": false,
+   "case": "lower",
+   "size": 0.065,
+   "tracking": -0.02,
+   "fill": {
+    "kind": "solid",
+    "color": "#F9F8FF"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.35)",
+    "blur": 0.1,
+    "x": 0.04,
+    "y": 0.06
+   },
+   "glow": null,
+   "box": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "No caret. Characters appear whole, no per-letter fade."
+ },
+ {
+  "id": "intro_label",
+  "role": "small label above the product name (Introducing)",
+  "font": {
+   "family": "neo-grotesk Text SemiBold, normal width (SF Pro Display Semibold or Inter SemiBold)",
+   "candidates": [
+    {
+     "name": "Inter 600",
+     "source": "bundled: inter",
+     "license": "OFL-1.1",
+     "match": "shape match by eye; x/cap 0.73 measured vs 0.75 Inter"
+    }
+   ],
+   "weight": 600,
+   "width": "normal",
+   "style": "upright"
+  },
+  "case": "title",
+  "capHeightPct": 3.06,
+  "xHeightPct": 2.23,
+  "trackingPct": 0,
+  "lineSpacing": null,
+  "fill": {
+   "type": "animated solid",
+   "colors": [
+    "#E040E0",
+    "#FFFFFF"
+   ],
+   "stops": [
+    0,
+    1
+   ],
+   "angleDeg": 0,
+   "note": "letters arrive magenta and turn white in a left-to-right sweep (still magenta on \"ing\" at f316)"
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": {
+   "color": "#E040E0",
+   "blurPx": 6,
+   "opacity": 0.5,
+   "note": "while magenta only"
+  },
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 600,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.0421,
+   "tracking": 0,
+   "fill": {
+    "kind": "solid",
+    "color": "#FFFFFF"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "box": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Typed letter by letter (about 0.8 per frame) with collapsing letter spacing: each new letter lands about 2 x its normal gap to the right and the gaps close within 2 to 4 frames (f289 to f302)."
+ },
+ {
+  "id": "product_caps",
+  "role": "product name in heavy extended caps (VOICE CLONE 2.0 over the orb, and the end logo)",
+  "font": {
+   "family": "neo-grotesk Extended Black/Heavy caps (same family as the captions, heaviest weight)",
+   "candidates": [
+    {
+     "name": "Mona Sans wdth 125 wght 900",
+     "source": "@fontsource-variable/mona-sans",
+     "license": "OFL-1.1",
+     "match": "word IoU 0.77 on blurred f1392; closest letter shapes"
+    },
+    {
+     "name": "Unbounded 900",
+     "source": "bundled: unbounded",
+     "license": "OFL-1.1",
+     "match": "word IoU 0.83 but rounder C and E; wrong family"
+    },
+    {
+     "name": "Zalando Sans SemiExpanded 800",
+     "source": "Google Fonts",
+     "license": "OFL-1.1",
+     "match": "word IoU 0.81"
+    }
+   ],
+   "weight": 900,
+   "width": "extended",
+   "style": "upright"
+  },
+  "case": "upper",
+  "capHeightPct": 5.01,
+  "xHeightPct": null,
+  "trackingPct": -4.0,
+  "lineSpacing": null,
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#FFFFFF"
+   ],
+   "stops": [
+    0
+   ],
+   "angleDeg": null,
+   "note": "each word arrives magenta (#E040E0) swinging in from about 70 deg rotation about its vertical axis with perspective, flat after about 5 frames, white by f306 to f310"
+  },
+  "stroke": null,
+  "shadow": {
+   "x": 0,
+   "y": 0,
+   "blur": 8,
+   "color": "#3A0A50",
+   "opacity": 0.4
+  },
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "mona-sans",
+   "weight": 900,
+   "stretch": 125,
+   "italic": false,
+   "case": "upper",
+   "size": 0.0688,
+   "tracking": -0.04,
+   "fill": {
+    "kind": "solid",
+    "color": "#FFFFFF"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(40,0,60,0.4)",
+    "blur": 0.12,
+    "x": 0,
+    "y": 0
+   },
+   "glow": null,
+   "box": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Cap height 36 px at f316 (size 0.069); 30 px on the end logo f1392."
+ },
+ {
+  "id": "ui_transcript",
+  "role": "UI transcript / status line under the orb (This is a voice clone. Isn't that crazy?, What do you sell?, Building your voice clone)",
+  "font": {
+   "family": "SF Pro Text / Inter Medium (normal width)",
+   "candidates": [
+    {
+     "name": "Inter 500",
+     "source": "bundled: inter",
+     "license": "OFL-1.1",
+     "match": "x/cap 0.73 to 0.75, shapes match by eye"
+    }
+   ],
+   "weight": 500,
+   "width": "normal",
+   "style": "upright"
+  },
+  "case": "as-said",
+  "capHeightPct": 3.06,
+  "xHeightPct": 2.23,
+  "trackingPct": 0,
+  "lineSpacing": null,
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#F2EEF8"
+   ],
+   "stops": [
+    0
+   ],
+   "angleDeg": null,
+   "note": "This is a voice clone line is greyer (#C9C3D6) with both ends faded by a horizontal alpha ramp about 60 px wide"
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 500,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.0421,
+   "tracking": 0,
+   "fill": {
+    "kind": "solid",
+    "color": "#F2EEF8"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "box": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Words fade in one by one (about 4 frames each) as spoken; the transcript line scrolls left like a ticker."
+ },
+ {
+  "id": "kinetic_line",
+  "role": "one long line typed in magenta, turns white, whip-slides left (So whenever your team needs to send a personal voice note)",
+  "font": {
+   "family": "SF Pro Text / Inter Medium",
+   "candidates": [
+    {
+     "name": "Inter 500",
+     "source": "bundled: inter",
+     "license": "OFL-1.1",
+     "match": "by eye"
+    }
+   ],
+   "weight": 500,
+   "width": "normal",
+   "style": "upright"
+  },
+  "case": "as-said",
+  "capHeightPct": 4.87,
+  "xHeightPct": 3.55,
+  "trackingPct": 0,
+  "lineSpacing": null,
+  "fill": {
+   "type": "animated",
+   "colors": [
+    "#B83CC8",
+    "#FCF1FF"
+   ],
+   "stops": [
+    0,
+    1
+   ],
+   "angleDeg": 0,
+   "note": "newest characters dim magenta (#B83CC8 at about 60 % opacity), older ones brighten to near white #FCF1FF"
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 500,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.065,
+   "tracking": 0,
+   "fill": {
+    "kind": "solid",
+    "color": "#FCF1FF"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "box": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "See captions.json event 12 for the per-frame behaviour."
+ },
+ {
+  "id": "accent_glow",
+  "role": "highlighted word in the kinetic line and in the tagline (personal)",
+  "font": {
+   "family": "SF Pro Display / Inter SemiBold",
+   "candidates": [
+    {
+     "name": "Inter 600",
+     "source": "bundled: inter",
+     "license": "OFL-1.1",
+     "match": "by eye"
+    }
+   ],
+   "weight": 600,
+   "width": "normal",
+   "style": "upright"
+  },
+  "case": "lower",
+  "capHeightPct": null,
+  "xHeightPct": 3.55,
+  "trackingPct": 0,
+  "lineSpacing": null,
+  "fill": {
+   "type": "linear",
+   "colors": [
+    "#FBE6FF",
+    "#F28CF5",
+    "#C78BFF",
+    "#9FB2FF"
+   ],
+   "stops": [
+    0,
+    0.45,
+    0.75,
+    1
+   ],
+   "angleDeg": 0
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": {
+   "color": "#D040F0",
+   "blurPx": 10,
+   "opacity": 0.6,
+   "note": "soft pink-violet bloom below and around the word"
+  },
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 600,
+   "italic": false,
+   "case": "lower",
+   "size": 0.065,
+   "tracking": 0,
+   "fill": {
+    "kind": "linear",
+    "colors": [
+     "#FBE6FF",
+     "#F28CF5",
+     "#C78BFF",
+     "#9FB2FF"
+    ],
+    "stops": [
+     0,
+     0.45,
+     0.75,
+     1
+    ],
+    "angle": 0
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": {
+    "color": "#D040F0",
+    "blur": 0.25,
+    "strength": 0.6
+   },
+   "box": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "In the tagline the same word is smaller (x-height 19 px) and its gradient runs magenta #E040F0 to lavender-blue #C0C8FF."
+ },
+ {
+  "id": "tagline",
+  "role": "closing tagline (Making every conversation feel personal)",
+  "font": {
+   "family": "SF Pro Display / Inter SemiBold",
+   "candidates": [
+    {
+     "name": "Inter 600",
+     "source": "bundled: inter",
+     "license": "OFL-1.1",
+     "match": "by eye; single-storey g with tail differs slightly"
+    }
+   ],
+   "weight": 600,
+   "width": "normal",
+   "style": "upright"
+  },
+  "case": "as-said",
+  "capHeightPct": 3.55,
+  "xHeightPct": 2.58,
+  "trackingPct": 0,
+  "lineSpacing": null,
+  "fill": {
+   "type": "solid",
+   "colors": [
+    "#F9F3FF"
+   ],
+   "stops": [
+    0
+   ],
+   "angleDeg": null,
+   "note": "words arrive purple #9030C0 at low opacity and brighten to white"
+  },
+  "stroke": null,
+  "shadow": null,
+  "glow": null,
+  "opacity": 1.0,
+  "blend": "normal",
+  "engine": {
+   "font": "inter",
+   "weight": 600,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.0488,
+   "tracking": 0,
+   "fill": {
+    "kind": "solid",
+    "color": "#F9F3FF"
+   },
+   "stroke": null,
+   "shadow": null,
+   "glow": null,
+   "box": null,
+   "blend": "normal",
+   "opacity": 1
+  },
+  "notes": "Centered at x 0.5, y 0.51."
+ }
+]

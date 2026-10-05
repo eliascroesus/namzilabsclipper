@@ -1,6 +1,6 @@
 # Inspiration edits
 
-Finished edits to take after: Reels, TikToks and Shorts whose cutting, pacing, drops and effects the clipper should learn from. It's for a new page of the clipper; what that page does is still to be decided.
+Finished edits to take after: Reels, TikToks and Shorts whose cutting, pacing, captions and effects the Mimic page learns from. The first is the page's example ad ([docs/mimic.md](../docs/mimic.md)); the jiia and themochi.app edits are its text designs, each measured frame by frame in [docs/text-breakdowns/](../docs/text-breakdowns/) and made into a ready-made look ([docs/mimic-text.md](../docs/mimic-text.md)).
 
 ## How to upload
 

@@ -1,6 +1,7 @@
 The faces in this folder are from Google Fonts, taken from the Fontsource packages (fontsource.org), Latin subset.
 All are under the SIL Open Font License 1.1 (its text is in ../FONTS-LICENSE.txt) except the four marked Apache-2.0,
-which are under the Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
+which are under the Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0), and Metropolis, which is
+released into the public domain under the Unlicense (https://unlicense.org).
 
 - unbounded.woff2: Unbounded (OFL). Copyright 2022 The Unbounded Project Authors (https://github.com/googlefonts/unbounded) copyright statement(s).
 - syne.woff2: Syne (OFL). Copyright 2019 The Syne Project Authors (https://gitlab.com/bonjour-monde/fonderie/syne-typeface) copyright statement(s).
@@ -50,3 +51,17 @@ which are under the Apache License 2.0 (https://www.apache.org/licenses/LICENSE-
 - permanent-marker.woff2: Permanent Marker (Apache-2.0). copyright notice that is included in or attached to the work copyright license to reproduce, prepare Derivative Works of,
 - space-mono-400.woff2, space-mono-700.woff2: Space Mono (OFL). Copyright 2016 The Space Mono Project Authors (https://github.com/googlefonts/spacemono) SpaceMono-Italic.ttf: Copyright 2016 The Space Mono Project Authors (https://github.com/googlefonts/spacemono) SpaceMono-Bold.ttf: Copyright 2016 The Space Mono Project Authors (https://github.com/googlefonts/spacemono) SpaceMono-BoldItalic.ttf: Copyright 2016 The Space Mono Project Authors (https://github.com/googlefonts/spacemono) copyright statement(s).
 - jetbrains-mono.woff2: JetBrains Mono (OFL). Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) JetBrainsMono-Italic[wght].ttf: Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) copyright statement(s).
+- anybody.woff2: Anybody (OFL). Copyright 2020 The Anybody Project Authors (https://github.com/Etcetera-Type-Co/Anybody)
+- mona-sans.woff2: Mona Sans (OFL). Copyright 2022 The Mona Sans Project Authors (https://github.com/github/mona-sans), with Reserved Font Name "Mona"
+- hubot-sans.woff2: Hubot Sans (OFL). Copyright 2021 The Hubot Sans Project Authors (https://github.com/github/hubot-sans), with Reserved Font Name "Hubot"
+- geist.woff2: Geist (OFL). Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font)
+- inter-tight.woff2: Inter Tight (OFL). Copyright 2022 The Inter Project Authors (https://github.com/rsms/inter-tight)
+- instrument-sans.woff2: Instrument Sans (OFL). Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans)
+- metropolis-400.woff2, metropolis-600.woff2, metropolis-800.woff2: Metropolis (Unlicense). By Chris Simpson, released into the public domain.
+- bungee.woff2: Bungee (OFL). Copyright 2023 The Bungee Project Authors (https://github.com/djrrb/Bungee)
+- bowlby-one.woff2: Bowlby One (OFL). Copyright (c) 2011 by vernon adams (vern@newtypography.co.uk), with Reserved Font Names "Bowlby" "Bowlby One" and "Bowlby One SC". This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL
+- antonio.woff2: Antonio (OFL). Copyright 2013 The Antonio Project Authors (https://github.com/googlefonts/antonioFont)
+- pinyon-script.woff2: Pinyon Script (OFL). Copyright 2022 The PinyonScript Project Authors (https://github.com/SorkinType/Pinyon)
+- kalnia.woff2: Kalnia (OFL). Copyright 2022 The Kalnia Project Authors (https://github.com/fridamedrano/Kalnia-Typeface.git)
+- google-sans.woff2: Google Sans (OFL). Copyright 2025 The Google Sans Project Authors (github.com/googlefonts/googlesans)
+- zalando-sans.woff2: Zalando Sans (OFL). Copyright 2025 The Zalando Sans Project Authors (https://github.com/zalando/sans)

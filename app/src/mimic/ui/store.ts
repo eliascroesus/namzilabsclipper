@@ -14,7 +14,8 @@ import { FaceFinder } from "../../engine/vision/faces";
 import { naturalWordGap } from "../analyze/captions";
 import { TextReader } from "../analyze/ocr";
 import { analyzeReference } from "../analyze/reference";
-import { facesIn, frameSource } from "../analyze/source";
+import { facesIn, fontRenderer, frameSource, personIn } from "../analyze/source";
+import type { TextSample } from "../analyze/textdesign";
 import { retime } from "../asr/align";
 import { listen, releaseSpeechModel, type Word } from "../asr/client";
 import { geminiWords } from "../asr/gemini";
@@ -25,7 +26,7 @@ import { fold, placeByContent, sentences, soundsByWords, type Place } from "../m
 import { planMimic, type PlanInput } from "../plan";
 import { mimicStills, mixMimic, renderMimic, type MixExtras } from "../render";
 import { finish, isMadeSound, makeSfx, SOUNDS } from "../sfx";
-import type { CaptionLook, CaptionPlace, Extra, MimicPlan, MimicTemplate, StylePick, TextDesign, VolumeLine } from "../types";
+import type { CaptionLook, CaptionPlace, DesignAlt, Extra, MimicPlan, MimicTemplate, StylePick, TextDesign, VolumeLine } from "../types";
 import type { TextStyle } from "../../engine/text/style";
 import { loadFontsFor } from "../../engine/text/library";
 import { presetById } from "../presets";
@@ -143,7 +144,7 @@ const KEY_STORE = "clipper.gemini.v1";
  * reference as studied, and the footage as heard (its words, where the voice is, its cuts, the
  * speaker's face take by take). Bump a version when what makes it changes.
  */
-const STUDY_VERSION = 1;
+const STUDY_VERSION = 3;
 const HEAR_VERSION = 1;
 const fileKey = (f: File) => `${f.name}:${f.size}:${f.lastModified}`;
 interface Heard {
@@ -307,12 +308,17 @@ class Mimic {
       const kept = fresh ? null : await recall<MimicTemplate>(key);
       if (ctl.signal.aborted) return;
       if (kept?.version === 1) {
+        if (kept.captions?.design) void loadFontsFor(kept.captions.design.styles.map((x) => x.font));
         this.set((s) => ({ template: kept, look: readable(kept.captions), study: { stage: "ready", progress: 1, label: "" }, assign: {}, remembered: { ...s.remembered, reference: true } }));
         return;
       }
       const reader = await TextReader.get();
-      const template = await analyzeReference(frameSource(src), { reader, faces: facesIn }, (p, label) => this.set({ study: { stage: "working", progress: p, label } }), ctl.signal);
+      // (On the test page, the words the design was read from are kept for a look, without their letters.)
+      const w = window as unknown as { __mimic?: unknown; __designSamples?: unknown };
+      const onDesignSamples = w.__mimic ? (ss: TextSample[]) => (w.__designSamples = ss.map((x) => ({ t: x.t, words: x.words.map(({ mask: _m, ...rest }) => rest) }))) : undefined;
+      const template = await analyzeReference(frameSource(src), { reader, faces: facesIn, person: personIn, fonts: fontRenderer, onDesignSamples }, (p, label) => this.set({ study: { stage: "working", progress: p, label } }), ctl.signal);
       if (ctl.signal.aborted) return;
+      if (template.captions?.design) void loadFontsFor(template.captions.design.styles.map((x) => x.font));
       this.set({ template, look: readable(template.captions), study: { stage: "ready", progress: 1, label: "" }, assign: {} });
       void remember(key, template);
     } catch (e) {
@@ -347,6 +353,24 @@ class Mimic {
   usePreset(id: string) {
     const p = presetById(id);
     if (p) this.setDesign(p.design);
+  }
+
+  /** One of the design's other looks changed, a new one, or one gone. */
+  patchAlt(i: number, patch: Partial<DesignAlt>) {
+    const d = this.state.look.design;
+    if (d?.alts?.[i]) this.patchDesign({ alts: d.alts.map((a, k) => (k === i ? { ...a, ...patch } : a)) });
+  }
+
+  addAlt() {
+    const d = this.state.look.design;
+    if (!d) return;
+    const big = d.styles.length > 1 ? d.styles[d.styles.length - 1].id : undefined;
+    this.patchDesign({ alts: [...(d.alts ?? []), { rule: "keyword", share: 0.15, ...(big ? { style: big } : {}), layout: "lines", words: 2, lines: 1, places: [{ x: 0.5, y: 0.45, align: "center", valign: "middle", width: 0.8 }] }] });
+  }
+
+  removeAlt(i: number) {
+    const d = this.state.look.design;
+    if (d?.alts) this.patchDesign({ alts: d.alts.filter((_, k) => k !== i) });
   }
 
   patchDesign(patch: Partial<TextDesign>) {

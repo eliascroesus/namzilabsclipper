@@ -6,12 +6,16 @@
  * voice, a bed under it and sounds on its events. The result is a template the
  * mimic planner follows.
  */
-import type { MimicTemplate, BrollSlot, CardSlot, SoundLook } from "../types";
+import { fontById } from "../../engine/text/library";
+import type { MimicTemplate, BrollSlot, CardSlot, CaptionLook, SoundLook, TextDesign } from "../types";
 import { CardFinder, type Gray } from "./cards";
 import { captionLook, captionScript, measureLine, type CaptionSample } from "./captions";
 import type { Picture, TextBox, TextReader } from "./ocr";
 import { blackTail, classifyShots, findCuts, type Shot } from "./shots";
 import { findSfx, soundProfile } from "./sound";
+import { readDesign, type DesignReading, type TextSample } from "./textdesign";
+import { matchFont, sizeIn, type Renderer } from "./fontmatch";
+import { blendOf, layerOf, lineWords, wordMask, type Plane } from "./words";
 import { scaleBetween, zoomEvents, zoomLook, type ZoomEvent } from "./zoom";
 
 export interface FrameSource {
@@ -36,6 +40,12 @@ export interface Analysts {
   onSamples?: (s: CaptionSample[]) => void;
   /** faces in a picture (centre and size, shares of it) */
   faces?: (p: Picture) => Promise<{ x: number; y: number; w: number; h: number }[]>;
+  /** the person in a picture (0 to 1), to tell captions behind the speaker */
+  person?: (p: Picture) => Promise<Plane | null>;
+  /** sees the design reading's frames (tests) */
+  onDesignSamples?: (s: TextSample[]) => void;
+  /** draws words in the library's faces, to match a design's fonts by eye */
+  fonts?: () => Promise<Renderer>;
 }
 
 export type Progress = (p: number, label: string) => void;
@@ -131,6 +141,87 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
     band = [Math.max(0, peak / 50 - 0.08), Math.min(1, peak / 50 + 0.12)];
   }
 
+  // 2b. Richer captions (stacked beside the head, several styles, some behind the speaker):
+  // when big lines of text come and go all over the frame, or at very different sizes, the
+  // frames round them are read whole, three a second, word by word, for the design.
+  let design: DesignReading | null = null;
+  if (richCaptions(changing, firstBoxes, ph)) {
+    onProgress(0.45, "Reading the caption design");
+    const on = [...new Set(changing.map((b) => b.t))];
+    // (Not a screen of an app's interface, the motion graphics' cards and lists: no face, and
+    // lines of small text all over. Its writing isn't the captions.)
+    const ui = new Set(
+      firstBoxes
+        .filter((f) => {
+          if ((faceAt.get(f.t) ?? []).some((q) => q.h > 0.12) || f.boxes.length < 4) return false;
+          const hs = f.boxes.map((b) => b.y1 - b.y0).sort((x, y) => x - y);
+          return hs[hs.length >> 1] < 0.065 * ph;
+        })
+        .map((f) => f.t),
+    );
+    let designTimes: number[] = [];
+    for (let t = 1 / 6; t < duration; t += 1 / 3) {
+      const near = firstTimes.reduce((a, u) => (Math.abs(u - t) < Math.abs(a - t) ? u : a), firstTimes[0]);
+      if (on.some((u) => Math.abs(u - t) <= 0.85) && !ui.has(near)) designTimes.push(t);
+    }
+    // (And when most of the text comes while the speaker is on screen, not in the long
+    // stretches without them: the motion graphics between, their screens of an app and their
+    // titles, aren't the captions. A cutaway of a second or two keeps its captions; a speaker
+    // too small to find, standing back, leaves them all.)
+    const faced = firstTimes.map((u) => (faceAt.get(u) ?? []).some((q) => q.h > 0.06));
+    const away = new Set<number>();
+    for (let i = 0; i < faced.length; ) {
+      let j = i;
+      while (j < faced.length && !faced[j]) j++;
+      if (j - i >= 3) for (let k = i; k < j; k++) away.add(firstTimes[k]);
+      i = Math.max(j, i + 1);
+    }
+    const talking = designTimes.filter((t) => !away.has(firstTimes.reduce((a, u) => (Math.abs(u - t) < Math.abs(a - t) ? u : a), firstTimes[0])));
+    if (a.faces && talking.length >= 0.5 * designTimes.length) designTimes = talking;
+    const samples: TextSample[] = [];
+    await src.pictures(
+      designTimes,
+      pw,
+      ph,
+      async (t, p) => {
+        const boxes = (await a.reader.find(p, 640)).filter((b) => b.y1 - b.y0 > 0.012 * ph);
+        const words: TextSample["words"] = [];
+        let person: Plane | null | undefined;
+        for (const b of boxes) {
+          const r = await a.reader.read(p, b);
+          if (r.conf < 0.6 || !letters(r.text)) continue;
+          const lw = lineWords(p, b, r.text, boxes);
+          if (!lw) continue;
+          if (person === undefined) person = a.person ? await a.person(p).catch(() => null) : null;
+          const layer = person ? layerOf(lw, person, pw, ph) : undefined;
+          for (const w of lw.words) words.push({ ...w, conf: r.conf, layer, blend: w.spread > 18 ? blendOf(p, lw, w) : null, mask: a.fonts && w.xh >= 8 ? wordMask(lw, w) : null });
+        }
+        samples.push({ t, words });
+        onProgress(0.45 + 0.12 * Math.min(1, t / duration), "Reading the caption design");
+      },
+      signal,
+    );
+    cancelled(signal);
+    a.onDesignSamples?.(samples);
+    design = readDesign(samples, pw, ph, 1 / 3);
+    // Each style's font, matched by drawing the library's faces over its clearest words.
+    if (design && a.fonts) {
+      onProgress(0.57, "Matching the fonts");
+      const render = await a.fonts().catch(() => null);
+      if (render)
+        design.design.styles.forEach((st, si) => {
+          const sp = design!.specimens[si]?.filter((w) => w.mask).map((w) => ({ text: w.text, mask: w.mask!, xh: w.xh, tall: w.tall })) ?? [];
+          const g = sp.length ? matchFont(sp, render, { weight: st.weight, italic: st.italic }) : null;
+          if (!g || g.score < 0.35) return;
+          const f = fontById(g.font);
+          const px = sp.map((x) => sizeIn(f, x)).sort((p, q) => p - q);
+          Object.assign(st, { font: g.font, weight: g.weight, italic: g.italic, stretch: g.stretch, tracking: Math.max(-0.12, Math.min(0.2, g.tracking)), size: Math.round((px[px.length >> 1] / ph) * 1000) / 1000 });
+          design!.notes.push(`${st.name ?? st.id}: set in ${f.name}${g.stretch ? ` at ${g.stretch}% width` : ""}, ${g.weight} (${Math.round(g.score * 100)}% alike).`);
+        });
+      cancelled(signal);
+    }
+  }
+
   // 3. The caption band, three frames a second, read closely.
   onProgress(0.45, "Studying the captions");
   const samples: CaptionSample[] = [];
@@ -159,8 +250,15 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
   }
   cancelled(signal);
   a.onSamples?.(samples);
-  const captions = captionLook(samples, pw, ph, cards);
-  const script = band ? captionScript(samples, ph, band) : [];
+  let captions = captionLook(samples, pw, ph, cards);
+  let script = band ? captionScript(samples, ph, band) : [];
+  // The design rides on the look (which stays the fallback); without a band of captions,
+  // the look is made from the design's base style, and the script from its captions.
+  if (design && designWorthIt(design.design)) {
+    captions = { ...(captions ?? lookFromDesign(design.design)), design: design.design };
+    if (!script.length) script = design.captions.map((c) => ({ start: Math.round(c.start * 100) / 100, end: Math.round(c.end * 100) / 100, text: c.lines.map((l) => l.map((w) => w.text).join(" ")).join(" ") }));
+    notes.push(...design.notes);
+  }
 
   // 4. Shots: the talking footage and the cutaways.
   const faceTimes = [...faceAt.keys()];
@@ -307,5 +405,56 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
     maxPause: sp.maxPause,
     script,
     notes,
+  };
+}
+
+/**
+ * Whether a reference's captions are more than subtitles in a band: big lines of text
+ * coming and going all over the frame (the middles of the middle half more than a sixth
+ * of the height apart), or at very different sizes.
+ */
+function richCaptions(changing: { t: number; cy: number }[], firstBoxes: { t: number; boxes: TextBox[] }[], ph: number): boolean {
+  if (changing.length < 3) return false;
+  const cys = changing.map((b) => b.cy).sort((x, y) => x - y);
+  const spread = cys[Math.floor(0.85 * (cys.length - 1))] - cys[Math.floor(0.15 * (cys.length - 1))];
+  const hs = firstBoxes
+    .flatMap((f) => f.boxes.filter((b) => (b.conf ?? 0) >= 0.6 && b.y1 - b.y0 > 0.025 * ph).map((b) => b.y1 - b.y0))
+    .sort((x, y) => x - y);
+  const range = hs.length >= 3 ? hs[Math.floor(0.9 * (hs.length - 1))] / Math.max(1, hs[Math.floor(0.1 * (hs.length - 1))]) : 1;
+  return spread > 0.16 || range > 1.8;
+}
+
+/** A design worth more than the plain look: several styles, other looks, stacked, beside the middle, behind, or mixed in. */
+function designWorthIt(d: TextDesign): boolean {
+  return d.styles.length > 1 || !!d.alts?.length || d.layout !== "lines" || d.places.length > 1 || d.places.some((p) => Math.abs(p.x - 0.5) > 0.12 || p.behind) || d.behind.share > 0 || d.styles[0].blend !== "normal";
+}
+
+/** A plain look from a design's base style and first place (what's drawn if the design is turned off). */
+function lookFromDesign(d: TextDesign): CaptionLook {
+  const s = d.styles[0];
+  const p = d.places[0];
+  const color = s.fill.kind === "solid" ? s.fill.color : s.fill.colors[0] ?? "#ffffff";
+  return {
+    y: p.y,
+    width: p.width,
+    maxSize: s.size,
+    minSize: s.size,
+    fit: false,
+    pitch: 1.15,
+    lines: Math.max(1, Math.min(3, d.lines)) as 1 | 2 | 3,
+    chars: 16,
+    align: p.align === "left" ? "left" : "center",
+    reveal: d.enter.unit === "word" ? "word" : "page",
+    fade: 0.1,
+    case: s.case === "title" ? "as-said" : s.case === "names" ? "lower" : s.case,
+    font: "sans",
+    weight: s.weight,
+    tracking: -0.02,
+    color,
+    active: null,
+    stroke: s.stroke,
+    shadow: s.shadow && { color: s.shadow.color, blur: s.shadow.blur, y: s.shadow.y },
+    box: s.box,
+    hold: 0.2,
   };
 }

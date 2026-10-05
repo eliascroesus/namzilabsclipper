@@ -1,0 +1,180 @@
+{
+ "styles": [
+  {
+   "id": "base",
+   "name": "Stack white",
+   "font": "mona-sans",
+   "weight": 700,
+   "stretch": 125,
+   "italic": false,
+   "case": "as-said",
+   "size": 0.1,
+   "tracking": -0.02,
+   "fill": {
+    "kind": "solid",
+    "color": "#F9F8FF"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.35)",
+    "blur": 0.06,
+    "x": 0.025,
+    "y": 0.04
+   },
+   "glow": null,
+   "box": null,
+   "opacity": 1,
+   "blend": "normal"
+  },
+  {
+   "id": "big",
+   "name": "Line-end word",
+   "font": "mona-sans",
+   "weight": 700,
+   "stretch": 125,
+   "italic": false,
+   "case": "lower",
+   "size": 0.13,
+   "tracking": -0.02,
+   "fill": {
+    "kind": "solid",
+    "color": "#F9F8FF"
+   },
+   "stroke": null,
+   "shadow": {
+    "color": "rgba(0,0,0,0.35)",
+    "blur": 0.05,
+    "x": 0.02,
+    "y": 0.03
+   },
+   "glow": null,
+   "box": null,
+   "opacity": 1,
+   "blend": "normal"
+  },
+  {
+   "id": "giant",
+   "name": "Giant gradient (behind)",
+   "font": "mona-sans",
+   "weight": 700,
+   "stretch": 125,
+   "italic": false,
+   "case": "lower",
+   "size": 0.6,
+   "tracking": -0.02,
+   "fill": {
+    "kind": "linear",
+    "colors": [
+     "#FF0018",
+     "#FF14A6",
+     "#FF2A98",
+     "#BE36FC",
+     "#6688FF"
+    ],
+    "stops": [
+     0,
+     0.28,
+     0.52,
+     0.66,
+     1
+    ],
+    "angle": 0
+   },
+   "fillSpan": "line",
+   "stroke": null,
+   "shadow": null,
+   "glow": {
+    "color": "#FF1A60",
+    "blur": 0.012,
+    "strength": 0.4
+   },
+   "box": null,
+   "opacity": 1,
+   "blend": "normal"
+  }
+ ],
+ "picks": [
+  {
+   "style": "giant",
+   "rule": "keyword",
+   "share": 0.3
+  },
+  {
+   "style": "big",
+   "rule": "last",
+   "share": 0.5
+  }
+ ],
+ "layout": "stack",
+ "leading": 0.9,
+ "words": 2,
+ "lines": 4,
+ "places": [
+  {
+   "x": 0.357,
+   "y": 0.5,
+   "align": "center",
+   "valign": "middle",
+   "width": 0.34
+  },
+  {
+   "x": 0.497,
+   "y": 0.405,
+   "align": "center",
+   "valign": "middle",
+   "width": 0.8
+  },
+  {
+   "x": 0.504,
+   "y": 0.495,
+   "align": "center",
+   "valign": "middle",
+   "width": 0.8
+  },
+  {
+   "x": 0.342,
+   "y": 0.448,
+   "align": "center",
+   "valign": "middle",
+   "width": 0.34
+  },
+  {
+   "x": 0.647,
+   "y": 0.487,
+   "align": "center",
+   "valign": "middle",
+   "width": 0.32
+  },
+  {
+   "x": 0.487,
+   "y": 0.349,
+   "align": "center",
+   "valign": "middle",
+   "width": 0.8
+  }
+ ],
+ "behind": {
+  "share": 1.0,
+  "style": "giant"
+ },
+ "enter": {
+  "kind": "rise",
+  "dur": 0.38,
+  "unit": "word",
+  "dist": 0.22,
+  "ease": "out"
+ },
+ "accentEnter": {
+  "kind": "pop",
+  "dur": 0.46,
+  "unit": "word",
+  "from": 0.2,
+  "overshoot": 0.14,
+  "ease": "back"
+ },
+ "exit": {
+  "kind": "fade",
+  "dur": 0.13,
+  "unit": "page"
+ }
+}

@@ -478,6 +478,28 @@ export function planMimic(inp: PlanInput): MimicPlan {
     }
   frames.sort((a, b) => a.start - b.start);
 
+  // 5b. Where the speaker's face is as each of a design's captions comes on (the take's face,
+  // through its framing and the zoom then), for the caption to keep clear of the head.
+  if (look.design && inp.raw.width && inp.raw.height) {
+    const [sw, sh] = [inp.raw.width, inp.raw.height];
+    for (const p of pages) {
+      const t = p.start + 0.02;
+      const seg = segments.find((x) => t >= x.start && t < x.end);
+      if (!seg || broll.some((b) => t >= b.start && t < b.end)) continue;
+      const srcT = seg.from + (t - seg.start);
+      const f = shots.length ? (shots.find((x) => srcT >= x.start && srcT < x.end)?.face ?? null) : inp.raw.face;
+      if (!f) continue;
+      const fr = frames.find((x) => t >= x.start - 1e-6 && t < x.end - 1e-6) ?? frame;
+      // (As the frame is drawn: the footage covering it, about the framing's centre, zoomed.)
+      const k = Math.max(W / sw, H / sh) * fr.zoom * zoomAt(zoom, t);
+      const [vw, vh] = [W / k, H / k];
+      const sx = Math.min(sw - vw, Math.max(0, fr.cx * sw - vw / 2));
+      const sy = Math.min(sh - vh, Math.max(0, fr.cy * sh - vh / 2));
+      const r3 = (v: number) => Math.round(v * 1000) / 1000;
+      p.face = { x: r3(((f.x * sw - sx) * k) / W), y: r3(((f.y * sh - sy) * k) / H), w: r3((0.8 * f.h * sh * k) / W), h: r3((f.h * sh * k) / H) };
+    }
+  }
+
   // 6. Sound effects: a whoosh as a card lands and as it goes (from the side it comes from), a
   // swipe as a run's picture changes, a whoosh into a cutaway (or the reference's own sounds
   // on these, where it had some); sounds on moments of the script; the user's own; and the

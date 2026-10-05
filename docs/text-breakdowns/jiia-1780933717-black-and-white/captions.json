@@ -1,0 +1,837 @@
+[
+ {
+  "id": "A",
+  "t0": 2.625,
+  "t1": 3.5,
+  "f0": 63,
+  "f1": 83,
+  "lines": [
+   {
+    "text": "what do",
+    "words": [
+     {
+      "text": "what",
+      "style": "white",
+      "on": 63
+     },
+     {
+      "text": "do",
+      "style": "white",
+      "on": 66
+     }
+    ]
+   },
+   {
+    "text": "you plan",
+    "words": [
+     {
+      "text": "you",
+      "style": "white",
+      "on": 67
+     },
+     {
+      "text": "plan",
+      "style": "white",
+      "on": 70
+     }
+    ]
+   },
+   {
+    "text": "to do",
+    "words": [
+     {
+      "text": "to",
+      "style": "redscript",
+      "on": 76.75
+     },
+     {
+      "text": "do",
+      "style": "redscript",
+      "on": 76.75
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.132,
+   0.278,
+   0.415,
+   0.707
+  ],
+  "head": [
+   0.466,
+   0.143,
+   0.638,
+   0.458
+  ],
+  "layer": "front",
+  "layerProof": "frames 70 to 83: 'plan' and the 'do' swash lie over his shirt and shoulder and stay complete (no glyph cut by the person mask)",
+  "enter": {
+   "kind": "cut per word on its spoken onset; accent words fade",
+   "frames": 0,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": [
+    0.0,
+    0.125,
+    0.167,
+    0.292,
+    0.573,
+    0.573
+   ],
+   "easing": null,
+   "accent": {
+    "kind": "fade",
+    "frames": 3,
+    "from": {
+     "scale": 1,
+     "opacity": 0,
+     "blur": 0,
+     "dx": 0,
+     "dy": 0
+    },
+    "easing": "linear",
+    "alphas": [
+     "alpha 0.084, 0.413, 0.740, 0.994 at frames 77 to 80; 'to' and 'do' together"
+    ]
+   }
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "atFrame": 84,
+   "note": "hard cut with the shot change"
+  },
+  "layout": {
+   "align": "left with a staircase: line 2 starts 41 px (0.43 em) right of line 1; 'to' tucked above-left of a 1.45x bigger 'do' under line 2",
+   "baselines_px": {
+    "what do": 265.8,
+    "you plan": 335.5,
+    "do (script)": 508
+   },
+   "penX_px": {
+    "what": 174.8,
+    "do": 381.8,
+    "you": 216.2,
+    "plan": 367.8
+   },
+   "engineSize": 0.135
+  },
+  "spokenAt": {
+   "what": "voice onset about 2.60 to 2.62 s (ASR mis-times it at 2.24 under music)",
+   "do": 2.675,
+   "you": 2.835,
+   "plan": "2.935 (acoustic onset 2.901)",
+   "to": "3.185 (onset 3.171)",
+   "do2": "3.285 (onset 3.291)"
+  },
+  "landsOn": "what +0 to +1 f, do +1.8 f, you -1.0 f, plan -0.4 f (+0.4 f vs onset), 'to do' fade starts +0.3 f after 'to'",
+  "notes": "two-word lines; each white word cuts on at its spoken onset; the accent phrase fades in as one unit",
+  "enterWords": [
+   {
+    "text": "what",
+    "style": "white",
+    "kind": "cut",
+    "startFrame": 63,
+    "frames": 0,
+    "easing": null
+   },
+   {
+    "text": "do",
+    "style": "white",
+    "kind": "cut",
+    "startFrame": 66,
+    "frames": 0,
+    "easing": null
+   },
+   {
+    "text": "you",
+    "style": "white",
+    "kind": "cut",
+    "startFrame": 67,
+    "frames": 0,
+    "easing": null
+   },
+   {
+    "text": "plan",
+    "style": "white",
+    "kind": "cut",
+    "startFrame": 70,
+    "frames": 0,
+    "easing": null
+   },
+   {
+    "text": "to",
+    "style": "redscript",
+    "kind": "fade",
+    "startFrame": 76.75,
+    "frames": 3,
+    "easing": "linear"
+   },
+   {
+    "text": "do",
+    "style": "redscript",
+    "kind": "fade",
+    "startFrame": 76.75,
+    "frames": 3,
+    "easing": "linear"
+   }
+  ]
+ },
+ {
+  "id": "B",
+  "t0": 3.5,
+  "t1": 4.667,
+  "f0": 84,
+  "f1": 111,
+  "lines": [
+   {
+    "text": "if",
+    "words": [
+     {
+      "text": "if",
+      "style": "white",
+      "on": 84
+     }
+    ]
+   },
+   {
+    "text": "this",
+    "words": [
+     {
+      "text": "this",
+      "style": "white",
+      "on": 88
+     }
+    ]
+   },
+   {
+    "text": "whole",
+    "words": [
+     {
+      "text": "whole",
+      "style": "white",
+      "on": 91
+     }
+    ]
+   },
+   {
+    "text": "Dream",
+    "words": [
+     {
+      "text": "Dream",
+      "style": "redscript",
+      "on": 96.2
+     }
+    ]
+   },
+   {
+    "text": "of",
+    "words": [
+     {
+      "text": "of",
+      "style": "redscript",
+      "on": 102.4
+     }
+    ]
+   },
+   {
+    "text": "Yours",
+    "words": [
+     {
+      "text": "Yours",
+      "style": "redscript",
+      "on": 104.95
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.514,
+   0.258,
+   0.94,
+   0.785
+  ],
+  "head": {
+   "frames84to98": [
+    0.426,
+    0.135,
+    0.626,
+    0.472
+   ],
+   "frames99to111": [
+    0.008,
+    0.014,
+    0.564,
+    0.985
+   ]
+  },
+  "layer": "front",
+  "layerProof": "frames 97 and 98: the half-faded 'Dream' D lies over his face and collar; frames 99 to 111: the D crosses the dark hair edge fully visible (see extra/dream_over_face_*.jpg)",
+  "enter": {
+   "kind": "cut per word on its spoken onset; accent words fade",
+   "frames": 0,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": [
+    0.0,
+    0.167,
+    0.292,
+    0.508,
+    0.767,
+    0.873
+   ],
+   "easing": null,
+   "accent": {
+    "kind": "fade",
+    "frames": 3,
+    "from": {
+     "scale": 1,
+     "opacity": 0,
+     "blur": 0,
+     "dx": 0,
+     "dy": 0
+    },
+    "easing": "linear",
+    "alphas": [
+     "Dream: 0.255, 0.582, 0.999 at frames 97 to 99",
+     "of: 0.15, 0.41, 0.66 at frames 103 to 105",
+     "Yours: 0.336, 0.650, 0.977 at frames 106 to 108"
+    ]
+   }
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "atFrame": 112,
+   "note": ""
+  },
+  "layout": {
+   "align": "left (pen x 825.8, 822.5, 817.5) for the white stack; script block hangs left of it (D swash starts at x 656) and below",
+   "baselines_px": {
+    "if": 235.8,
+    "this": 287.5,
+    "whole": 331.0,
+    "Dream": 394,
+    "Yours": 518
+   },
+   "engineSize": 0.096,
+   "note": "caption survives the cut at frame 99 unchanged (same pixels); line pitch is uneven: 51.7 px then 43.5 px"
+  },
+  "spokenAt": {
+   "if": 3.445,
+   "this": "3.585 (onset 3.641)",
+   "whole": "3.735 (onset 3.786)",
+   "dream": "3.935 (onset 4.021)",
+   "of": "4.185 (onset 4.241)",
+   "yours": "4.275 (onset 4.371)"
+  },
+  "landsOn": "if +1.3 f (also the shot cut), this +0.6 f vs onset, whole +0.1 f, Dream fade start -0.3 f, of +0.6 f, Yours fade start 0.0 f vs acoustic onsets",
+  "notes": "one word per line, then a three-line script phrase with a tiny 'of' between 'Dream' and 'Yours'",
+  "enterWords": [
+   {
+    "text": "if",
+    "style": "white",
+    "kind": "cut",
+    "startFrame": 84,
+    "frames": 0,
+    "easing": null
+   },
+   {
+    "text": "this",
+    "style": "white",
+    "kind": "cut",
+    "startFrame": 88,
+    "frames": 0,
+    "easing": null
+   },
+   {
+    "text": "whole",
+    "style": "white",
+    "kind": "cut",
+    "startFrame": 91,
+    "frames": 0,
+    "easing": null
+   },
+   {
+    "text": "Dream",
+    "style": "redscript",
+    "kind": "fade",
+    "startFrame": 96.2,
+    "frames": 3,
+    "easing": "linear"
+   },
+   {
+    "text": "of",
+    "style": "redscript",
+    "kind": "fade",
+    "startFrame": 102.4,
+    "frames": 3,
+    "easing": "linear"
+   },
+   {
+    "text": "Yours",
+    "style": "redscript",
+    "kind": "fade",
+    "startFrame": 104.95,
+    "frames": 3,
+    "easing": "linear"
+   }
+  ]
+ },
+ {
+  "id": "C",
+  "t0": 4.667,
+  "t1": 5.208,
+  "f0": 112,
+  "f1": 124,
+  "lines": [
+   {
+    "text": "doesn't",
+    "words": [
+     {
+      "text": "doesn't",
+      "style": "white",
+      "on": 112
+     }
+    ]
+   },
+   {
+    "text": "work",
+    "words": [
+     {
+      "text": "work",
+      "style": "redsans",
+      "on": 117
+     }
+    ]
+   },
+   {
+    "text": "out",
+    "words": [
+     {
+      "text": "out",
+      "style": "redsans",
+      "on": 121
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.163,
+   0.328,
+   0.449,
+   0.674
+  ],
+  "head": [
+   0.606,
+   0.175,
+   0.781,
+   0.458
+  ],
+  "layer": "neutral (no overlap)",
+  "layerProof": "no overlap with the person (text ends at x 573, his arm starts near x 600); layering not observable",
+  "enter": {
+   "kind": "cut per word on its spoken onset",
+   "frames": 0,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": [
+    0.0,
+    0.208,
+    0.375
+   ],
+   "easing": null,
+   "accent": null
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "atFrame": 125,
+   "note": "a one-frame pure white flash (frame 125) then the flash decays over frames 126 and 127"
+  },
+  "layout": {
+   "align": "left for doesn't/work (pen 215.8, 204.2), 'out' indented 118 px (0.65 em of out)",
+   "baselines_px": {
+    "doesn't": 286.0,
+    "work": 379.5,
+    "out": 481.8
+   },
+   "engineSizes": {
+    "doesn't": 0.102,
+    "work": 0.209,
+    "out": 0.253
+   }
+  },
+  "spokenAt": {
+   "doesn't": "4.515 (onset 4.696)",
+   "work": "4.755 (onset 4.811)",
+   "out": "4.915 (onset 5.036)"
+  },
+  "landsOn": "doesn't -0.7 f vs onset (+3.6 f vs ASR; it waits for the shot cut), work +1.5 f, out +0.1 f",
+  "notes": "small white word over a big red word: 'out' is 1.21x 'work'",
+  "enterWords": [
+   {
+    "text": "doesn't",
+    "style": "white",
+    "kind": "cut",
+    "startFrame": 112,
+    "frames": 0,
+    "easing": null
+   },
+   {
+    "text": "work",
+    "style": "redsans",
+    "kind": "cut",
+    "startFrame": 117,
+    "frames": 0,
+    "easing": null
+   },
+   {
+    "text": "out",
+    "style": "redsans",
+    "kind": "cut",
+    "startFrame": 121,
+    "frames": 0,
+    "easing": null
+   }
+  ]
+ },
+ {
+  "id": "D",
+  "t0": 5.25,
+  "t1": 5.542,
+  "f0": 126,
+  "f1": 132,
+  "lines": [
+   {
+    "text": "that doesn't",
+    "words": [
+     {
+      "text": "that",
+      "style": "white",
+      "on": 126
+     },
+     {
+      "text": "doesn't",
+      "style": "white",
+      "on": 130
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.275,
+   0.336,
+   0.746,
+   0.41
+  ],
+  "head": [
+   0.469,
+   0.356,
+   0.511,
+   0.414
+  ],
+  "layer": "neutral (no overlap; same shot as G, which is behind)",
+  "layerProof": "left word ends 121 px left of the head, right word starts 83 px right of it",
+  "enter": {
+   "kind": "cut per word on its spoken onset",
+   "frames": 0,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": [
+    0.0,
+    0.167
+   ],
+   "easing": null,
+   "accent": null
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "atFrame": 133,
+   "note": ""
+  },
+  "layout": {
+   "split": "one word each side of the head: left word centred at x 412 (0.323), right word centred at x 843 (0.661), head centre x 625; baseline y 294 (0.408), at the chin line",
+   "engineSize": 0.107
+  },
+  "spokenAt": {
+   "that": 5.285,
+   "doesn't": 5.43
+  },
+  "landsOn": "that -0.8 f, doesn't -0.3 f",
+  "enterWords": [
+   {
+    "text": "that",
+    "style": "white",
+    "kind": "cut",
+    "startFrame": 126,
+    "frames": 0,
+    "easing": null
+   },
+   {
+    "text": "doesn't",
+    "style": "white",
+    "kind": "cut",
+    "startFrame": 130,
+    "frames": 0,
+    "easing": null
+   }
+  ]
+ },
+ {
+  "id": "E",
+  "t0": 5.542,
+  "t1": 6.125,
+  "f0": 133,
+  "f1": 146,
+  "lines": [
+   {
+    "text": "even enter",
+    "words": [
+     {
+      "text": "even",
+      "style": "white",
+      "on": 133
+     },
+     {
+      "text": "enter",
+      "style": "white",
+      "on": 138
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.268,
+   0.339,
+   0.72,
+   0.41
+  ],
+  "head": [
+   0.469,
+   0.356,
+   0.511,
+   0.414
+  ],
+  "layer": "neutral (no overlap)",
+  "enter": {
+   "kind": "cut per word on its spoken onset",
+   "frames": 0,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": [
+    0.0,
+    0.208
+   ],
+   "easing": null,
+   "accent": null
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "atFrame": 147,
+   "note": ""
+  },
+  "layout": {
+   "split": "left centred x 410, right centred x 842.5, baselines 293.2 and 293.8",
+   "engineSize": 0.106
+  },
+  "spokenAt": {
+   "even": "5.685 (onset 5.691)",
+   "enter": "5.845 (onset 5.761)"
+  },
+  "landsOn": "even -3.4 f (early), enter -0.3 f vs onset",
+  "enterWords": [
+   {
+    "text": "even",
+    "style": "white",
+    "kind": "cut",
+    "startFrame": 133,
+    "frames": 0,
+    "easing": null
+   },
+   {
+    "text": "enter",
+    "style": "white",
+    "kind": "cut",
+    "startFrame": 138,
+    "frames": 0,
+    "easing": null
+   }
+  ]
+ },
+ {
+  "id": "F",
+  "t0": 6.125,
+  "t1": 6.25,
+  "f0": 147,
+  "f1": 149,
+  "lines": [
+   {
+    "text": "my",
+    "words": [
+     {
+      "text": "my",
+      "style": "white",
+      "on": 147
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.288,
+   0.351,
+   0.36,
+   0.426
+  ],
+  "head": [
+   0.469,
+   0.356,
+   0.511,
+   0.414
+  ],
+  "layer": "neutral (no overlap)",
+  "enter": {
+   "kind": "cut per word on its spoken onset",
+   "frames": 0,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": [
+    0.0
+   ],
+   "easing": null,
+   "accent": null
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "atFrame": 150,
+   "note": "frame 150 is empty, then 'consciousness' fades in"
+  },
+  "layout": {
+   "split": "left place only, centred x 413, baseline 293",
+   "engineSize": 0.101
+  },
+  "spokenAt": {
+   "my": 6.145
+  },
+  "landsOn": "-0.5 f",
+  "enterWords": [
+   {
+    "text": "my",
+    "style": "white",
+    "kind": "cut",
+    "startFrame": 147,
+    "frames": 0,
+    "easing": null
+   }
+  ]
+ },
+ {
+  "id": "G",
+  "t0": 6.25,
+  "t1": 6.708,
+  "f0": 151,
+  "f1": 160,
+  "lines": [
+   {
+    "text": "consciousness",
+    "words": [
+     {
+      "text": "consciousness",
+      "style": "redsans",
+      "on": 150.0
+     }
+    ]
+   }
+  ],
+  "bbox": [
+   0.141,
+   0.261,
+   0.858,
+   0.421
+  ],
+  "head": [
+   0.469,
+   0.356,
+   0.511,
+   0.414
+  ],
+  "layer": "behind",
+  "layerProof": "frames 151 to 160: his head covers the bottom-middle of the 'o' (1055 to 1103 px, 2.0 to 2.1% of the word's glyph area, 24% of the 'o'); hidden box x 595 to 650, y 259 to 300; nothing of the head is covered by red",
+  "enter": {
+   "kind": "fade",
+   "frames": 3,
+   "from": {
+    "scale": 1,
+    "opacity": 0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0
+   },
+   "stagger": [
+    0
+   ],
+   "easing": "linear",
+   "startFrame": 150.0,
+   "fullFrame": 153.0,
+   "alphas": "0.347, 0.671, 0.999 at frames 151 to 153"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "atFrame": 161,
+   "note": "whip-pan transition"
+  },
+  "layout": {
+   "align": "centre on the frame (centre x 637.5 = 0.4996), baseline 299.8 (0.416), word width 915 px (0.717 W)",
+   "engineSize": 0.2295
+  },
+  "spokenAt": {
+   "consciousness": 6.305
+  },
+  "landsOn": "fade starts -1.3 f, fully on +1.7 f",
+  "enterWords": [
+   {
+    "text": "consciousness",
+    "style": "redsans",
+    "kind": "fade",
+    "startFrame": 150.0,
+    "frames": 3,
+    "easing": "linear"
+   }
+  ]
+ }
+]

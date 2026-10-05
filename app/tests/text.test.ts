@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FONTS, fontById, fontString, stretchKeyword, weightIn } from "../src/engine/text/library";
-import { ease, motionAt, onsetOf, type TextMotion } from "../src/engine/text/motion";
+import { backConstant, ease, motionAt, onsetOf, type TextMotion } from "../src/engine/text/motion";
 import { cased, fillCss } from "../src/engine/text/style";
 import { boxMean, firm, guidedFilter, maskSize } from "../src/engine/vision/person";
 import { designPages, keyness } from "../src/mimic/design";
@@ -36,6 +36,12 @@ describe("text styles and motion", () => {
   it("sets the case and shows a fill as CSS", () => {
     expect(cased("if you sell", "title")).toBe("If You Sell");
     expect(cased("Wrong", "lower")).toBe("wrong");
+    // Lowercase but for names: a sentence's capital goes, a name's and an acronym's stay.
+    expect(cased("If", "names", true)).toBe("if");
+    expect(cased("Instagram", "names", false)).toBe("Instagram");
+    expect(cased("DMs", "names", true)).toBe("DMs");
+    expect(cased("I'm", "names", true)).toBe("I'm");
+    expect(cased("\u201cThen", "names", true)).toBe("\u201cthen");
     expect(fillCss({ kind: "linear", colors: ["#ff2d55", "#5b6cff"], angle: 0 })).toBe("linear-gradient(90deg, #ff2d55 0%, #5b6cff 100%)");
   });
 
@@ -55,6 +61,43 @@ describe("text styles and motion", () => {
     // A whole caption staggered word by word from its start.
     expect(onsetOf({ kind: "pop", dur: 0.2, unit: "page", stagger: 0.05 }, { start: 3 }, 1, 1, 0, 2)).toBeCloseTo(1.1, 9);
     expect(onsetOf({ kind: "pop", dur: 0.2, unit: "word" }, { start: 3 }, 1, 1, 0, 2)).toBe(3);
+  });
+});
+
+describe("motion, to the numbers", () => {
+  it("overshoots by exactly as much as asked, and stretches up from the baseline", () => {
+    // easeOutBack's classic constant is a 10% overshoot.
+    expect(backConstant(0.1)).toBeCloseTo(1.70158, 3);
+    expect(backConstant(0.2)).toBeCloseTo(2.592, 2);
+    const peak = (o: number) => Math.max(...Array.from({ length: 200 }, (_, i) => ease("back", i / 199, o)));
+    expect(peak(0.15)).toBeCloseTo(1.15, 2);
+    // A pop from 0.6 with 12% overshoot reaches 112% of its size.
+    const pop: TextMotion = { kind: "pop", dur: 0.25, unit: "word", from: 0.6, overshoot: 0.12 };
+    expect(Math.max(...Array.from({ length: 200 }, (_, i) => motionAt(pop, i / 199).scale))).toBeCloseTo(1.12, 2);
+    // A stretch grows its height only, past full and back.
+    const st: TextMotion = { kind: "stretch", dur: 0.4, unit: "word", overshoot: 0.18 };
+    const sy = Array.from({ length: 101 }, (_, i) => motionAt(st, i / 100).sy ?? 1);
+    expect(sy[2]).toBeLessThan(0.3);
+    expect(Math.max(...sy)).toBeCloseTo(1.18, 2);
+    expect(motionAt(st, 0.5).scale).toBe(1);
+    // Any move can come into focus as it goes.
+    const focus = motionAt({ kind: "zoom", dur: 0.3, unit: "word", from: 0.79, blur: 0.2 }, 0.1);
+    expect(focus.blur).toBeGreaterThan(0.05);
+    expect(motionAt({ kind: "zoom", dur: 0.3, unit: "word", from: 0.79, blur: 0.2 }, 1).blur).toBe(0);
+  });
+
+  it("rises like the Mochi captions: nearly there at once, a quick fade of its own", () => {
+    // A quintic ease-out: past 59% of the way a sixth of the way in (a cubic: 42%).
+    expect(ease("quint", 1 / 6)).toBeCloseTo(1 - (5 / 6) ** 5, 9);
+    expect(ease("quint", 1 / 6)).toBeGreaterThan(ease("out", 1 / 6));
+    // 0.65 s to rise, 0.2 s to fade in: at 24 fps the first frame is two-thirds there in opacity.
+    const m: TextMotion = { kind: "rise", dur: 0.65, unit: "line", dist: 1.2, ease: "quint", fade: 0.2 };
+    const f1 = motionAt(m, 1 / 24 / 0.65);
+    expect(f1.alpha).toBeGreaterThan(0.6);
+    expect(f1.alpha).toBeLessThan(0.75);
+    expect(motionAt(m, 0.25 / 0.65).alpha).toBe(1);
+    // ... while it's still on its way up.
+    expect(motionAt(m, 0.25 / 0.65).dy).toBeGreaterThan(0.05);
   });
 });
 
@@ -113,5 +156,25 @@ describe("a text design's captions", () => {
     expect(pages.map((p) => !!p.behind)).toEqual([false, true, false]);
     expect(keyness("the")).toBeLessThan(keyness("Instagram"));
     expect(keyness("40k")).toBe(3);
+  });
+
+  it("styles every small word, the whole second line, or every marked word, and comes on ahead of the words", () => {
+    const d2: TextDesign = { ...design, places: [design.places[0]], picks: [{ style: "emph", rule: "stopword", share: 1 }] };
+    const flat = designPages(words("if you sell through the store"), d2).flatMap((p) => p.lines.flat());
+    expect(flat.filter((w) => w.style === "emph").map((w) => w.text)).toEqual(["if", "you", "the"]);
+    const d3: TextDesign = { ...d2, picks: [{ style: "emph", rule: "line2", share: 1 }] };
+    const p3 = designPages(words("if you sell through"), d3);
+    expect(p3[0].lines[1].every((w) => w.style === "emph")).toBe(true);
+    expect(p3[0].lines[0].some((w) => w.style === "emph")).toBe(false);
+    const marked = words("dream of yours here").map((w, i) => (i < 3 ? { ...w, mark: true } : w));
+    const d4: TextDesign = { ...d2, words: 4, lines: 1, picks: [{ style: "emph", rule: "marked", share: 1 }] };
+    expect(designPages(marked, d4)[0].lines.flat().map((w) => w.style ?? "-")).toEqual(["emph", "emph", "emph", "-"]);
+    // A lead brings each caption on ahead of its first word, but not before the last one's words are out.
+    const d5: TextDesign = { ...d2, enter: { kind: "rise", dur: 0.3, unit: "word", lead: 0.2 } };
+    const spaced = words("one two three four five").map((w, i) => (i === 4 ? { ...w, start: 2, end: 2.25 } : w));
+    const p5 = designPages(spaced, d5);
+    expect(p5[0].start).toBe(0);
+    expect(p5[1].start).toBeCloseTo(1.8, 6);
+    expect(designPages(words("one two three four five"), d5)[1].start).toBeCloseTo(1.15, 6);
   });
 });

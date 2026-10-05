@@ -1,0 +1,4226 @@
+[
+ {
+  "id": 1,
+  "t0": 1.375,
+  "t1": 3.667,
+  "f0": 33,
+  "f1": 87,
+  "lines": [
+   {
+    "text": "if you",
+    "f0": 33,
+    "t0": 1.375,
+    "words": [
+     {
+      "text": "if",
+      "style": "cap-s"
+     },
+     {
+      "text": "you",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.3153,
+     0.1305,
+     0.5319,
+     0.1734
+    ],
+    "xHeightPx": 30.8,
+    "capHeightPx": 40.9,
+    "fontPx": 59.9,
+    "sizeEngine": 0.0468,
+    "spokenWord": null,
+    "spokenAt": null,
+    "spokenFrame": null,
+    "deltaFrames": null,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 57.2,
+    "settleFrame": 42,
+    "fontPxAtEnd": 56.7,
+    "endFrame": 87,
+    "baselineAtEnd": 208
+   },
+   {
+    "text": "sell",
+    "f0": 38,
+    "t0": 1.583,
+    "words": [
+     {
+      "text": "sell",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.45,
+     0.1609,
+     0.6069,
+     0.2109
+    ],
+    "xHeightPx": 35.5,
+    "capHeightPx": 47.1,
+    "fontPx": 69.1,
+    "sizeEngine": 0.054,
+    "spokenWord": "sell",
+    "spokenAt": 1.36,
+    "spokenFrame": 33,
+    "deltaFrames": 5,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 65.9,
+    "settleFrame": 48,
+    "fontPxAtEnd": 65.5,
+    "endFrame": 86,
+    "baselineAtEnd": 254,
+    "enterMeasured": {
+     "firstFrameDyPx": 2.5,
+     "firstFrameOpacity": 0.67,
+     "quintT": 30.0,
+     "distPx": -9.0,
+     "fitErrPx": 4.1,
+     "opacityCubicFrames": 3.5
+    }
+   },
+   {
+    "text": "through",
+    "f0": 46,
+    "t0": 1.917,
+    "words": [
+     {
+      "text": "through",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.325,
+     0.1938,
+     0.7375,
+     0.2477
+    ],
+    "xHeightPx": 38.4,
+    "capHeightPx": 51.0,
+    "fontPx": 74.7,
+    "sizeEngine": 0.0584,
+    "spokenWord": "through",
+    "spokenAt": 1.76,
+    "spokenFrame": 42,
+    "deltaFrames": 4,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 71.3,
+    "settleFrame": 57,
+    "fontPxAtEnd": 71.3,
+    "endFrame": 87,
+    "baselineAtEnd": 300,
+    "enterMeasured": {
+     "firstFrameDyPx": 72.0,
+     "firstFrameOpacity": 0.67,
+     "quintT": 14.5,
+     "distPx": 72.0,
+     "fitErrPx": 0.6,
+     "opacityCubicFrames": 3.8
+    }
+   },
+   {
+    "text": "Instagram",
+    "f0": 54,
+    "t0": 2.25,
+    "words": [
+     {
+      "text": "Instagram",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.1139,
+     0.2313,
+     0.8944,
+     0.3102
+    ],
+    "xHeightPx": 55.9,
+    "capHeightPx": 74.2,
+    "fontPx": 108.8,
+    "sizeEngine": 0.085,
+    "spokenWord": "Instagram",
+    "spokenAt": 2.16,
+    "spokenFrame": 52,
+    "deltaFrames": 2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 103.9,
+    "settleFrame": 65,
+    "fontPxAtEnd": 103.9,
+    "endFrame": 87,
+    "baselineAtEnd": 372,
+    "enterMeasured": {
+     "firstFrameDyPx": 74.0,
+     "firstFrameOpacity": 0.67,
+     "quintT": 14.2,
+     "distPx": 73.0,
+     "fitErrPx": 0.6,
+     "opacityCubicFrames": 3.8
+    }
+   },
+   {
+    "text": "DMs",
+    "f0": 65,
+    "t0": 2.708,
+    "words": [
+     {
+      "text": "DMs",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.5847,
+     0.2977,
+     0.8056,
+     0.3508
+    ],
+    "xHeightPx": 37.7,
+    "capHeightPx": 50.1,
+    "fontPx": 73.3,
+    "sizeEngine": 0.0573,
+    "spokenWord": "DMs.",
+    "spokenAt": 2.72,
+    "spokenFrame": 65,
+    "deltaFrames": 0,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 70.1,
+    "settleFrame": 76,
+    "fontPxAtEnd": 69.5,
+    "endFrame": 84,
+    "baselineAtEnd": 432,
+    "enterMeasured": {
+     "firstFrameDyPx": 74.0,
+     "firstFrameOpacity": 0.67,
+     "quintT": 14.2,
+     "distPx": 73.0,
+     "fitErrPx": 0.6,
+     "opacityCubicFrames": 3.5
+    }
+   }
+  ],
+  "bbox": [
+   0.1139,
+   0.1305,
+   0.8944,
+   0.3508
+  ],
+  "head": [
+   0.15,
+   0.3523,
+   0.4722,
+   0.5813
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 14,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0574
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 14 frames (within 1 px of rest after about 9); opacity front-loaded: 0.67 on the first visible frame, 0.95 by frame 3",
+   "distPx": 73.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": null,
+  "notes": "Layer evidence: f68-f81: his raised fingers pass in front of \"DMs\" (D and M lower halves hidden, motion-blurred finger edges); the selfie mask misses the fingers, checked by eye | Camera move on the footage carries the text: scale x0.970 and dy +25 px between f42 and f87 | \"if you\" first shows at f33 cut by the top frame edge: it rides a camera tilt down (footage and text move together, the lamp top moves 34, 26, 16, 9, 3 px per 2 frames while \"if you\" moves 35, 23, 15, 8, 4) and settles at f50"
+ },
+ {
+  "id": 2,
+  "t0": 3.708,
+  "t1": 5.75,
+  "f0": 89,
+  "f1": 137,
+  "lines": [
+   {
+    "text": "then this is",
+    "f0": 89,
+    "t0": 3.708,
+    "words": [
+     {
+      "text": "then",
+      "style": "cap-s"
+     },
+     {
+      "text": "this",
+      "style": "cap-s"
+     },
+     {
+      "text": "is",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.1889,
+     0.157,
+     0.6694,
+     0.2047
+    ],
+    "xHeightPx": 29.9,
+    "capHeightPx": 39.7,
+    "fontPx": 58.2,
+    "sizeEngine": 0.0454,
+    "spokenWord": "And",
+    "spokenAt": 3.68,
+    "spokenFrame": 88,
+    "deltaFrames": 1,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 55.5,
+    "settleFrame": 100,
+    "fontPxAtEnd": 62.5,
+    "endFrame": 137,
+    "baselineAtEnd": 247,
+    "enterMeasured": {
+     "firstFrameDyPx": 105.0,
+     "firstFrameOpacity": 0.49,
+     "quintT": 28.8,
+     "distPx": 115.0,
+     "fitErrPx": 3.8,
+     "opacityCubicFrames": 6.8
+    }
+   },
+   {
+    "text": "basically",
+    "f0": 105,
+    "t0": 4.375,
+    "words": [
+     {
+      "text": "basically",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.4431,
+     0.1977,
+     0.8319,
+     0.243
+    ],
+    "xHeightPx": 32.2,
+    "capHeightPx": 42.8,
+    "fontPx": 62.6,
+    "sizeEngine": 0.0489,
+    "spokenWord": "basically",
+    "spokenAt": 4.4,
+    "spokenFrame": 106,
+    "deltaFrames": -1,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 59.9,
+    "settleFrame": 116,
+    "fontPxAtEnd": 59.9,
+    "endFrame": 137,
+    "baselineAtEnd": 297,
+    "enterMeasured": {
+     "firstFrameDyPx": 110.5,
+     "firstFrameOpacity": 0.52,
+     "quintT": 21.0,
+     "distPx": 111.0,
+     "fitErrPx": 1.3,
+     "opacityCubicFrames": 6.2
+    }
+   },
+   {
+    "text": "everything",
+    "f0": 122,
+    "t0": 5.083,
+    "words": [
+     {
+      "text": "everything",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.1181,
+     0.2352,
+     0.9042,
+     0.3109
+    ],
+    "xHeightPx": 54.0,
+    "capHeightPx": 71.7,
+    "fontPx": 105.1,
+    "sizeEngine": 0.0821,
+    "spokenWord": "everything",
+    "spokenAt": 5.04,
+    "spokenFrame": 121,
+    "deltaFrames": 1,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 100.4,
+    "settleFrame": 133,
+    "fontPxAtEnd": 100.5,
+    "endFrame": 136,
+    "baselineAtEnd": 374,
+    "enterMeasured": {
+     "firstFrameDyPx": 112.0,
+     "firstFrameOpacity": 0.47,
+     "quintT": 23.5,
+     "distPx": 136.0,
+     "fitErrPx": 1.6,
+     "opacityCubicFrames": 7.8
+    }
+   }
+  ],
+  "bbox": [
+   0.1181,
+   0.157,
+   0.9042,
+   0.3109
+  ],
+  "head": [
+   0.3625,
+   0.3672,
+   0.7278,
+   0.643
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 22,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0965
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 22 frames (within 1 px of rest after about 13); opacity front-loaded: 0.49 on the first visible frame, 0.95 by frame 3",
+   "distPx": 123.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 3.68,
+  "notes": "No person overlap in this caption, so the layer is not observable (drawn behind like the rest of the video) | Camera move on the footage carries the text: scale x1.115 and dy -17 px between f100 and f137"
+ },
+ {
+  "id": 3,
+  "t0": 5.792,
+  "t1": 6.75,
+  "f0": 139,
+  "f1": 161,
+  "lines": [
+   {
+    "text": "that",
+    "f0": 139,
+    "t0": 5.792,
+    "words": [
+     {
+      "text": "that",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.2097,
+     0.1664,
+     0.3722,
+     0.207
+    ],
+    "xHeightPx": 35.9,
+    "capHeightPx": 47.7,
+    "fontPx": 69.8,
+    "sizeEngine": 0.0546,
+    "spokenWord": "that",
+    "spokenAt": 5.44,
+    "spokenFrame": 131,
+    "deltaFrames": 8,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 66.7,
+    "settleFrame": 150,
+    "fontPxAtEnd": 53.3,
+    "endFrame": 161,
+    "baselineAtEnd": 252,
+    "enterMeasured": {
+     "firstFrameDyPx": 84.5,
+     "firstFrameOpacity": 0.69,
+     "quintT": 11.5,
+     "distPx": 123.0,
+     "fitErrPx": 4.3,
+     "opacityCubicFrames": 3.5
+    }
+   },
+   {
+    "text": "mochi",
+    "f0": 143,
+    "t0": 5.958,
+    "words": [
+     {
+      "text": "mochi",
+      "style": "cap-hook"
+     }
+    ],
+    "bbox": [
+     0.1292,
+     0.1812,
+     0.875,
+     0.3078
+    ],
+    "xHeightPx": 100.9,
+    "capHeightPx": 134.0,
+    "fontPx": 196.3,
+    "sizeEngine": 0.1534,
+    "spokenWord": "Mochi",
+    "spokenAt": 5.68,
+    "spokenFrame": 136,
+    "deltaFrames": 7,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 187.5,
+    "settleFrame": 154,
+    "fontPxAtEnd": 166.9,
+    "endFrame": 161,
+    "baselineAtEnd": 354,
+    "enterMeasured": {
+     "firstFrameDyPx": 85.0,
+     "firstFrameOpacity": 0.67,
+     "quintT": 11.0,
+     "distPx": 88.0,
+     "fitErrPx": 2.8,
+     "opacityCubicFrames": 3.8
+    }
+   },
+   {
+    "text": "does",
+    "f0": 149,
+    "t0": 6.208,
+    "words": [
+     {
+      "text": "does",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.6278,
+     0.2875,
+     0.825,
+     0.3297
+    ],
+    "xHeightPx": 30.3,
+    "capHeightPx": 40.2,
+    "fontPx": 58.9,
+    "sizeEngine": 0.0461,
+    "spokenWord": "does.",
+    "spokenAt": 6.4,
+    "spokenFrame": 154,
+    "deltaFrames": -5,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 56.4,
+    "settleFrame": 160,
+    "fontPxAtEnd": 55.8,
+    "endFrame": 161,
+    "baselineAtEnd": 409
+   }
+  ],
+  "bbox": [
+   0.1292,
+   0.1664,
+   0.875,
+   0.3297
+  ],
+  "head": [
+   0.325,
+   0.3555,
+   0.6444,
+   0.5922
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 11,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0688
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 11 frames (within 1 px of rest after about 7); opacity front-loaded: 0.67 on the first visible frame, 0.95 by frame 3",
+   "distPx": 88.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 5.44,
+  "notes": "No person overlap in this caption, so the layer is not observable (drawn behind like the rest of the video) | Camera move on the footage carries the text: scale x0.830 and dy +26 px between f150 and f161"
+ },
+ {
+  "id": 4,
+  "t0": 6.792,
+  "t1": 8.042,
+  "f0": 163,
+  "f1": 192,
+  "lines": [
+   {
+    "text": "and",
+    "f0": 163,
+    "t0": 6.792,
+    "words": [
+     {
+      "text": "and",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.1111,
+     0.4195,
+     0.2931,
+     0.4695
+    ],
+    "xHeightPx": 35.6,
+    "capHeightPx": 47.3,
+    "fontPx": 69.3,
+    "sizeEngine": 0.0541,
+    "spokenWord": "And",
+    "spokenAt": 6.8,
+    "spokenFrame": 163,
+    "deltaFrames": 0,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 66.1,
+    "settleFrame": 174,
+    "fontPxAtEnd": 66.1,
+    "endFrame": 192,
+    "baselineAtEnd": 585,
+    "enterMeasured": {
+     "firstFrameDyPx": 82.5,
+     "firstFrameOpacity": 0.69,
+     "quintT": 18.0,
+     "distPx": 87.0,
+     "fitErrPx": 0.9,
+     "opacityCubicFrames": 3.5
+    }
+   },
+   {
+    "text": "no",
+    "f0": 169,
+    "t0": 7.042,
+    "words": [
+     {
+      "text": "no",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.7556,
+     0.4164,
+     0.8764,
+     0.468
+    ],
+    "xHeightPx": 36.8,
+    "capHeightPx": 48.9,
+    "fontPx": 71.6,
+    "sizeEngine": 0.0559,
+    "spokenWord": "no,",
+    "spokenAt": 7.04,
+    "spokenFrame": 169,
+    "deltaFrames": 0,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 68.4,
+    "settleFrame": 179,
+    "fontPxAtEnd": 68.4,
+    "endFrame": 188,
+    "baselineAtEnd": 583,
+    "enterMeasured": {
+     "firstFrameDyPx": 59.5,
+     "firstFrameOpacity": 0.77,
+     "quintT": 16.0,
+     "distPx": 81.0,
+     "fitErrPx": 0.6,
+     "opacityCubicFrames": 2.8
+    }
+   }
+  ],
+  "bbox": [
+   0.1111,
+   0.4164,
+   0.8764,
+   0.4695
+  ],
+  "head": [
+   0.2681,
+   0.1703,
+   0.7264,
+   0.5359
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 17,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0656
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 17 frames (within 1 px of rest after about 10); opacity front-loaded: 0.73 on the first visible frame, 0.95 by frame 3",
+   "distPx": 84.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 6.8,
+  "notes": "The two words share one baseline (y 585 and 583, 0.457 H) and sit either side of the face at mouth height: \"and\" x 80-211, \"no\" x 544-631; the face fills the gap. Layer evidence: f175-f192: the cheek covers the right side of the \"d\" in \"and\" (and the \"no\" sits just right of the face)"
+ },
+ {
+  "id": 5,
+  "t0": 8.083,
+  "t1": 8.875,
+  "f0": 194,
+  "f1": 212,
+  "lines": [
+   {
+    "text": "this is",
+    "f0": 194,
+    "t0": 8.083,
+    "words": [
+     {
+      "text": "this",
+      "style": "cap-l"
+     },
+     {
+      "text": "is",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.0944,
+     0.0672,
+     0.5625,
+     0.1531
+    ],
+    "xHeightPx": 56.3,
+    "capHeightPx": 74.8,
+    "fontPx": 109.5,
+    "sizeEngine": 0.0856,
+    "spokenWord": "this",
+    "spokenAt": 7.76,
+    "spokenFrame": 186,
+    "deltaFrames": 8,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 104.7,
+    "settleFrame": 205,
+    "fontPxAtEnd": 114.4,
+    "endFrame": 212,
+    "baselineAtEnd": 169,
+    "enterMeasured": {
+     "firstFrameDyPx": 38.5,
+     "firstFrameOpacity": 0.67,
+     "quintT": 8.8,
+     "distPx": 47.0,
+     "fitErrPx": 1.2,
+     "opacityCubicFrames": 3.8
+    }
+   },
+   {
+    "text": "not just",
+    "f0": 202,
+    "t0": 8.417,
+    "words": [
+     {
+      "text": "not",
+      "style": "cap-l"
+     },
+     {
+      "text": "just",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.2625,
+     0.1313,
+     0.8694,
+     0.2188
+    ],
+    "xHeightPx": 61.8,
+    "capHeightPx": 82.1,
+    "fontPx": 120.2,
+    "sizeEngine": 0.0939,
+    "spokenWord": "not",
+    "spokenAt": 8.24,
+    "spokenFrame": 198,
+    "deltaFrames": 4,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 114.8,
+    "settleFrame": 212,
+    "fontPxAtEnd": 114.8,
+    "endFrame": 212,
+    "baselineAtEnd": 252,
+    "hiddenPctMax": 9.5,
+    "hiddenPctAtEnd": 7.6
+   }
+  ],
+  "bbox": [
+   0.0944,
+   0.0672,
+   0.8694,
+   0.2188
+  ],
+  "head": [
+   0.3069,
+   0.1773,
+   0.7611,
+   0.5344
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 9,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0366
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 9 frames (within 1 px of rest after about 5); opacity front-loaded: 0.67 on the first visible frame, 0.95 by frame 3",
+   "distPx": 47.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 7.76,
+  "notes": "Layer evidence: f207-f212: hair covers the bottom of \"not\" and the j descender of \"just\" (7.6 to 9.5 % of the line hidden; 0 % of text pixels visible inside the person mask) | Camera move on the footage carries the text: scale x1.080 and dy -38 px between f205 and f212"
+ },
+ {
+  "id": 6,
+  "t0": 8.917,
+  "t1": 9.75,
+  "f0": 214,
+  "f1": 233,
+  "lines": [
+   {
+    "text": "another",
+    "f0": 214,
+    "t0": 8.917,
+    "words": [
+     {
+      "text": "another",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.2903,
+     0.1008,
+     0.6889,
+     0.1523
+    ],
+    "xHeightPx": 37.1,
+    "capHeightPx": 49.3,
+    "fontPx": 72.2,
+    "sizeEngine": 0.0564,
+    "spokenWord": "another",
+    "spokenAt": 8.64,
+    "spokenFrame": 207,
+    "deltaFrames": 7,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 68.9,
+    "settleFrame": 225,
+    "fontPxAtEnd": 68.7,
+    "endFrame": 233,
+    "baselineAtEnd": 179,
+    "enterMeasured": {
+     "firstFrameDyPx": 5.5,
+     "firstFrameOpacity": 0.68,
+     "quintT": 30.0,
+     "distPx": 8.0,
+     "fitErrPx": 24.2,
+     "opacityCubicFrames": 20.0
+    }
+   },
+   {
+    "text": "CRM",
+    "f0": 220,
+    "t0": 9.167,
+    "words": [
+     {
+      "text": "CRM",
+      "style": "cap-hook"
+     }
+    ],
+    "bbox": [
+     0.1319,
+     0.1508,
+     0.8333,
+     0.3047
+    ],
+    "xHeightPx": 109.3,
+    "capHeightPx": 145.2,
+    "fontPx": 212.6,
+    "sizeEngine": 0.1661,
+    "spokenWord": "CRM.",
+    "spokenAt": 9.12,
+    "spokenFrame": 219,
+    "deltaFrames": 1,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 203.2,
+    "settleFrame": 231,
+    "fontPxAtEnd": 203.2,
+    "endFrame": 233,
+    "baselineAtEnd": 341,
+    "enterMeasured": {
+     "firstFrameDyPx": -12.0,
+     "firstFrameOpacity": 0.48,
+     "quintT": 13.8,
+     "distPx": -17.0,
+     "fitErrPx": 1.6,
+     "opacityCubicFrames": 3.8
+    },
+    "hiddenPctMax": 11.2,
+    "hiddenPctAtEnd": 4.4
+   }
+  ],
+  "bbox": [
+   0.1319,
+   0.1008,
+   0.8333,
+   0.3047
+  ],
+  "head": [
+   0.2833,
+   0.2422,
+   0.7931,
+   0.6492
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 14,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": -0.013
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 14 frames (within 1 px of rest after about 8); opacity front-loaded: 0.48 on the first visible frame, 0.95 by frame 3",
+   "distPx": -17.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 8.64,
+  "notes": "Layer evidence: f221-f233: hair covers the bottom of R and M (4.4 to 11 % of \"CRM\" hidden)"
+ },
+ {
+  "id": 7,
+  "t0": 10.625,
+  "t1": 12.167,
+  "f0": 255,
+  "f1": 291,
+  "lines": [
+   {
+    "text": "mochi",
+    "f0": 255,
+    "t0": 10.625,
+    "words": [
+     {
+      "text": "mochi",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.3125,
+     0.1305,
+     0.575,
+     0.175
+    ],
+    "xHeightPx": 31.3,
+    "capHeightPx": 41.6,
+    "fontPx": 60.9,
+    "sizeEngine": 0.0476,
+    "spokenWord": "Mochi",
+    "spokenAt": 10.56,
+    "spokenFrame": 253,
+    "deltaFrames": 2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 58.1,
+    "settleFrame": 266,
+    "fontPxAtEnd": 58.7,
+    "endFrame": 291,
+    "baselineAtEnd": 210,
+    "enterMeasured": {
+     "firstFrameDyPx": 85.0,
+     "firstFrameOpacity": 0.67,
+     "quintT": 13.8,
+     "distPx": 110.0,
+     "fitErrPx": 0.8,
+     "opacityCubicFrames": 3.8
+    }
+   },
+   {
+    "text": "helps you",
+    "f0": 269,
+    "t0": 11.208,
+    "words": [
+     {
+      "text": "helps",
+      "style": "cap-s"
+     },
+     {
+      "text": "you",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.4056,
+     0.1703,
+     0.8056,
+     0.2141
+    ],
+    "xHeightPx": 31.5,
+    "capHeightPx": 41.8,
+    "fontPx": 61.3,
+    "sizeEngine": 0.0479,
+    "spokenWord": "helps",
+    "spokenAt": 11.28,
+    "spokenFrame": 271,
+    "deltaFrames": -2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 58.6,
+    "settleFrame": 280,
+    "fontPxAtEnd": 58.0,
+    "endFrame": 291,
+    "baselineAtEnd": 260,
+    "enterMeasured": {
+     "firstFrameDyPx": 104.0,
+     "firstFrameOpacity": 0.7,
+     "quintT": 17.8,
+     "distPx": 124.0,
+     "fitErrPx": 1.2,
+     "opacityCubicFrames": 3.2
+    }
+   },
+   {
+    "text": "figure out",
+    "f0": 277,
+    "t0": 11.542,
+    "words": [
+     {
+      "text": "figure",
+      "style": "cap-m"
+     },
+     {
+      "text": "out",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.1889,
+     0.2039,
+     0.7458,
+     0.2641
+    ],
+    "xHeightPx": 42.7,
+    "capHeightPx": 56.7,
+    "fontPx": 83.1,
+    "sizeEngine": 0.0649,
+    "spokenWord": "figure",
+    "spokenAt": 11.68,
+    "spokenFrame": 280,
+    "deltaFrames": -3,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 79.3,
+    "settleFrame": 288,
+    "fontPxAtEnd": 79.0,
+    "endFrame": 291,
+    "baselineAtEnd": 319,
+    "enterMeasured": {
+     "firstFrameDyPx": 105.0,
+     "firstFrameOpacity": 0.69,
+     "quintT": 16.8,
+     "distPx": 108.0,
+     "fitErrPx": 1.0,
+     "opacityCubicFrames": 3.5
+    }
+   }
+  ],
+  "bbox": [
+   0.1889,
+   0.1305,
+   0.8056,
+   0.2641
+  ],
+  "head": [
+   0.2361,
+   0.2977,
+   0.6153,
+   0.5617
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 17,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.086
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 17 frames (within 1 px of rest after about 10); opacity front-loaded: 0.69 on the first visible frame, 0.95 by frame 3",
+   "distPx": 110.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 10.56,
+  "notes": "No person overlap in this caption, so the layer is not observable (drawn behind like the rest of the video) | Camera move on the footage carries the text: scale x1.005 and dy -21 px between f266 and f291"
+ },
+ {
+  "id": 8,
+  "t0": 12.208,
+  "t1": 13.708,
+  "f0": 293,
+  "f1": 328,
+  "lines": [
+   {
+    "text": "exactly",
+    "f0": 293,
+    "t0": 12.208,
+    "words": [
+     {
+      "text": "exactly",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.2125,
+     0.1461,
+     0.5931,
+     0.1992
+    ],
+    "xHeightPx": 41.4,
+    "capHeightPx": 55.0,
+    "fontPx": 80.5,
+    "sizeEngine": 0.0629,
+    "spokenWord": "exactly",
+    "spokenAt": 12.24,
+    "spokenFrame": 294,
+    "deltaFrames": -1,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 77.0,
+    "settleFrame": 304,
+    "fontPxAtEnd": 69.7,
+    "endFrame": 328,
+    "baselineAtEnd": 238,
+    "enterMeasured": {
+     "firstFrameDyPx": 142.0,
+     "firstFrameOpacity": 0.69,
+     "quintT": 19.2,
+     "distPx": 178.0,
+     "fitErrPx": 3.9,
+     "opacityCubicFrames": 3.2
+    }
+   },
+   {
+    "text": "who need",
+    "f0": 303,
+    "t0": 12.625,
+    "words": [
+     {
+      "text": "who",
+      "style": "cap-m"
+     },
+     {
+      "text": "need",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.2986,
+     0.1883,
+     0.7875,
+     0.2414
+    ],
+    "xHeightPx": 42.1,
+    "capHeightPx": 55.9,
+    "fontPx": 81.9,
+    "sizeEngine": 0.064,
+    "spokenWord": "who",
+    "spokenAt": 12.72,
+    "spokenFrame": 305,
+    "deltaFrames": -2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 78.2,
+    "settleFrame": 314,
+    "fontPxAtEnd": 70.6,
+    "endFrame": 328,
+    "baselineAtEnd": 292,
+    "enterMeasured": {
+     "firstFrameDyPx": 88.5,
+     "firstFrameOpacity": 0.67,
+     "quintT": 11.0,
+     "distPx": 111.0,
+     "fitErrPx": 4.7,
+     "opacityCubicFrames": 3.5
+    }
+   },
+   {
+    "text": "your",
+    "f0": 309,
+    "t0": 12.875,
+    "words": [
+     {
+      "text": "your",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.4708,
+     0.2258,
+     0.7028,
+     0.2789
+    ],
+    "xHeightPx": 39.4,
+    "capHeightPx": 52.3,
+    "fontPx": 76.7,
+    "sizeEngine": 0.0599,
+    "spokenWord": "your",
+    "spokenAt": 13.2,
+    "spokenFrame": 317,
+    "deltaFrames": -8,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 73.3,
+    "settleFrame": 320,
+    "fontPxAtEnd": 70.4,
+    "endFrame": 328,
+    "baselineAtEnd": 340,
+    "enterMeasured": {
+     "firstFrameDyPx": 67.5,
+     "firstFrameOpacity": 0.68,
+     "quintT": 6.8,
+     "distPx": 69.0,
+     "fitErrPx": 11.1,
+     "opacityCubicFrames": 3.5
+    }
+   },
+   {
+    "text": "attention",
+    "f0": 316,
+    "t0": 13.167,
+    "words": [
+     {
+      "text": "attention",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.2583,
+     0.2703,
+     0.7306,
+     0.3234
+    ],
+    "xHeightPx": 37.6,
+    "capHeightPx": 49.9,
+    "fontPx": 73.2,
+    "sizeEngine": 0.0571,
+    "spokenWord": "attention.",
+    "spokenAt": 13.44,
+    "spokenFrame": 323,
+    "deltaFrames": -7,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 69.8,
+    "settleFrame": 327,
+    "fontPxAtEnd": 70.1,
+    "endFrame": 328,
+    "baselineAtEnd": 397,
+    "enterMeasured": {
+     "firstFrameDyPx": 69.5,
+     "firstFrameOpacity": 0.66,
+     "quintT": 9.5,
+     "distPx": 80.0,
+     "fitErrPx": 2.1,
+     "opacityCubicFrames": 3.8
+    }
+   }
+  ],
+  "bbox": [
+   0.2125,
+   0.1461,
+   0.7875,
+   0.3234
+  ],
+  "head": [
+   0.3361,
+   0.3258,
+   0.6847,
+   0.5687
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 10,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0624
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 10 frames (within 1 px of rest after about 6); opacity front-loaded: 0.66 on the first visible frame, 0.95 by frame 3",
+   "distPx": 80.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 12.24,
+  "notes": "No person overlap in this caption, so the layer is not observable (drawn behind like the rest of the video) | Camera move on the footage carries the text: scale x0.900 and dy +64 px between f304 and f328"
+ },
+ {
+  "id": 9,
+  "t0": 21.792,
+  "t1": 23.25,
+  "f0": 523,
+  "f1": 557,
+  "lines": [
+   {
+    "text": "instead of",
+    "f0": 523,
+    "t0": 21.792,
+    "words": [
+     {
+      "text": "instead",
+      "style": "cap-s"
+     },
+     {
+      "text": "of",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.2736,
+     0.1219,
+     0.5889,
+     0.1555
+    ],
+    "xHeightPx": 20.0,
+    "capHeightPx": 26.6,
+    "fontPx": 38.9,
+    "sizeEngine": 0.0304,
+    "spokenWord": "Instead",
+    "spokenAt": 21.68,
+    "spokenFrame": 520,
+    "deltaFrames": 3,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 37.1,
+    "settleFrame": 534,
+    "fontPxAtEnd": 44.0,
+    "endFrame": 557,
+    "baselineAtEnd": 188,
+    "enterMeasured": {
+     "firstFrameDyPx": 72.0,
+     "firstFrameOpacity": 0.64,
+     "quintT": 25.5,
+     "distPx": 80.0,
+     "fitErrPx": 2.5,
+     "opacityCubicFrames": 4.2
+    }
+   },
+   {
+    "text": "opening",
+    "f0": 536,
+    "t0": 22.333,
+    "words": [
+     {
+      "text": "opening",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.3639,
+     0.143,
+     0.7167,
+     0.1883
+    ],
+    "xHeightPx": 30.6,
+    "capHeightPx": 40.6,
+    "fontPx": 59.5,
+    "sizeEngine": 0.0465,
+    "spokenWord": "opening",
+    "spokenAt": 22.16,
+    "spokenFrame": 532,
+    "deltaFrames": 4,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 56.8,
+    "settleFrame": 547,
+    "fontPxAtEnd": 60.0,
+    "endFrame": 557,
+    "baselineAtEnd": 227,
+    "enterMeasured": {
+     "firstFrameDyPx": 144.0,
+     "firstFrameOpacity": 0.68,
+     "quintT": 24.8,
+     "distPx": 166.0,
+     "fitErrPx": 2.6,
+     "opacityCubicFrames": 3.8
+    }
+   },
+   {
+    "text": "Instagram",
+    "f0": 544,
+    "t0": 22.667,
+    "words": [
+     {
+      "text": "Instagram",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.2014,
+     0.1742,
+     0.8153,
+     0.2367
+    ],
+    "xHeightPx": 43.5,
+    "capHeightPx": 57.8,
+    "fontPx": 84.6,
+    "sizeEngine": 0.0661,
+    "spokenWord": "Instagram",
+    "spokenAt": 22.64,
+    "spokenFrame": 543,
+    "deltaFrames": 1,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 80.9,
+    "settleFrame": 555,
+    "fontPxAtEnd": 81.7,
+    "endFrame": 557,
+    "baselineAtEnd": 283,
+    "enterMeasured": {
+     "firstFrameDyPx": 128.5,
+     "firstFrameOpacity": 0.65,
+     "quintT": 19.2,
+     "distPx": 128.0,
+     "fitErrPx": 1.2,
+     "opacityCubicFrames": 3.8
+    }
+   }
+  ],
+  "bbox": [
+   0.2014,
+   0.1219,
+   0.8153,
+   0.2367
+  ],
+  "head": [
+   0.4014,
+   0.2578,
+   0.7111,
+   0.4914
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 25,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.1003
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 25 frames (within 1 px of rest after about 15); opacity front-loaded: 0.65 on the first visible frame, 0.95 by frame 3",
+   "distPx": 128.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 21.68,
+  "notes": "No person overlap in this caption, so the layer is not observable (drawn behind like the rest of the video) | Camera move on the footage carries the text: scale x1.180 and dy -102 px between f534 and f557"
+ },
+ {
+  "id": 10,
+  "t0": 23.292,
+  "t1": 24.958,
+  "f0": 559,
+  "f1": 598,
+  "lines": [
+   {
+    "text": "where",
+    "f0": 559,
+    "t0": 23.292,
+    "words": [
+     {
+      "text": "where",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.2611,
+     0.1227,
+     0.5,
+     0.1633
+    ],
+    "xHeightPx": 28.5,
+    "capHeightPx": 37.8,
+    "fontPx": 55.4,
+    "sizeEngine": 0.0433,
+    "spokenWord": "where",
+    "spokenAt": 23.12,
+    "spokenFrame": 555,
+    "deltaFrames": 4,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 53.0,
+    "settleFrame": 570,
+    "fontPxAtEnd": 53.0,
+    "endFrame": 598,
+    "baselineAtEnd": 196,
+    "enterMeasured": {
+     "firstFrameDyPx": 110.0,
+     "firstFrameOpacity": 0.68,
+     "quintT": 17.5,
+     "distPx": 134.0,
+     "fitErrPx": 1.2,
+     "opacityCubicFrames": 3.5
+    }
+   },
+   {
+    "text": "every lead",
+    "f0": 565,
+    "t0": 23.542,
+    "words": [
+     {
+      "text": "every",
+      "style": "cap-s"
+     },
+     {
+      "text": "lead",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.3083,
+     0.1539,
+     0.6528,
+     0.1883
+    ],
+    "xHeightPx": 24.5,
+    "capHeightPx": 32.5,
+    "fontPx": 47.7,
+    "sizeEngine": 0.0372,
+    "spokenWord": "every",
+    "spokenAt": 23.44,
+    "spokenFrame": 563,
+    "deltaFrames": 2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 45.5,
+    "settleFrame": 576,
+    "fontPxAtEnd": 45.4,
+    "endFrame": 595,
+    "baselineAtEnd": 230,
+    "enterMeasured": {
+     "firstFrameDyPx": 108.0,
+     "firstFrameOpacity": 0.66,
+     "quintT": 17.2,
+     "distPx": 133.0,
+     "fitErrPx": 1.0,
+     "opacityCubicFrames": 3.5
+    }
+   },
+   {
+    "text": "looks",
+    "f0": 582,
+    "t0": 24.25,
+    "words": [
+     {
+      "text": "looks",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.375,
+     0.1883,
+     0.5958,
+     0.2313
+    ],
+    "xHeightPx": 30.6,
+    "capHeightPx": 40.6,
+    "fontPx": 59.5,
+    "sizeEngine": 0.0465,
+    "spokenWord": "looks",
+    "spokenAt": 24.08,
+    "spokenFrame": 578,
+    "deltaFrames": 4,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 56.8,
+    "settleFrame": 593,
+    "fontPxAtEnd": 56.8,
+    "endFrame": 598,
+    "baselineAtEnd": 282,
+    "enterMeasured": {
+     "firstFrameDyPx": 65.0,
+     "firstFrameOpacity": 0.83,
+     "quintT": 13.2,
+     "distPx": 80.0,
+     "fitErrPx": 1.2,
+     "opacityCubicFrames": 2.0
+    }
+   },
+   {
+    "text": "the same",
+    "f0": 587,
+    "t0": 24.458,
+    "words": [
+     {
+      "text": "the",
+      "style": "cap-l"
+     },
+     {
+      "text": "same",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.1681,
+     0.2148,
+     0.8361,
+     0.2898
+    ],
+    "xHeightPx": 53.3,
+    "capHeightPx": 70.8,
+    "fontPx": 103.7,
+    "sizeEngine": 0.081,
+    "spokenWord": "the",
+    "spokenAt": 24.4,
+    "spokenFrame": 586,
+    "deltaFrames": 1,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 99.0,
+    "settleFrame": 598,
+    "fontPxAtEnd": 99.0,
+    "endFrame": 598,
+    "baselineAtEnd": 347,
+    "hiddenPctMax": 2.5,
+    "hiddenPctAtEnd": 2.1
+   }
+  ],
+  "bbox": [
+   0.1681,
+   0.1227,
+   0.8361,
+   0.2898
+  ],
+  "head": [
+   0.3639,
+   0.2625,
+   0.7056,
+   0.5242
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 17,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.1037
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 17 frames (within 1 px of rest after about 10); opacity front-loaded: 0.68 on the first visible frame, 0.95 by frame 3",
+   "distPx": 133.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 23.12,
+  "notes": "Layer evidence: f591-f598: hair covers the bottom of \"sa\" in \"same\" (0.2 to 2.5 % hidden)"
+ },
+ {
+  "id": 11,
+  "t0": 25.042,
+  "t1": 27.292,
+  "f0": 601,
+  "f1": 654,
+  "lines": [
+   {
+    "text": "you can",
+    "f0": 601,
+    "t0": 25.042,
+    "words": [
+     {
+      "text": "you",
+      "style": "cap-m"
+     },
+     {
+      "text": "can",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.2306,
+     0.1172,
+     0.6014,
+     0.1672
+    ],
+    "xHeightPx": 43.4,
+    "capHeightPx": 57.6,
+    "fontPx": 84.4,
+    "sizeEngine": 0.066,
+    "spokenWord": "you",
+    "spokenAt": 25.04,
+    "spokenFrame": 601,
+    "deltaFrames": 0,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 80.7,
+    "settleFrame": 611,
+    "fontPxAtEnd": 65.3,
+    "endFrame": 654,
+    "baselineAtEnd": 198
+   },
+   {
+    "text": "actually",
+    "f0": 609,
+    "t0": 25.375,
+    "words": [
+     {
+      "text": "actually",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.3792,
+     0.1547,
+     0.7861,
+     0.2062
+    ],
+    "xHeightPx": 41.0,
+    "capHeightPx": 54.4,
+    "fontPx": 79.8,
+    "sizeEngine": 0.0623,
+    "spokenWord": "actually",
+    "spokenAt": 25.44,
+    "spokenFrame": 611,
+    "deltaFrames": -2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 76.2,
+    "settleFrame": 620,
+    "fontPxAtEnd": 68.7,
+    "endFrame": 654,
+    "baselineAtEnd": 248,
+    "enterMeasured": {
+     "firstFrameDyPx": 47.5,
+     "firstFrameOpacity": 0.69,
+     "quintT": 6.0,
+     "distPx": 112.0,
+     "fitErrPx": 14.7,
+     "opacityCubicFrames": 3.5
+    }
+   },
+   {
+    "text": "see",
+    "f0": 618,
+    "t0": 25.75,
+    "words": [
+     {
+      "text": "see",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.3417,
+     0.1891,
+     0.525,
+     0.243
+    ],
+    "xHeightPx": 41.6,
+    "capHeightPx": 55.2,
+    "fontPx": 80.9,
+    "sizeEngine": 0.0632,
+    "spokenWord": "see",
+    "spokenAt": 25.84,
+    "spokenFrame": 620,
+    "deltaFrames": -2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 77.4,
+    "settleFrame": 629,
+    "fontPxAtEnd": 71.2,
+    "endFrame": 654,
+    "baselineAtEnd": 294,
+    "enterMeasured": {
+     "firstFrameDyPx": 6.5,
+     "firstFrameOpacity": 0.68,
+     "quintT": 30.0,
+     "distPx": 31.0,
+     "fitErrPx": 33.3,
+     "opacityCubicFrames": 20.0
+    }
+   },
+   {
+    "text": "within",
+    "f0": 629,
+    "t0": 26.208,
+    "words": [
+     {
+      "text": "within",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.4111,
+     0.2281,
+     0.7958,
+     0.2945
+    ],
+    "xHeightPx": 47.3,
+    "capHeightPx": 62.8,
+    "fontPx": 92.0,
+    "sizeEngine": 0.0719,
+    "spokenWord": "within",
+    "spokenAt": 26.16,
+    "spokenFrame": 628,
+    "deltaFrames": 1,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 87.9,
+    "settleFrame": 640,
+    "fontPxAtEnd": 87.7,
+    "endFrame": 654,
+    "baselineAtEnd": 356,
+    "enterMeasured": {
+     "firstFrameDyPx": 48.0,
+     "firstFrameOpacity": 0.69,
+     "quintT": 8.8,
+     "distPx": 50.0,
+     "fitErrPx": 1.9,
+     "opacityCubicFrames": 3.5
+    }
+   },
+   {
+    "text": "1second",
+    "f0": 639,
+    "t0": 26.625,
+    "words": [
+     {
+      "text": "1second",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.2056,
+     0.2797,
+     0.7347,
+     0.3469
+    ],
+    "xHeightPx": 47.8,
+    "capHeightPx": 63.5,
+    "fontPx": 93.0,
+    "sizeEngine": 0.0727,
+    "spokenWord": "one",
+    "spokenAt": 26.56,
+    "spokenFrame": 637,
+    "deltaFrames": 2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 88.8,
+    "settleFrame": 650,
+    "fontPxAtEnd": 88.8,
+    "endFrame": 654,
+    "baselineAtEnd": 423,
+    "enterMeasured": {
+     "firstFrameDyPx": 80.0,
+     "firstFrameOpacity": 0.67,
+     "quintT": 16.2,
+     "distPx": 103.0,
+     "fitErrPx": 0.6,
+     "opacityCubicFrames": 3.5
+    },
+    "hiddenPctMax": 5.5,
+    "hiddenPctAtEnd": 0.0
+   }
+  ],
+  "bbox": [
+   0.2056,
+   0.1172,
+   0.7958,
+   0.3469
+  ],
+  "head": [
+   0.3958,
+   0.3484,
+   0.6458,
+   0.5297
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 12,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0598
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 12 frames (within 1 px of rest after about 8); opacity front-loaded: 0.68 on the first visible frame, 0.95 by frame 3",
+   "distPx": 77.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 25.04,
+  "notes": "Layer evidence: f639-f640: the entering \"1second\" overlaps the hair top and stays drawn over it (77 % of the overlapping letter pixels visible): FRONT | Camera move on the footage carries the text: scale x0.810 and dy +164 px between f611 and f654"
+ },
+ {
+  "id": 12,
+  "t0": 31.542,
+  "t1": 33.208,
+  "f0": 757,
+  "f1": 796,
+  "lines": [
+   {
+    "text": "and then",
+    "f0": 757,
+    "t0": 31.542,
+    "words": [
+     {
+      "text": "and",
+      "style": "cap-s"
+     },
+     {
+      "text": "then",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.225,
+     0.1102,
+     0.5819,
+     0.1523
+    ],
+    "xHeightPx": 28.2,
+    "capHeightPx": 37.5,
+    "fontPx": 54.9,
+    "sizeEngine": 0.0429,
+    "spokenWord": "And",
+    "spokenAt": 31.28,
+    "spokenFrame": 751,
+    "deltaFrames": 6,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 52.4,
+    "settleFrame": 768,
+    "fontPxAtEnd": 56.1,
+    "endFrame": 796,
+    "baselineAtEnd": 182,
+    "enterMeasured": {
+     "firstFrameDyPx": 56.5,
+     "firstFrameOpacity": 0.64,
+     "quintT": 17.8,
+     "distPx": 56.0,
+     "fitErrPx": 1.3,
+     "opacityCubicFrames": 4.0
+    }
+   },
+   {
+    "text": "there is",
+    "f0": 763,
+    "t0": 31.792,
+    "words": [
+     {
+      "text": "there",
+      "style": "cap-m"
+     },
+     {
+      "text": "is",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.425,
+     0.1445,
+     0.7819,
+     0.1945
+    ],
+    "xHeightPx": 33.6,
+    "capHeightPx": 44.6,
+    "fontPx": 65.4,
+    "sizeEngine": 0.0511,
+    "spokenWord": null,
+    "spokenAt": null,
+    "spokenFrame": null,
+    "deltaFrames": null,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 62.4,
+    "settleFrame": 774,
+    "fontPxAtEnd": 65.6,
+    "endFrame": 796,
+    "baselineAtEnd": 233,
+    "enterMeasured": {
+     "firstFrameDyPx": 94.0,
+     "firstFrameOpacity": 0.69,
+     "quintT": 20.5,
+     "distPx": 94.0,
+     "fitErrPx": 1.7,
+     "opacityCubicFrames": 3.5
+    }
+   },
+   {
+    "text": "the",
+    "f0": 768,
+    "t0": 32.0,
+    "words": [
+     {
+      "text": "the",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.3278,
+     0.1766,
+     0.5194,
+     0.2367
+    ],
+    "xHeightPx": 41.9,
+    "capHeightPx": 55.6,
+    "fontPx": 81.5,
+    "sizeEngine": 0.0637,
+    "spokenWord": "the",
+    "spokenAt": 32.0,
+    "spokenFrame": 768,
+    "deltaFrames": 0,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 77.8,
+    "settleFrame": 779,
+    "fontPxAtEnd": 79.7,
+    "endFrame": 796,
+    "baselineAtEnd": 284,
+    "enterMeasured": {
+     "firstFrameDyPx": 101.5,
+     "firstFrameOpacity": 0.68,
+     "quintT": 20.8,
+     "distPx": 115.0,
+     "fitErrPx": 1.3,
+     "opacityCubicFrames": 3.8
+    }
+   },
+   {
+    "text": "conversation",
+    "f0": 772,
+    "t0": 32.167,
+    "words": [
+     {
+      "text": "conversation",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.1361,
+     0.2148,
+     0.8583,
+     0.2719
+    ],
+    "xHeightPx": 39.5,
+    "capHeightPx": 52.5,
+    "fontPx": 76.8,
+    "sizeEngine": 0.06,
+    "spokenWord": "conversation",
+    "spokenAt": 32.08,
+    "spokenFrame": 770,
+    "deltaFrames": 2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 73.4,
+    "settleFrame": 783,
+    "fontPxAtEnd": 74.8,
+    "endFrame": 796,
+    "baselineAtEnd": 330,
+    "enterMeasured": {
+     "firstFrameDyPx": 101.5,
+     "firstFrameOpacity": 0.68,
+     "quintT": 19.0,
+     "distPx": 115.0,
+     "fitErrPx": 1.0,
+     "opacityCubicFrames": 3.5
+    }
+   },
+   {
+    "text": "itself",
+    "f0": 781,
+    "t0": 32.542,
+    "words": [
+     {
+      "text": "itself",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.4778,
+     0.2641,
+     0.8167,
+     0.3367
+    ],
+    "xHeightPx": 51.4,
+    "capHeightPx": 68.3,
+    "fontPx": 100.0,
+    "sizeEngine": 0.0781,
+    "spokenWord": "itself.",
+    "spokenAt": 32.64,
+    "spokenFrame": 783,
+    "deltaFrames": -2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 95.6,
+    "settleFrame": 792,
+    "fontPxAtEnd": 95.6,
+    "endFrame": 796,
+    "baselineAtEnd": 408,
+    "enterMeasured": {
+     "firstFrameDyPx": 96.0,
+     "firstFrameOpacity": 0.68,
+     "quintT": 17.2,
+     "distPx": 105.0,
+     "fitErrPx": 0.9,
+     "opacityCubicFrames": 3.5
+    },
+    "hiddenPctMax": 3.7,
+    "hiddenPctAtEnd": 0.0
+   }
+  ],
+  "bbox": [
+   0.1361,
+   0.1102,
+   0.8583,
+   0.3367
+  ],
+  "head": [
+   0.3347,
+   0.3406,
+   0.6917,
+   0.6203
+  ],
+  "layer": "front",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 19,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0817
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 19 frames (within 1 px of rest after about 11); opacity front-loaded: 0.68 on the first visible frame, 0.95 by frame 3",
+   "distPx": 105.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 31.28,
+  "notes": "Layer evidence: f781: \"itself\" overlaps the hair at left and is drawn over it (90 % visible): FRONT | Camera move on the footage carries the text: scale x1.085 and dy -50 px between f768 and f796"
+ },
+ {
+  "id": 13,
+  "t0": 35.792,
+  "t1": 36.792,
+  "f0": 859,
+  "f1": 882,
+  "lines": [
+   {
+    "text": "it can",
+    "f0": 859,
+    "t0": 35.792,
+    "words": [
+     {
+      "text": "it",
+      "style": "cap-m"
+     },
+     {
+      "text": "can",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.1778,
+     0.15,
+     0.4931,
+     0.2102
+    ],
+    "xHeightPx": 44.0,
+    "capHeightPx": 58.4,
+    "fontPx": 85.6,
+    "sizeEngine": 0.0669,
+    "spokenWord": "it",
+    "spokenAt": 35.6,
+    "spokenFrame": 854,
+    "deltaFrames": 5,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 81.8,
+    "settleFrame": 870,
+    "fontPxAtEnd": 80.2,
+    "endFrame": 882,
+    "baselineAtEnd": 250,
+    "enterMeasured": {
+     "firstFrameDyPx": 15.5,
+     "firstFrameOpacity": 0.68,
+     "quintT": 30.0,
+     "distPx": -14.0,
+     "fitErrPx": 12.0,
+     "opacityCubicFrames": 3.5
+    }
+   },
+   {
+    "text": "suggest",
+    "f0": 867,
+    "t0": 36.125,
+    "words": [
+     {
+      "text": "suggest",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.2889,
+     0.1859,
+     0.8736,
+     0.2617
+    ],
+    "xHeightPx": 50.1,
+    "capHeightPx": 66.5,
+    "fontPx": 97.5,
+    "sizeEngine": 0.0761,
+    "spokenWord": "suggest",
+    "spokenAt": 36.08,
+    "spokenFrame": 866,
+    "deltaFrames": 1,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 93.1,
+    "settleFrame": 876,
+    "fontPxAtEnd": 99.5,
+    "endFrame": 878,
+    "baselineAtEnd": 311,
+    "enterMeasured": {
+     "firstFrameDyPx": 39.0,
+     "firstFrameOpacity": 0.81,
+     "quintT": 12.8,
+     "distPx": 40.0,
+     "fitErrPx": 0.6,
+     "opacityCubicFrames": 2.2
+    }
+   },
+   {
+    "text": "you",
+    "f0": 871,
+    "t0": 36.292,
+    "words": [
+     {
+      "text": "you",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.1958,
+     0.2297,
+     0.4764,
+     0.3094
+    ],
+    "xHeightPx": 56.5,
+    "capHeightPx": 75.0,
+    "fontPx": 109.9,
+    "sizeEngine": 0.0859,
+    "spokenWord": "you",
+    "spokenAt": 36.64,
+    "spokenFrame": 879,
+    "deltaFrames": -8,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 105.0,
+    "settleFrame": 882,
+    "fontPxAtEnd": 105.0,
+    "endFrame": 882,
+    "baselineAtEnd": 371,
+    "enterMeasured": {
+     "firstFrameDyPx": 78.0,
+     "firstFrameOpacity": 0.68,
+     "quintT": 15.5,
+     "distPx": 78.0,
+     "fitErrPx": 0.9,
+     "opacityCubicFrames": 3.5
+    }
+   }
+  ],
+  "bbox": [
+   0.1778,
+   0.15,
+   0.8736,
+   0.3094
+  ],
+  "head": [
+   0.3986,
+   0.3758,
+   0.7153,
+   0.6344
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 14,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.046
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 14 frames (within 1 px of rest after about 8); opacity front-loaded: 0.75 on the first visible frame, 0.95 by frame 3",
+   "distPx": 59.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 35.6,
+  "notes": "No person overlap in this caption, so the layer is not observable (drawn behind like the rest of the video) | Camera move on the footage carries the text: scale x0.980 and dy +6 px between f870 and f882"
+ },
+ {
+  "id": 14,
+  "t0": 38.292,
+  "t1": 40.208,
+  "f0": 919,
+  "f1": 964,
+  "lines": [
+   {
+    "text": "it can even",
+    "f0": 919,
+    "t0": 38.292,
+    "words": [
+     {
+      "text": "it",
+      "style": "cap-s",
+      "f0": 919,
+      "t0": 38.292
+     },
+     {
+      "text": "can",
+      "style": "cap-s",
+      "f0": 919,
+      "t0": 38.292
+     },
+     {
+      "text": "even",
+      "style": "cap-s",
+      "f0": 928,
+      "t0": 38.667
+     }
+    ],
+    "bbox": [
+     0.2722,
+     0.1586,
+     0.6792,
+     0.1992
+    ],
+    "xHeightPx": 25.1,
+    "capHeightPx": 33.3,
+    "fontPx": 48.8,
+    "sizeEngine": 0.0382,
+    "spokenWord": "it",
+    "spokenAt": 38.24,
+    "spokenFrame": 918,
+    "deltaFrames": 1,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 46.6,
+    "settleFrame": 934,
+    "fontPxAtEnd": 53.0,
+    "endFrame": 964,
+    "baselineAtEnd": 242,
+    "enterMeasured": {
+     "firstFrameDyPx": 86.5,
+     "firstFrameOpacity": 0.62,
+     "quintT": 20.2,
+     "distPx": 92.0,
+     "fitErrPx": 3.2,
+     "opacityCubicFrames": 4.5
+    }
+   },
+   {
+    "text": "turn",
+    "f0": 937,
+    "t0": 39.042,
+    "words": [
+     {
+      "text": "turn",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.4486,
+     0.1891,
+     0.7069,
+     0.2547
+    ],
+    "xHeightPx": 46.1,
+    "capHeightPx": 61.2,
+    "fontPx": 89.7,
+    "sizeEngine": 0.0701,
+    "spokenWord": "turn",
+    "spokenAt": 39.04,
+    "spokenFrame": 937,
+    "deltaFrames": 0,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 85.6,
+    "settleFrame": 948,
+    "fontPxAtEnd": 86.8,
+    "endFrame": 964,
+    "baselineAtEnd": 305,
+    "enterMeasured": {
+     "firstFrameDyPx": 122.5,
+     "firstFrameOpacity": 0.69,
+     "quintT": 22.2,
+     "distPx": 121.0,
+     "fitErrPx": 1.6,
+     "opacityCubicFrames": 3.5
+    }
+   },
+   {
+    "text": "a written",
+    "f0": 946,
+    "t0": 39.417,
+    "words": [
+     {
+      "text": "a",
+      "style": "cap-l"
+     },
+     {
+      "text": "written",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.2125,
+     0.2391,
+     0.8222,
+     0.3125
+    ],
+    "xHeightPx": 52.2,
+    "capHeightPx": 69.3,
+    "fontPx": 101.6,
+    "sizeEngine": 0.0793,
+    "spokenWord": "a",
+    "spokenAt": 39.36,
+    "spokenFrame": 945,
+    "deltaFrames": 1,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 97.1,
+    "settleFrame": 957,
+    "fontPxAtEnd": 97.2,
+    "endFrame": 963,
+    "baselineAtEnd": 377,
+    "enterMeasured": {
+     "firstFrameDyPx": 103.5,
+     "firstFrameOpacity": 0.68,
+     "quintT": 16.0,
+     "distPx": 108.0,
+     "fitErrPx": 0.6,
+     "opacityCubicFrames": 3.8
+    }
+   },
+   {
+    "text": "message",
+    "f0": 958,
+    "t0": 39.917,
+    "words": [
+     {
+      "text": "message",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.3222,
+     0.2961,
+     0.7292,
+     0.3422
+    ],
+    "xHeightPx": 32.7,
+    "capHeightPx": 43.4,
+    "fontPx": 63.6,
+    "sizeEngine": 0.0497,
+    "spokenWord": "message",
+    "spokenAt": 40.08,
+    "spokenFrame": 962,
+    "deltaFrames": -4,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 60.8,
+    "settleFrame": 964,
+    "fontPxAtEnd": 60.8,
+    "endFrame": 964,
+    "baselineAtEnd": 423,
+    "enterMeasured": {
+     "firstFrameDyPx": 83.0,
+     "firstFrameOpacity": 0.69,
+     "quintT": 12.0,
+     "distPx": 83.0,
+     "fitErrPx": 1.2,
+     "opacityCubicFrames": 3.5
+    }
+   }
+  ],
+  "bbox": [
+   0.2125,
+   0.1586,
+   0.8222,
+   0.3422
+  ],
+  "head": [
+   0.3806,
+   0.4359,
+   0.7347,
+   0.7203
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 16,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0844
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 16 frames (within 1 px of rest after about 10); opacity front-loaded: 0.69 on the first visible frame, 0.95 by frame 3",
+   "distPx": 108.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 38.24,
+  "notes": "No person overlap in this caption, so the layer is not observable (drawn behind like the rest of the video) | Camera move on the footage carries the text: scale x1.155 and dy -70 px between f934 and f964"
+ },
+ {
+  "id": 15,
+  "t0": 44.833,
+  "t1": 46.958,
+  "f0": 1076,
+  "f1": 1126,
+  "lines": [
+   {
+    "text": "Last but not least",
+    "f0": 1076,
+    "t0": 44.833,
+    "words": [
+     {
+      "text": "Last",
+      "style": "title-glow",
+      "f0": 1076,
+      "t0": 44.833
+     },
+     {
+      "text": "but",
+      "style": "title-glow",
+      "f0": 1079,
+      "t0": 44.958
+     },
+     {
+      "text": "not",
+      "style": "title-glow",
+      "f0": 1083,
+      "t0": 45.125
+     },
+     {
+      "text": "least",
+      "style": "title-glow",
+      "f0": 1088,
+      "t0": 45.333
+     }
+    ],
+    "bbox": [
+     0.1556,
+     0.4398,
+     0.575,
+     0.4648
+    ],
+    "xHeightPx": 20.5,
+    "capHeightPx": 27.2,
+    "fontPx": 39.9,
+    "sizeEngine": 0.0312,
+    "spokenWord": "Last",
+    "spokenAt": 44.88,
+    "spokenFrame": 1077,
+    "deltaFrames": -1,
+    "fontPxAtSettle": 37,
+    "settleFrame": 1117
+   },
+   {
+    "text": "you have the business side",
+    "f0": 1100,
+    "t0": 45.833,
+    "words": [
+     {
+      "text": "you",
+      "style": "title-glow",
+      "f0": 1100,
+      "t0": 45.833
+     },
+     {
+      "text": "have",
+      "style": "title-glow",
+      "f0": 1104,
+      "t0": 46.0
+     },
+     {
+      "text": "the",
+      "style": "title-glow",
+      "f0": 1108,
+      "t0": 46.167
+     },
+     {
+      "text": "business",
+      "style": "title-glow",
+      "f0": 1112,
+      "t0": 46.333
+     },
+     {
+      "text": "side",
+      "style": "title-glow",
+      "f0": 1116,
+      "t0": 46.5
+     }
+    ],
+    "bbox": [
+     0.25,
+     0.4711,
+     0.9194,
+     0.4984
+    ],
+    "xHeightPx": 20.5,
+    "capHeightPx": 27.2,
+    "fontPx": 39.9,
+    "sizeEngine": 0.0312,
+    "spokenWord": "you",
+    "spokenAt": 46.0,
+    "spokenFrame": 1104,
+    "deltaFrames": -4,
+    "fontPxAtSettle": 37,
+    "settleFrame": 1117
+   }
+  ],
+  "bbox": [
+   0.1556,
+   0.4398,
+   0.9194,
+   0.4984
+  ],
+  "head": null,
+  "layer": "front",
+  "enter": {
+   "kind": "per word: rise + blur + fade, while the line re-centres",
+   "frames": 6,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0.1,
+    "dx": 0,
+    "dy": 0.0145
+   },
+   "measured": "\"business\": opacity 0.09, 0.30, 0.71, 0.91, 0.97, 1.0 and rise offset 17, 14.5, 8, 4.5, 2.5, 0.5 px on f1112-f1117 (ease-out), blurred on the first 2 frames; the line slides left 40, 35, 31, 19, 11, 5, 0 px over the same frames to stay centred",
+   "stagger": "each word on its own spoken onset (3 to 5 frames apart)",
+   "easing": "ease-out (about cubic)"
+  },
+  "exit": {
+   "kind": "wipe",
+   "frames": 4,
+   "notes": "white cards sweep in from the right and bottom with motion blur (f1124-f1127) and cover the text"
+  },
+  "spokenAt": 44.88,
+  "notes": "Graphic title card on a purple gradient, no person in shot. Block slowly scales down (line width 352 px at f1090, 331 at f1099, 302 at f1117, 257 at f1124). Text has a soft white glow (see styles.json title-glow)."
+ },
+ {
+  "id": 16,
+  "t0": 63.625,
+  "t1": 64.792,
+  "f0": 1527,
+  "f1": 1554,
+  "lines": [
+   {
+    "text": "and that",
+    "f0": 1527,
+    "t0": 63.625,
+    "words": [
+     {
+      "text": "and",
+      "style": "cap-m"
+     },
+     {
+      "text": "that",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.4222,
+     0.1469,
+     0.7875,
+     0.1914
+    ],
+    "xHeightPx": 34.8,
+    "capHeightPx": 46.2,
+    "fontPx": 67.7,
+    "sizeEngine": 0.0529,
+    "spokenWord": "And",
+    "spokenAt": 63.36,
+    "spokenFrame": 1521,
+    "deltaFrames": 6,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 64.7,
+    "settleFrame": 1538,
+    "fontPxAtEnd": 59.3,
+    "endFrame": 1554,
+    "baselineAtEnd": 231
+   },
+   {
+    "text": "is not",
+    "f0": 1532,
+    "t0": 63.833,
+    "words": [
+     {
+      "text": "is",
+      "style": "cap-l"
+     },
+     {
+      "text": "not",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.3431,
+     0.1805,
+     0.6611,
+     0.2445
+    ],
+    "xHeightPx": 49.4,
+    "capHeightPx": 65.6,
+    "fontPx": 96.1,
+    "sizeEngine": 0.0751,
+    "spokenWord": "is",
+    "spokenAt": 63.76,
+    "spokenFrame": 1530,
+    "deltaFrames": 2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 91.9,
+    "settleFrame": 1543,
+    "fontPxAtEnd": 84.4,
+    "endFrame": 1554,
+    "baselineAtEnd": 293,
+    "enterMeasured": {
+     "firstFrameDyPx": 108.0,
+     "firstFrameOpacity": 0.51,
+     "quintT": 18.8,
+     "distPx": 131.0,
+     "fitErrPx": 1.5,
+     "opacityCubicFrames": 6.5
+    }
+   },
+   {
+    "text": "all",
+    "f0": 1540,
+    "t0": 64.167,
+    "words": [
+     {
+      "text": "all",
+      "style": "cap-hook"
+     }
+    ],
+    "bbox": [
+     0.4931,
+     0.2008,
+     0.8292,
+     0.3594
+    ],
+    "xHeightPx": 112.8,
+    "capHeightPx": 149.8,
+    "fontPx": 219.5,
+    "sizeEngine": 0.1714,
+    "spokenWord": "all.",
+    "spokenAt": 64.24,
+    "spokenFrame": 1542,
+    "deltaFrames": -2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 209.6,
+    "settleFrame": 1550,
+    "fontPxAtEnd": 209.6,
+    "endFrame": 1550,
+    "baselineAtEnd": 410,
+    "enterMeasured": {
+     "firstFrameDyPx": 72.5,
+     "firstFrameOpacity": 0.47,
+     "quintT": 11.5,
+     "distPx": 87.0,
+     "fitErrPx": 5.0,
+     "opacityCubicFrames": 7.8
+    },
+    "hiddenPctMax": 2.3,
+    "hiddenPctAtEnd": 2.0
+   }
+  ],
+  "bbox": [
+   0.3431,
+   0.1469,
+   0.8292,
+   0.3594
+  ],
+  "head": [
+   0.1681,
+   0.2711,
+   0.5972,
+   0.5961
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 19,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.102
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 19 frames (within 1 px of rest after about 11); opacity front-loaded: 0.51 on the first visible frame, 0.95 by frame 3",
+   "distPx": 131.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 63.36,
+  "notes": "Layer evidence: f1542-f1554: the hair only touches the lower left of the \"a\" in \"all\" (segmenter edge overlaps 0.6 to 2.3 %, no visible cut): layer not provable | Camera move on the footage carries the text: scale x0.905 and dy +63 px between f1538 and f1554"
+ },
+ {
+  "id": 17,
+  "t0": 79.625,
+  "t1": 80.583,
+  "f0": 1911,
+  "f1": 1933,
+  "lines": [
+   {
+    "text": "basically",
+    "f0": 1911,
+    "t0": 79.625,
+    "words": [
+     {
+      "text": "basically",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.2542,
+     0.1742,
+     0.7556,
+     0.2328
+    ],
+    "xHeightPx": 41.5,
+    "capHeightPx": 55.1,
+    "fontPx": 80.7,
+    "sizeEngine": 0.0631,
+    "spokenWord": "Basically,",
+    "spokenAt": 79.52,
+    "spokenFrame": 1908,
+    "deltaFrames": 3,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 77.2,
+    "settleFrame": 1922,
+    "fontPxAtEnd": 77.2,
+    "endFrame": 1933,
+    "baselineAtEnd": 279,
+    "enterMeasured": {
+     "firstFrameDyPx": 55.0,
+     "firstFrameOpacity": 0.34,
+     "quintT": 18.2,
+     "distPx": 67.0,
+     "fitErrPx": 0.5,
+     "opacityCubicFrames": 9.5
+    }
+   }
+  ],
+  "bbox": [
+   0.2542,
+   0.1742,
+   0.7556,
+   0.2328
+  ],
+  "head": [
+   0.4625,
+   0.275,
+   0.7917,
+   0.5203
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 18,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.052
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 18 frames (within 1 px of rest after about 11); opacity front-loaded: 0.34 on the first visible frame, 0.95 by frame 5",
+   "distPx": 67.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 79.52,
+  "notes": "No person overlap in this caption, so the layer is not observable (drawn behind like the rest of the video)"
+ },
+ {
+  "id": 18,
+  "t0": 80.625,
+  "t1": 82.375,
+  "f0": 1935,
+  "f1": 1976,
+  "lines": [
+   {
+    "text": "Instagram",
+    "f0": 1935,
+    "t0": 80.625,
+    "words": [
+     {
+      "text": "Instagram",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.2833,
+     0.1297,
+     0.7514,
+     0.1766
+    ],
+    "xHeightPx": 33.5,
+    "capHeightPx": 44.5,
+    "fontPx": 65.2,
+    "sizeEngine": 0.0509,
+    "spokenWord": "Instagram",
+    "spokenAt": 80.48,
+    "spokenFrame": 1932,
+    "deltaFrames": 3,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 62.3,
+    "settleFrame": 1946,
+    "fontPxAtEnd": 62.3,
+    "endFrame": 1976,
+    "baselineAtEnd": 211,
+    "enterMeasured": {
+     "firstFrameDyPx": 99.0,
+     "firstFrameOpacity": 0.56,
+     "quintT": 22.2,
+     "distPx": 104.0,
+     "fitErrPx": 1.3,
+     "opacityCubicFrames": 5.8
+    }
+   },
+   {
+    "text": "gives you",
+    "f0": 1950,
+    "t0": 81.25,
+    "words": [
+     {
+      "text": "gives",
+      "style": "cap-m"
+     },
+     {
+      "text": "you",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.1375,
+     0.168,
+     0.5639,
+     0.2148
+    ],
+    "xHeightPx": 34.1,
+    "capHeightPx": 45.3,
+    "fontPx": 66.3,
+    "sizeEngine": 0.0518,
+    "spokenWord": "gives",
+    "spokenAt": 81.12,
+    "spokenFrame": 1947,
+    "deltaFrames": 3,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 63.4,
+    "settleFrame": 1961,
+    "fontPxAtEnd": 62.2,
+    "endFrame": 1972,
+    "baselineAtEnd": 260,
+    "enterMeasured": {
+     "firstFrameDyPx": 89.0,
+     "firstFrameOpacity": 0.52,
+     "quintT": 20.0,
+     "distPx": 88.0,
+     "fitErrPx": 0.7,
+     "opacityCubicFrames": 6.0
+    }
+   },
+   {
+    "text": "an inbox",
+    "f0": 1959,
+    "t0": 81.625,
+    "words": [
+     {
+      "text": "an",
+      "style": "cap-l"
+     },
+     {
+      "text": "inbox",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.2139,
+     0.2086,
+     0.8569,
+     0.2875
+    ],
+    "xHeightPx": 55.9,
+    "capHeightPx": 74.2,
+    "fontPx": 108.8,
+    "sizeEngine": 0.085,
+    "spokenWord": "an",
+    "spokenAt": 81.52,
+    "spokenFrame": 1956,
+    "deltaFrames": 3,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 103.9,
+    "settleFrame": 1970,
+    "fontPxAtEnd": 104.0,
+    "endFrame": 1976,
+    "baselineAtEnd": 343,
+    "hiddenPctMax": 16.2,
+    "hiddenPctAtEnd": 7.0
+   }
+  ],
+  "bbox": [
+   0.1375,
+   0.1297,
+   0.8569,
+   0.2875
+  ],
+  "head": [
+   0.3833,
+   0.2484,
+   0.6403,
+   0.4367
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 21,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.075
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 21 frames (within 1 px of rest after about 13); opacity front-loaded: 0.54 on the first visible frame, 0.95 by frame 5",
+   "distPx": 96.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 80.48,
+  "notes": "Layer evidence: f1963-f1976: \"an inbox\" rises from behind the head: 16 % hidden on its first frame, settles with 5 to 7 % hidden (bottom of \"in\")"
+ },
+ {
+  "id": 19,
+  "t0": 82.417,
+  "t1": 83.958,
+  "f0": 1978,
+  "f1": 2014,
+  "lines": [
+   {
+    "text": "and",
+    "f0": 1978,
+    "t0": 82.417,
+    "words": [
+     {
+      "text": "and",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.3111,
+     0.1359,
+     0.4514,
+     0.1742
+    ],
+    "xHeightPx": 27.4,
+    "capHeightPx": 36.4,
+    "fontPx": 53.3,
+    "sizeEngine": 0.0416,
+    "spokenWord": "and",
+    "spokenAt": 82.32,
+    "spokenFrame": 1976,
+    "deltaFrames": 2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 51.0,
+    "settleFrame": 1989,
+    "fontPxAtEnd": 51.0,
+    "endFrame": 2014,
+    "baselineAtEnd": 211,
+    "enterMeasured": {
+     "firstFrameDyPx": 78.0,
+     "firstFrameOpacity": 0.55,
+     "quintT": 19.8,
+     "distPx": 90.0,
+     "fitErrPx": 0.8,
+     "opacityCubicFrames": 5.8
+    }
+   },
+   {
+    "text": "mochi",
+    "f0": 1984,
+    "t0": 82.667,
+    "words": [
+     {
+      "text": "mochi",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.2444,
+     0.1617,
+     0.5667,
+     0.2156
+    ],
+    "xHeightPx": 38.7,
+    "capHeightPx": 51.4,
+    "fontPx": 75.3,
+    "sizeEngine": 0.0588,
+    "spokenWord": "Mochi",
+    "spokenAt": 82.56,
+    "spokenFrame": 1981,
+    "deltaFrames": 3,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 72.0,
+    "settleFrame": 1995,
+    "fontPxAtEnd": 72.0,
+    "endFrame": 2014,
+    "baselineAtEnd": 259,
+    "enterMeasured": {
+     "firstFrameDyPx": 83.0,
+     "firstFrameOpacity": 0.53,
+     "quintT": 20.8,
+     "distPx": 97.0,
+     "fitErrPx": 0.8,
+     "opacityCubicFrames": 6.0
+    }
+   },
+   {
+    "text": "turns it",
+    "f0": 1997,
+    "t0": 83.208,
+    "words": [
+     {
+      "text": "turns",
+      "style": "cap-l"
+     },
+     {
+      "text": "it",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.3292,
+     0.1961,
+     0.7694,
+     0.2625
+    ],
+    "xHeightPx": 47.5,
+    "capHeightPx": 63.1,
+    "fontPx": 92.4,
+    "sizeEngine": 0.0722,
+    "spokenWord": "turns",
+    "spokenAt": 83.36,
+    "spokenFrame": 2001,
+    "deltaFrames": -4,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 88.3,
+    "settleFrame": 2008,
+    "fontPxAtEnd": 88.0,
+    "endFrame": 2014,
+    "baselineAtEnd": 315,
+    "hiddenPctMax": 17.8,
+    "hiddenPctAtEnd": 0.0
+   }
+  ],
+  "bbox": [
+   0.2444,
+   0.1359,
+   0.7694,
+   0.2625
+  ],
+  "head": [
+   0.4069,
+   0.2477,
+   0.6583,
+   0.4422
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 20,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0732
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 20 frames (within 1 px of rest after about 12); opacity front-loaded: 0.54 on the first visible frame, 0.95 by frame 5",
+   "distPx": 94.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 82.32,
+  "notes": "Layer evidence: f1999-f2004: \"turns it\" rises out from behind the head (17.8 % hidden on first frame, 0 % from f2005) | Camera move on the footage carries the text: scale x1.000 and dy -18 px between f1989 and f2014"
+ },
+ {
+  "id": 20,
+  "t0": 84.0,
+  "t1": 84.792,
+  "f0": 2016,
+  "f1": 2034,
+  "lines": [
+   {
+    "text": "into an",
+    "f0": 2016,
+    "t0": 84.0,
+    "words": [
+     {
+      "text": "into",
+      "style": "cap-l"
+     },
+     {
+      "text": "an",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.2917,
+     0.1352,
+     0.7139,
+     0.2016
+    ],
+    "xHeightPx": 47.0,
+    "capHeightPx": 62.4,
+    "fontPx": 91.4,
+    "sizeEngine": 0.0714,
+    "spokenWord": "into",
+    "spokenAt": 83.92,
+    "spokenFrame": 2014,
+    "deltaFrames": 2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 87.3,
+    "settleFrame": 2027,
+    "fontPxAtEnd": 87.8,
+    "endFrame": 2030,
+    "baselineAtEnd": 237,
+    "enterMeasured": {
+     "firstFrameDyPx": 89.0,
+     "firstFrameOpacity": 0.55,
+     "quintT": 20.2,
+     "distPx": 103.0,
+     "fitErrPx": 0.9,
+     "opacityCubicFrames": 5.8
+    }
+   },
+   {
+    "text": "actual",
+    "f0": 2024,
+    "t0": 84.333,
+    "words": [
+     {
+      "text": "actual",
+      "style": "cap-xl"
+     }
+    ],
+    "bbox": [
+     0.1847,
+     0.1922,
+     0.8139,
+     0.2953
+    ],
+    "xHeightPx": 73.4,
+    "capHeightPx": 97.5,
+    "fontPx": 142.8,
+    "sizeEngine": 0.1116,
+    "spokenWord": "actual",
+    "spokenAt": 84.32,
+    "spokenFrame": 2024,
+    "deltaFrames": 0,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 136.4,
+    "settleFrame": 2030,
+    "fontPxAtEnd": 136.4,
+    "endFrame": 2030,
+    "baselineAtEnd": 345,
+    "hiddenPctMax": 11.4,
+    "hiddenPctAtEnd": 0.3
+   }
+  ],
+  "bbox": [
+   0.1847,
+   0.1352,
+   0.8139,
+   0.2953
+  ],
+  "head": [
+   0.4333,
+   0.2594,
+   0.6903,
+   0.4523
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 20,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0806
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 20 frames (within 1 px of rest after about 12); opacity front-loaded: 0.55 on the first visible frame, 0.95 by frame 5",
+   "distPx": 103.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 83.92,
+  "notes": "Layer evidence: f2027-f2034: \"actual\" rises past the hair, bottoms of \"tu\" hidden (11.4 % at f2027, 0.3 % at f2034)"
+ },
+ {
+  "id": 21,
+  "t0": 84.833,
+  "t1": 85.667,
+  "f0": 2036,
+  "f1": 2055,
+  "lines": [
+   {
+    "text": "sales",
+    "f0": 2036,
+    "t0": 84.833,
+    "words": [
+     {
+      "text": "sales",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.2458,
+     0.1406,
+     0.5736,
+     0.2055
+    ],
+    "xHeightPx": 46.1,
+    "capHeightPx": 61.2,
+    "fontPx": 89.7,
+    "sizeEngine": 0.0701,
+    "spokenWord": "sales",
+    "spokenAt": 84.72,
+    "spokenFrame": 2033,
+    "deltaFrames": 3,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 85.7,
+    "settleFrame": 2047,
+    "fontPxAtEnd": 85.7,
+    "endFrame": 2055,
+    "baselineAtEnd": 242,
+    "enterMeasured": {
+     "firstFrameDyPx": 71.0,
+     "firstFrameOpacity": 0.56,
+     "quintT": 16.2,
+     "distPx": 80.0,
+     "fitErrPx": 0.8,
+     "opacityCubicFrames": 5.8
+    }
+   },
+   {
+    "text": "system",
+    "f0": 2041,
+    "t0": 85.042,
+    "words": [
+     {
+      "text": "system",
+      "style": "cap-xl"
+     }
+    ],
+    "bbox": [
+     0.1292,
+     0.1844,
+     0.8708,
+     0.2883
+    ],
+    "xHeightPx": 73.5,
+    "capHeightPx": 97.6,
+    "fontPx": 143.0,
+    "sizeEngine": 0.1117,
+    "spokenWord": "system.",
+    "spokenAt": 85.12,
+    "spokenFrame": 2043,
+    "deltaFrames": -2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 136.7,
+    "settleFrame": 2052,
+    "fontPxAtEnd": 137.5,
+    "endFrame": 2055,
+    "baselineAtEnd": 336,
+    "enterMeasured": {
+     "firstFrameDyPx": 71.0,
+     "firstFrameOpacity": 0.54,
+     "quintT": 17.2,
+     "distPx": 82.0,
+     "fitErrPx": 0.7,
+     "opacityCubicFrames": 6.0
+    },
+    "hiddenPctMax": 9.4,
+    "hiddenPctAtEnd": 0.0
+   }
+  ],
+  "bbox": [
+   0.1292,
+   0.1406,
+   0.8708,
+   0.2883
+  ],
+  "head": [
+   0.425,
+   0.2766,
+   0.6875,
+   0.4719
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 17,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0633
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 17 frames (within 1 px of rest after about 10); opacity front-loaded: 0.55 on the first visible frame, 0.95 by frame 5",
+   "distPx": 81.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 84.72,
+  "notes": "Layer evidence: f2042-f2045: \"system\" rises out from behind the head (9.4 % hidden on first frame)"
+ },
+ {
+  "id": 22,
+  "t0": 85.708,
+  "t1": 86.5,
+  "f0": 2057,
+  "f1": 2075,
+  "lines": [
+   {
+    "text": "if your",
+    "f0": 2057,
+    "t0": 85.708,
+    "words": [
+     {
+      "text": "if",
+      "style": "cap-s"
+     },
+     {
+      "text": "your",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.1792,
+     0.1508,
+     0.4181,
+     0.1914
+    ],
+    "xHeightPx": 28.5,
+    "capHeightPx": 37.8,
+    "fontPx": 55.4,
+    "sizeEngine": 0.0433,
+    "spokenWord": "if",
+    "spokenAt": 85.84,
+    "spokenFrame": 2060,
+    "deltaFrames": -3,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 52.9,
+    "settleFrame": 2068,
+    "fontPxAtEnd": 53.4,
+    "endFrame": 2075,
+    "baselineAtEnd": 232,
+    "enterMeasured": {
+     "firstFrameDyPx": 92.0,
+     "firstFrameOpacity": 0.58,
+     "quintT": 22.2,
+     "distPx": 94.0,
+     "fitErrPx": 1.2,
+     "opacityCubicFrames": 5.2
+    }
+   },
+   {
+    "text": "business",
+    "f0": 2068,
+    "t0": 86.167,
+    "words": [
+     {
+      "text": "business",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.1306,
+     0.1789,
+     0.8667,
+     0.2648
+    ],
+    "xHeightPx": 61.1,
+    "capHeightPx": 81.1,
+    "fontPx": 118.9,
+    "sizeEngine": 0.0929,
+    "spokenWord": "business",
+    "spokenAt": 86.24,
+    "spokenFrame": 2070,
+    "deltaFrames": -2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 113.6,
+    "settleFrame": 2075,
+    "fontPxAtEnd": 113.6,
+    "endFrame": 2075,
+    "baselineAtEnd": 312,
+    "enterMeasured": {
+     "firstFrameDyPx": 64.0,
+     "firstFrameOpacity": 0.64,
+     "quintT": 16.5,
+     "distPx": 69.0,
+     "fitErrPx": 1.7,
+     "opacityCubicFrames": 4.2
+    },
+    "hiddenPctMax": 8.7,
+    "hiddenPctAtEnd": 0.0
+   }
+  ],
+  "bbox": [
+   0.1306,
+   0.1508,
+   0.8667,
+   0.2648
+  ],
+  "head": [
+   0.3472,
+   0.2609,
+   0.6319,
+   0.4703
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 19,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0636
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 19 frames (within 1 px of rest after about 12); opacity front-loaded: 0.61 on the first visible frame, 0.95 by frame 5",
+   "distPx": 81.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 85.84,
+  "notes": "Layer evidence: f2068-f2070: \"business\" rises out from behind the head (8.7 % hidden on first frame)"
+ },
+ {
+  "id": 23,
+  "t0": 86.542,
+  "t1": 88.208,
+  "f0": 2077,
+  "f1": 2116,
+  "lines": [
+   {
+    "text": "uses",
+    "f0": 2077,
+    "t0": 86.542,
+    "words": [
+     {
+      "text": "uses",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.2681,
+     0.1383,
+     0.4792,
+     0.1852
+    ],
+    "xHeightPx": 33.4,
+    "capHeightPx": 44.4,
+    "fontPx": 65.0,
+    "sizeEngine": 0.0508,
+    "spokenWord": "uses",
+    "spokenAt": 86.56,
+    "spokenFrame": 2077,
+    "deltaFrames": 0,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 62.0,
+    "settleFrame": 2088,
+    "fontPxAtEnd": 62.1,
+    "endFrame": 2115,
+    "baselineAtEnd": 222,
+    "enterMeasured": {
+     "firstFrameDyPx": 99.0,
+     "firstFrameOpacity": 0.56,
+     "quintT": 22.2,
+     "distPx": 111.0,
+     "fitErrPx": 1.2,
+     "opacityCubicFrames": 5.5
+    }
+   },
+   {
+    "text": "Instagram",
+    "f0": 2082,
+    "t0": 86.75,
+    "words": [
+     {
+      "text": "Instagram",
+      "style": "cap-l"
+     }
+    ],
+    "bbox": [
+     0.1722,
+     0.1719,
+     0.8236,
+     0.2375
+    ],
+    "xHeightPx": 46.6,
+    "capHeightPx": 61.9,
+    "fontPx": 90.7,
+    "sizeEngine": 0.0708,
+    "spokenWord": "Instagram",
+    "spokenAt": 86.96,
+    "spokenFrame": 2087,
+    "deltaFrames": -5,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 86.7,
+    "settleFrame": 2093,
+    "fontPxAtEnd": 86.7,
+    "endFrame": 2116,
+    "baselineAtEnd": 283,
+    "enterMeasured": {
+     "firstFrameDyPx": 94.0,
+     "firstFrameOpacity": 0.54,
+     "quintT": 20.0,
+     "distPx": 95.0,
+     "fitErrPx": 0.8,
+     "opacityCubicFrames": 5.8
+    }
+   },
+   {
+    "text": "DMs",
+    "f0": 2094,
+    "t0": 87.25,
+    "words": [
+     {
+      "text": "DMs",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.3194,
+     0.2242,
+     0.5194,
+     0.2719
+    ],
+    "xHeightPx": 33.9,
+    "capHeightPx": 45.0,
+    "fontPx": 66.0,
+    "sizeEngine": 0.0515,
+    "spokenWord": "DMs,",
+    "spokenAt": 87.52,
+    "spokenFrame": 2100,
+    "deltaFrames": -6,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 63.0,
+    "settleFrame": 2105,
+    "fontPxAtEnd": 63.0,
+    "endFrame": 2112,
+    "baselineAtEnd": 333,
+    "enterMeasured": {
+     "firstFrameDyPx": 76.0,
+     "firstFrameOpacity": 0.54,
+     "quintT": 17.2,
+     "distPx": 88.0,
+     "fitErrPx": 0.7,
+     "opacityCubicFrames": 6.0
+    }
+   }
+  ],
+  "bbox": [
+   0.1722,
+   0.1383,
+   0.8236,
+   0.2719
+  ],
+  "head": [
+   0.5306,
+   0.2844,
+   0.8278,
+   0.5117
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 20,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0744
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 20 frames (within 1 px of rest after about 12); opacity front-loaded: 0.54 on the first visible frame, 0.95 by frame 5",
+   "distPx": 95.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 86.56,
+  "notes": "No person overlap in this caption, so the layer is not observable (drawn behind like the rest of the video) | Camera move on the footage carries the text: scale x1.015 and dy +18 px between f2088 and f2116"
+ },
+ {
+  "id": 24,
+  "t0": 88.25,
+  "t1": 89.125,
+  "f0": 2118,
+  "f1": 2138,
+  "lines": [
+   {
+    "text": "then",
+    "f0": 2118,
+    "t0": 88.25,
+    "words": [
+     {
+      "text": "then",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.2944,
+     0.1383,
+     0.5,
+     0.1852
+    ],
+    "xHeightPx": 33.2,
+    "capHeightPx": 44.1,
+    "fontPx": 64.6,
+    "sizeEngine": 0.0505,
+    "spokenWord": "then",
+    "spokenAt": 88.24,
+    "spokenFrame": 2118,
+    "deltaFrames": 0,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 61.8,
+    "settleFrame": 2129,
+    "fontPxAtEnd": 61.9,
+    "endFrame": 2138,
+    "baselineAtEnd": 222,
+    "enterMeasured": {
+     "firstFrameDyPx": 81.0,
+     "firstFrameOpacity": 0.56,
+     "quintT": 20.5,
+     "distPx": 84.0,
+     "fitErrPx": 1.1,
+     "opacityCubicFrames": 5.8
+    }
+   },
+   {
+    "text": "try out",
+    "f0": 2124,
+    "t0": 88.5,
+    "words": [
+     {
+      "text": "try",
+      "style": "cap-m"
+     },
+     {
+      "text": "out",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.3681,
+     0.1742,
+     0.675,
+     0.2219
+    ],
+    "xHeightPx": 34.2,
+    "capHeightPx": 45.4,
+    "fontPx": 66.5,
+    "sizeEngine": 0.052,
+    "spokenWord": "try",
+    "spokenAt": 88.4,
+    "spokenFrame": 2122,
+    "deltaFrames": 2,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 63.6,
+    "settleFrame": 2136,
+    "fontPxAtEnd": 63.6,
+    "endFrame": 2136,
+    "baselineAtEnd": 269,
+    "enterMeasured": {
+     "firstFrameDyPx": 90.0,
+     "firstFrameOpacity": 0.55,
+     "quintT": 23.0,
+     "distPx": 109.0,
+     "fitErrPx": 1.2,
+     "opacityCubicFrames": 5.8
+    }
+   },
+   {
+    "text": "mochi",
+    "f0": 2131,
+    "t0": 88.792,
+    "words": [
+     {
+      "text": "mochi",
+      "style": "cap-m"
+     }
+    ],
+    "bbox": [
+     0.2431,
+     0.2211,
+     0.5875,
+     0.2789
+    ],
+    "xHeightPx": 41.4,
+    "capHeightPx": 55.0,
+    "fontPx": 80.5,
+    "sizeEngine": 0.0629,
+    "spokenWord": "Mochi",
+    "spokenAt": 88.8,
+    "spokenFrame": 2131,
+    "deltaFrames": 0,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 76.9,
+    "settleFrame": 2138,
+    "fontPxAtEnd": 76.9,
+    "endFrame": 2138,
+    "baselineAtEnd": 339,
+    "enterMeasured": {
+     "firstFrameDyPx": 81.0,
+     "firstFrameOpacity": 0.55,
+     "quintT": 16.0,
+     "distPx": 84.0,
+     "fitErrPx": 1.9,
+     "opacityCubicFrames": 5.8
+    }
+   }
+  ],
+  "bbox": [
+   0.2431,
+   0.1383,
+   0.675,
+   0.2789
+  ],
+  "head": [
+   0.4708,
+   0.2945,
+   0.7986,
+   0.5234
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 20,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.066
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 20 frames (within 1 px of rest after about 12); opacity front-loaded: 0.55 on the first visible frame, 0.95 by frame 5",
+   "distPx": 84.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 88.24,
+  "notes": "No person overlap in this caption, so the layer is not observable (drawn behind like the rest of the video)"
+ },
+ {
+  "id": 25,
+  "t0": 89.167,
+  "t1": 89.958,
+  "f0": 2140,
+  "f1": 2158,
+  "lines": [
+   {
+    "text": "for free",
+    "f0": 2140,
+    "t0": 89.167,
+    "words": [
+     {
+      "text": "for",
+      "style": "cap-xl",
+      "f0": 2140,
+      "t0": 89.167
+     },
+     {
+      "text": "free",
+      "style": "cap-xl",
+      "f0": 2145,
+      "t0": 89.375
+     }
+    ],
+    "bbox": [
+     0.1514,
+     0.1617,
+     0.8361,
+     0.2594
+    ],
+    "xHeightPx": 69.7,
+    "capHeightPx": 92.6,
+    "fontPx": 135.6,
+    "sizeEngine": 0.1059,
+    "spokenWord": "for",
+    "spokenAt": 89.44,
+    "spokenFrame": 2147,
+    "deltaFrames": -7,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 129.5,
+    "settleFrame": 2153,
+    "fontPxAtEnd": 128.6,
+    "endFrame": 2157,
+    "baselineAtEnd": 301
+   }
+  ],
+  "bbox": [
+   0.1514,
+   0.1617,
+   0.8361,
+   0.2594
+  ],
+  "head": [
+   0.4806,
+   0.2648,
+   0.7792,
+   0.5023
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (per line, on its spoken word)",
+   "frames": 11,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.6,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.078
+   },
+   "stagger": "each line starts on its own word onset (no fixed stagger)",
+   "easing": "cubic ease-out (opacity reaches 1 in about 4 frames)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 89.44,
+  "notes": "Layer evidence: f2145-f2149: \"free\" rises out from behind the hair (bottoms of \"fr\" cut while it rises)"
+ },
+ {
+  "id": 26,
+  "t0": 90.083,
+  "t1": 91.458,
+  "f0": 2162,
+  "f1": 2194,
+  "lines": [
+   {
+    "text": "for",
+    "f0": 2162,
+    "t0": 90.083,
+    "words": [
+     {
+      "text": "for",
+      "style": "cap-s"
+     }
+    ],
+    "bbox": [
+     0.3153,
+     0.1531,
+     0.4347,
+     0.1977
+    ],
+    "xHeightPx": 31.0,
+    "capHeightPx": 41.2,
+    "fontPx": 60.3,
+    "sizeEngine": 0.0471,
+    "spokenWord": "for",
+    "spokenAt": 89.92,
+    "spokenFrame": 2158,
+    "deltaFrames": 4,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 57.6,
+    "settleFrame": 2173,
+    "fontPxAtEnd": 58.4,
+    "endFrame": 2192,
+    "baselineAtEnd": 239,
+    "enterMeasured": {
+     "firstFrameDyPx": 79.0,
+     "firstFrameOpacity": 0.57,
+     "quintT": 17.8,
+     "distPx": 89.0,
+     "fitErrPx": 0.7,
+     "opacityCubicFrames": 5.5
+    }
+   },
+   {
+    "text": "14 days",
+    "f0": 2166,
+    "t0": 90.25,
+    "words": [
+     {
+      "text": "14",
+      "style": "cap-xl"
+     },
+     {
+      "text": "days",
+      "style": "cap-xl"
+     }
+    ],
+    "bbox": [
+     0.1472,
+     0.1945,
+     0.8458,
+     0.2922
+    ],
+    "xHeightPx": 69.3,
+    "capHeightPx": 92.0,
+    "fontPx": 134.8,
+    "sizeEngine": 0.1053,
+    "spokenWord": "14",
+    "spokenAt": 90.08,
+    "spokenFrame": 2162,
+    "deltaFrames": 4,
+    "note": "fontPx and sizeEngine are Zalando Sans sizes that reproduce the measured x-height; fontPxAtSettle/AtEnd are the fitted reference-outline sizes (x-height 0.538 em)",
+    "fontPxAtSettle": 128.9,
+    "settleFrame": 2177,
+    "fontPxAtEnd": 128.7,
+    "endFrame": 2191,
+    "baselineAtEnd": 343,
+    "enterMeasured": {
+     "firstFrameDyPx": 76.0,
+     "firstFrameOpacity": 0.53,
+     "quintT": 17.0,
+     "distPx": 78.0,
+     "fitErrPx": 0.7,
+     "opacityCubicFrames": 6.0
+    },
+    "hiddenPctMax": 4.1,
+    "hiddenPctAtEnd": 0.0
+   }
+  ],
+  "bbox": [
+   0.1472,
+   0.1531,
+   0.8458,
+   0.2922
+  ],
+  "head": [
+   0.4639,
+   0.2797,
+   0.7681,
+   0.5055
+  ],
+  "layer": "behind",
+  "enter": {
+   "kind": "rise+fade (each line on its first spoken word; no scale)",
+   "frames": 17,
+   "from": {
+    "scale": 1.0,
+    "opacity": 0.0,
+    "blur": 0,
+    "dx": 0,
+    "dy": 0.0654
+   },
+   "stagger": "per line, on the spoken onset of its first word",
+   "easing": "position: quintic ease-out over 17 frames (within 1 px of rest after about 10); opacity front-loaded: 0.55 on the first visible frame, 0.95 by frame 5",
+   "distPx": 84.0,
+   "motionBlur": "vertical motion blur while moving (180 degree shutter look)"
+  },
+  "exit": {
+   "kind": "cut",
+   "frames": 0,
+   "to": {
+    "opacity": 0
+   },
+   "notes": "whole caption disappears in one frame; next caption enters 1 to 3 frames later"
+  },
+  "spokenAt": 89.92,
+  "notes": "Layer evidence: f2166-f2175: \"14 days\" rises out from behind the head (4.1 % hidden on first frame) | End of video: the caption blinks off for one frame at f2189 (clip boundary) and dims to about 70 % on f2193-f2194"
+ }
+]
