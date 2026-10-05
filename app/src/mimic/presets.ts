@@ -231,7 +231,8 @@ const MOCHI_VERTICAL = base({
   lines: 4,
   indents: [-0.8, 0.2, -0.3, 0.4, 0],
   places: [{ x: 0.5, y: 0.138, align: "center", valign: "top", width: 0.8 }],
-  behind: { share: 0.85 },
+  // (12 of the 14 that meet the head are behind it; the head moves, so all are, tucked where there is room.)
+  behind: { share: 1 },
   enter: mochiRise(0.0573),
   exit: null,
   ride: true,

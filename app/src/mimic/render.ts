@@ -15,6 +15,7 @@ import { PersonMasker } from "../engine/vision/person";
 import { integratedLoudness, limit, MIX_RATE } from "../engine/render/mix";
 import { drawPage, layoutPage, type LaidLine } from "./captions";
 import { drawDesign, layoutDesign, type LaidDesign } from "./design";
+import type { TextDesign } from "./types";
 import { decodeStereo } from "./audio";
 import { lineAt, zoomAt } from "./plan";
 import { isMadeSound, makeSfx, type Sfx } from "./sfx";
@@ -185,7 +186,7 @@ export class MimicPainter {
     const cap = plan.captions;
     const page = cap?.pages.find((p) => t >= p.start - 1e-6 && t < p.end - 1e-6);
     let captioned = false;
-    if (cap && page && cap.look.design && page.behind && !cut && segIdx >= 0) {
+    if (cap && page && cap.look.design && page.behind && !cut && segIdx >= 0 && !this.laidFor(page, cap.look.design).front) {
       await this.behindSpeaker(t, () => this.drawCaption(page, t));
       captioned = true;
     }
@@ -217,6 +218,13 @@ export class MimicPainter {
     if (page && !captioned) this.drawCaption(page, t);
   }
 
+  /** Where a design's caption's words go (worked out once a caption). */
+  private laidFor(page: CaptionPage, d: TextDesign): LaidDesign {
+    let laid = this.laidDesign.get(page);
+    if (!laid) this.laidDesign.set(page, (laid = layoutDesign(this.ctx, d, page, this.plan.width, this.plan.height)));
+    return laid;
+  }
+
   /** A caption at t: the design's (several styles, stacked, animated), or the plain look's. */
   private drawCaption(page: CaptionPage, t: number) {
     const { plan, ctx } = this;
@@ -224,8 +232,7 @@ export class MimicPainter {
     const { width: W, height: H } = plan;
     const d = cap.look.design;
     if (d) {
-      let laid = this.laidDesign.get(page);
-      if (!laid) this.laidDesign.set(page, (laid = layoutDesign(ctx, d, page, W, H)));
+      const laid = this.laidFor(page, d);
       // Riding the footage's zoom: scaled about the middle as the picture has been since the caption came on.
       const k = d.ride ? zoomAt(plan.zoom, t) / Math.max(1e-6, zoomAt(plan.zoom, page.start)) : 1;
       if (Math.abs(k - 1) > 1e-4) {

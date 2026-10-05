@@ -248,30 +248,37 @@ describe("text that isn't a caption, and captions clear of the face", () => {
   it("moves a caption off the speaker's face the least way, and tucks one behind only at its foot", () => {
     const [W, H] = [1080, 1920];
     const face = { x: 0.5, y: 0.35, w: 0.3, h: 0.17 };
-    const head = { y0: (0.35 - 1.05 * 0.17) * H, y1: (0.35 + 0.6 * 0.17) * H, x0: (0.5 - 0.75 * 0.3) * W, x1: (0.5 + 0.75 * 0.3) * W };
+    const head = { y0: (0.35 - 1.05 * 0.17) * H, y1: (0.35 + 0.75 * 0.17) * H, x0: (0.5 - 0.75 * 0.3) * W, x1: (0.5 + 0.75 * 0.3) * W };
+    const clear = (b: { x0: number; x1: number; y0: number; y1: number }) => b.y1 <= head.y0 || b.y0 >= head.y1 || b.x1 <= head.x0 || b.x0 >= head.x1;
+    const shift = (b: { x0: number; x1: number; y0: number; y1: number }, r: { dx: number; dy: number }) => ({ x0: b.x0 + r.dx, x1: b.x1 + r.dx, y0: b.y0 + r.dy, y1: b.y1 + r.dy });
     // In front, across the eyes: moved the least way that clears the head (here, under the chin).
     const across = { x0: 300, x1: 780, y0: 600, y1: 700 };
-    const [dx, dy] = clearOfHead(across, face, false, W, H);
-    const moved = { x0: across.x0 + dx, x1: across.x1 + dx, y0: across.y0 + dy, y1: across.y1 + dy };
-    expect(moved.y1 <= head.y0 || moved.y0 >= head.y1 || moved.x1 <= head.x0 || moved.x0 >= head.x1).toBe(true);
-    expect(Math.abs(dy) / H).toBeLessThan(0.16);
+    const r = clearOfHead(across, face, false, W, H);
+    expect(clear(shift(across, r))).toBe(true);
+    expect(r.dy).toBeGreaterThan(0);
+    expect(r.dy / H).toBeLessThan(0.2);
     // Higher up the face, above the head is nearer.
     const brow = { x0: 300, x1: 780, y0: 380, y1: 460 };
-    const [, dy2] = clearOfHead(brow, face, false, W, H);
-    expect(brow.y1 + dy2).toBeLessThanOrEqual(head.y0);
+    expect(brow.y1 + clearOfHead(brow, face, false, W, H).dy).toBeLessThanOrEqual(head.y0);
     // Beside the head already: stays.
-    expect(clearOfHead({ x0: 40, x1: 240, y0: 600, y1: 700 }, face, false, W, H)).toEqual([0, 0]);
+    expect(clearOfHead({ x0: 40, x1: 240, y0: 600, y1: 700 }, face, false, W, H)).toEqual({ dx: 0, dy: 0, front: false });
     // Behind, the head hiding most of a stack: up until a fifth of it is tucked behind the top of the head.
     const stack = { x0: 380, x1: 700, y0: 600, y1: 800 };
-    const [, up] = clearOfHead(stack, face, true, W, H);
-    expect(up).toBeLessThan(0);
-    expect(stack.y1 + up).toBeCloseTo(head.y0 + 0.2 * (stack.y1 - stack.y0), 6);
-    // Too tall for that: as far up as the frame lets it.
+    const up = clearOfHead(stack, face, true, W, H);
+    expect(up.front).toBe(false);
+    expect(stack.y1 + up.dy).toBeCloseTo(head.y0 + 0.2 * (stack.y1 - stack.y0), 6);
+    // Too tall to fit above the head (a close-up): it comes out in front, clear of the head.
     const tall = { x0: 380, x1: 700, y0: 420, y1: 800 };
-    const [, up2] = clearOfHead(tall, face, true, W, H);
-    expect(tall.y0 + up2).toBeCloseTo(0.04 * H, 6);
+    const out = clearOfHead(tall, face, true, W, H);
+    expect(out.front).toBe(true);
+    expect(clear(shift(tall, out))).toBe(true);
+    // Nowhere clear at all: behind, as far up as the frame lets it.
+    const huge = { x0: 300, x1: 900, y0: 300, y1: 1500 };
+    const most = clearOfHead(huge, face, true, W, H);
+    expect(most.front).toBe(false);
+    expect(huge.y0 + most.dy).toBeCloseTo(0.04 * H, 6);
     // A giant word behind, showing either side of the head: stays.
-    expect(clearOfHead({ x0: 60, x1: 1020, y0: 500, y1: 800 }, face, true, W, H)).toEqual([0, 0]);
+    expect(clearOfHead({ x0: 60, x1: 1020, y0: 500, y1: 800 }, face, true, W, H)).toEqual({ dx: 0, dy: 0, front: false });
   });
 });
 

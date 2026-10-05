@@ -69,7 +69,9 @@ footage   ─► asr/*               Parakeet TDT v3 in a worker (fbank, encoder
                                  words fixed by hand or Gemini keeping their times (align, gemini)
             ─► plan              the template applied: segments, captions (captions.ts, or a text
                                  design's pages and layout: design.ts), cards, cutaways, zooms,
-                                 framing, sounds (sfx.ts), music, ending
+                                 framing, sounds (sfx.ts), music, ending; where the speaker's face is
+                                 while each caption is up (a face track a second apart), for it to
+                                 keep clear of the head
             ─► render            per frame on a canvas (a caption behind the speaker drawn between the
                                  frame and the person cut out of it), encoded with WebCodecs; the mix
                                  at -14 LUFS

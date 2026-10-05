@@ -164,10 +164,10 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
       const near = firstTimes.reduce((a, u) => (Math.abs(u - t) < Math.abs(a - t) ? u : a), firstTimes[0]);
       if (on.some((u) => Math.abs(u - t) <= 0.85) && !ui.has(near)) designTimes.push(t);
     }
-    // (And when most of the text comes while the speaker is on screen, not in the long
-    // stretches without them: the motion graphics between, their screens of an app and their
-    // titles, aren't the captions. A cutaway of a second or two keeps its captions; a speaker
-    // too small to find, standing back, leaves them all.)
+    // (And in a promo, while the speaker is on screen, not in the long stretches without them:
+    // the motion graphics between, their screens of an app and their titles, aren't the
+    // captions. A cutaway of a second or two keeps its captions, a short edit all of its own,
+    // and a speaker too small to find, standing back (too few moments with a face), leaves them.)
     const faced = firstTimes.map((u) => (faceAt.get(u) ?? []).some((q) => q.h > 0.06));
     const away = new Set<number>();
     for (let i = 0; i < faced.length; ) {
@@ -177,7 +177,7 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
       i = Math.max(j, i + 1);
     }
     const talking = designTimes.filter((t) => !away.has(firstTimes.reduce((a, u) => (Math.abs(u - t) < Math.abs(a - t) ? u : a), firstTimes[0])));
-    if (a.faces && talking.length >= 0.5 * designTimes.length) designTimes = talking;
+    if (a.faces && duration >= 25 && talking.length >= 15) designTimes = talking;
     const samples: TextSample[] = [];
     await src.pictures(
       designTimes,
@@ -212,7 +212,8 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
         design.design.styles.forEach((st, si) => {
           const sp = design!.specimens[si]?.filter((w) => w.mask).map((w) => ({ text: w.text, mask: w.mask!, xh: w.xh, tall: w.tall })) ?? [];
           const g = sp.length ? matchFont(sp, render, { weight: st.weight, italic: st.italic }) : null;
-          if (!g || g.score < 0.35) return;
+          // (Under 55% alike, the face picked from the letters' proportions is the safer bet.)
+          if (!g || g.score < 0.55) return;
           const f = fontById(g.font);
           const px = sp.map((x) => sizeIn(f, x)).sort((p, q) => p - q);
           Object.assign(st, { font: g.font, weight: g.weight, italic: g.italic, stretch: g.stretch, tracking: Math.max(-0.12, Math.min(0.2, g.tracking)), size: Math.round((px[px.length >> 1] / ph) * 1000) / 1000 });

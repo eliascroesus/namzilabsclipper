@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { retime } from "../src/mimic/asr/align";
 import { DEFAULT_LOOK, paginate } from "../src/mimic/captions";
 import { lineAt, planMimic, progress, shapeLine, withStretch, zoomAt } from "../src/mimic/plan";
+import { presetById } from "../src/mimic/presets";
 import { cardOffset } from "../src/mimic/render";
 import type { MimicTemplate } from "../src/mimic/types";
 import type { Word } from "../src/mimic/asr/parakeet";
@@ -464,5 +465,32 @@ describe("the music", () => {
     const ending = shapeLine([], "ending", plan);
     expect(lineAt(ending, plan.duration - 0.1)).toBe(6);
     expect(lineAt(ending, 1)).toBe(0);
+  });
+});
+
+describe("a design's captions and the speaker's face", () => {
+  // The speaker walks back from the camera through the first second and a half: the face shrinks and drops.
+  const track = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2.5, 3.5].map((t, i) => ({ t, x: 0.5, y: 0.4 + Math.min(i, 5) * 0.015, h: 0.22 - Math.min(i, 5) * 0.015 }));
+  const words = say("Du har sikkert set mig på tigre og tænker hvem er ham med juden på mig skæren.");
+  const input = (behind: number) => ({
+    template: { ...template, broll: [], cards: [] },
+    raw: { id: "raw", duration: 6, width: 1080, height: 1920, cuts: [], track },
+    words,
+    speech: [{ start: 0, end: 5.5 }],
+    extras: [],
+    clip: false,
+    look: { ...DEFAULT_LOOK, design: { ...presetById("stacked")!.design, alts: [], behind: { share: behind } } },
+  });
+
+  it("keeps every place the face goes for a caption in front, and where it mostly is for one behind", () => {
+    const front = planMimic(input(0)).captions!.pages[0];
+    const behind = planMimic(input(1)).captions!.pages[0];
+    expect(front.behind).toBeFalsy();
+    expect(behind.behind).toBe(true);
+    // In front: the face box reaches the top of the closest face (0.4 - 0.11) to the chin of the lowest.
+    expect(front.face!.y - front.face!.h / 2).toBeCloseTo(0.29, 2);
+    // Behind: a typical face, not the closest one.
+    expect(behind.face!.y - behind.face!.h / 2).toBeGreaterThan(0.31);
+    expect(behind.face!.h).toBeLessThan(front.face!.h);
   });
 });

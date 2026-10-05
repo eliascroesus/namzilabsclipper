@@ -26,6 +26,8 @@ export interface PlanInput {
     face?: { x: number; y: number; h: number } | null;
     /** the speaker's face take by take (source times), when found */
     shots?: { start: number; end: number; face: { x: number; y: number; h: number } | null }[];
+    /** the speaker's face a second apart (source times), when found */
+    track?: { t: number; x: number; y: number; h: number }[];
   };
   words: Word[];
   speech: Run[];
@@ -478,25 +480,53 @@ export function planMimic(inp: PlanInput): MimicPlan {
     }
   frames.sort((a, b) => a.start - b.start);
 
-  // 5b. Where the speaker's face is as each of a design's captions comes on (the take's face,
-  // through its framing and the zoom then), for the caption to keep clear of the head.
+  // 5b. Where the speaker's face is while each of a design's captions is up (the takes' faces,
+  // through their framing and the zoom, over the caption's whole time, so a punch-in or a
+  // cut under it counts; for captions riding the zoom, as the caption sees it), for the
+  // caption to keep clear of the head.
   if (look.design && inp.raw.width && inp.raw.height) {
     const [sw, sh] = [inp.raw.width, inp.raw.height];
-    for (const p of pages) {
-      const t = p.start + 0.02;
+    const ride = !!look.design.ride;
+    const track = inp.raw.track ?? [];
+    const faceAt = (t: number) => {
       const seg = segments.find((x) => t >= x.start && t < x.end);
-      if (!seg || broll.some((b) => t >= b.start && t < b.end)) continue;
+      if (!seg || broll.some((b) => t >= b.start && t < b.end)) return null;
       const srcT = seg.from + (t - seg.start);
-      const f = shots.length ? (shots.find((x) => srcT >= x.start && srcT < x.end)?.face ?? null) : inp.raw.face;
-      if (!f) continue;
+      // (Where the face was looked for within a second, that; else the take's.)
+      let near: { t: number; x: number; y: number; h: number } | null = null;
+      for (const q of track) if (Math.abs(q.t - srcT) <= 0.75 && (!near || Math.abs(q.t - srcT) < Math.abs(near.t - srcT))) near = q;
+      const f = near ?? (shots.length ? (shots.find((x) => srcT >= x.start && srcT < x.end)?.face ?? null) : inp.raw.face);
+      if (!f) return null;
       const fr = frames.find((x) => t >= x.start - 1e-6 && t < x.end - 1e-6) ?? frame;
       // (As the frame is drawn: the footage covering it, about the framing's centre, zoomed.)
       const k = Math.max(W / sw, H / sh) * fr.zoom * zoomAt(zoom, t);
       const [vw, vh] = [W / k, H / k];
       const sx = Math.min(sw - vw, Math.max(0, fr.cx * sw - vw / 2));
       const sy = Math.min(sh - vh, Math.max(0, fr.cy * sh - vh / 2));
-      const r3 = (v: number) => Math.round(v * 1000) / 1000;
-      p.face = { x: r3(((f.x * sw - sx) * k) / W), y: r3(((f.y * sh - sy) * k) / H), w: r3((0.8 * f.h * sh * k) / W), h: r3((f.h * sh * k) / H) };
+      const [x, y, w, h] = [((f.x * sw - sx) * k) / W, ((f.y * sh - sy) * k) / H, (0.8 * f.h * sh * k) / W, (f.h * sh * k) / H];
+      return { x0: x - w / 2, x1: x + w / 2, y0: y - h / 2, y1: y + h / 2 };
+    };
+    const r3 = (v: number) => Math.round(v * 1000) / 1000;
+    const mid = (v: number[]) => v.sort((a, b) => a - b)[v.length >> 1];
+    for (const p of pages) {
+      const z0 = zoomAt(zoom, p.start);
+      const boxes: { x0: number; x1: number; y0: number; y1: number }[] = [];
+      const times: number[] = [];
+      for (let t = p.start + 0.02; t < p.end - 0.05; t += 0.25) times.push(t);
+      times.push(Math.max(p.start + 0.02, p.end - 0.05));
+      for (const t of times) {
+        const f = faceAt(t);
+        if (!f) continue;
+        const k = ride ? zoomAt(zoom, t) / z0 : 1;
+        boxes.push({ x0: 0.5 + (f.x0 - 0.5) / k, x1: 0.5 + (f.x1 - 0.5) / k, y0: 0.5 + (f.y0 - 0.5) / k, y1: 0.5 + (f.y1 - 0.5) / k });
+      }
+      if (!boxes.length) continue;
+      // In front, everywhere the face goes while it's up (it never covers the face); behind
+      // (hidden wherever the person passes anyway), where the face mostly is.
+      const u = p.behind
+        ? { x0: mid(boxes.map((b) => b.x0)), x1: mid(boxes.map((b) => b.x1)), y0: mid(boxes.map((b) => b.y0)), y1: mid(boxes.map((b) => b.y1)) }
+        : boxes.reduce((a, b) => ({ x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1) }));
+      p.face = { x: r3((u.x0 + u.x1) / 2), y: r3((u.y0 + u.y1) / 2), w: r3(u.x1 - u.x0), h: r3(u.y1 - u.y0) };
     }
   }
 

@@ -7,6 +7,7 @@ import { useSyncExternalStore } from "react";
 import { pickModel } from "../../engine/ai/gemini";
 import { detectSpeech, type Run } from "../../engine/audio/speech";
 import { findCuts as exactCuts } from "../../engine/media/cuts";
+import { VideoSampleSink } from "mediabunny";
 import { grabThumb } from "../../engine/media/scan";
 import { decodeMono, openSource, type Source } from "../../engine/media/sources";
 import { analyzeSong, loudnessBars, SR } from "../../engine/audio/song";
@@ -153,7 +154,10 @@ interface Heard {
   cuts: number[];
   face: { x: number; y: number; h: number } | null;
   shots: { start: number; end: number; face: { x: number; y: number; h: number } | null }[];
+  /** the speaker's face a second apart (heard before this was kept: none) */
+  track?: FacePoint[];
 }
+type FacePoint = { t: number; x: number; y: number; h: number };
 const loadKey = () => {
   try {
     return localStorage.getItem(KEY_STORE) ?? "";
@@ -186,6 +190,7 @@ class Mimic {
   private rawCuts: number[] = [];
   private face: { x: number; y: number; h: number } | null = null;
   private shots: { start: number; end: number; face: { x: number; y: number; h: number } | null }[] = [];
+  private track: FacePoint[] = [];
   private studyAbort: AbortController | null = null;
   private hearAbort: AbortController | null = null;
   private makeAbort: AbortController | null = null;
@@ -436,7 +441,7 @@ class Mimic {
   private rememberFootage() {
     const f = this.footFile;
     if (!f || !this.state.heard.length) return;
-    const h: Heard = { words: this.state.heard, speech: this.speech, cuts: this.rawCuts, face: this.face, shots: this.shots };
+    const h: Heard = { words: this.state.heard, speech: this.speech, cuts: this.rawCuts, face: this.face, shots: this.shots, track: this.track };
     void remember(this.hearKey(f), h);
   }
 
@@ -459,6 +464,7 @@ class Mimic {
         this.rawCuts = kept.cuts;
         this.face = kept.face;
         this.shots = kept.shots;
+        this.track = kept.track ?? [];
         this.set((s) => ({ heard: kept.words, words: kept.words, text: kept.words.map((w) => w.text).join(" "), hearing: { stage: "ready", progress: 1, label: "" }, remembered: { ...s.remembered, footage: true } }));
         this.askSoon();
         return;
@@ -467,11 +473,13 @@ class Mimic {
       this.rawCuts = [];
       this.face = null;
       this.shots = [];
+      this.track = [];
       const looking = Promise.all([exactCuts(src, 0, src.info.duration, ctl.signal).catch(() => []), this.findFace(src)]).then(async ([cuts, face]) => {
         if (ctl.signal.aborted) return;
         this.rawCuts = cuts;
         this.face = face;
         this.shots = await this.takeFaces(src, cuts);
+        this.track = await this.faceTrack(src, ctl.signal);
       });
       await this.hear(ctl.signal);
       if (this.state.hearing.stage === "ready") {
@@ -509,6 +517,32 @@ class Mimic {
       }
     } catch {
       // no faces: one framing for the whole footage
+    }
+    return out;
+  }
+
+  /** The speaker's face a second apart through the footage (a take can lean in and out), for captions to keep clear of it. */
+  private async faceTrack(src: Source, signal: AbortSignal): Promise<FacePoint[]> {
+    const out: FacePoint[] = [];
+    if (!src.video) return out;
+    try {
+      const finder = await FaceFinder.get();
+      const times: number[] = [];
+      for (let t = 0.25; t < src.info.duration; t += 1) times.push(t);
+      let i = 0;
+      for await (const sample of new VideoSampleSink(src.video).samplesAtTimestamps(times)) {
+        const t = times[i++];
+        if (!sample) continue;
+        try {
+          if (signal.aborted) break;
+          const f = (await finder.find((ctx) => sample.drawWithFit(ctx, { fit: "fill" }), sample.displayWidth / sample.displayHeight)).sort((p, q) => q.h - p.h)[0];
+          if (f) out.push({ t, x: Math.round(f.x * 1000) / 1000, y: Math.round(f.y * 1000) / 1000, h: Math.round(f.h * 1000) / 1000 });
+        } finally {
+          sample.close();
+        }
+      }
+    } catch {
+      // no faces: the takes' faces stand in
     }
     return out;
   }
@@ -851,7 +885,7 @@ class Mimic {
       .map((e) => ({ id: e.id, name: e.name, kind: e.kind === "video" ? "video" : "image", width: e.width, height: e.height, duration: e.duration, focus: e.focus, label: e.label, text: e.text, tags: e.tags, about: e.about, keywords: e.keywords, look: e.look }));
     return {
       template: s.template,
-      raw: { id: s.footage!.id, duration: src.info.duration, width: src.info.width, height: src.info.height, cuts: this.rawCuts, face: this.face, shots: this.shots },
+      raw: { id: s.footage!.id, duration: src.info.duration, width: src.info.width, height: src.info.height, cuts: this.rawCuts, face: this.face, shots: this.shots, track: this.track },
       words: s.words,
       speech: this.speech,
       extras,

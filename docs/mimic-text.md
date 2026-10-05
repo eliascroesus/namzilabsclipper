@@ -61,6 +61,13 @@ once with a stagger, or a little ahead of being said.
   that moves word to word, or the colour sweeping across it (karaoke), kept once said or not; words
   not said yet dimmed.
 - **Riding the zoom**: captions scale with the footage's zooms, as if set in the picture.
+- **Clear of the face**: the speaker's face is found a second apart through the footage (a take can
+  lean in and walk back), and followed through the framing and the zooms while each caption is up. A
+  caption in front that would cover the head (the face, the hair or a cap above it, the chin) moves
+  the least way that clears it wherever the face goes meanwhile: up, under the chin, or to a side.
+  One behind the speaker that the head would mostly hide goes up until only its foot is tucked behind
+  the top of the head, as Mochi's stacks are, or comes out in front when there's no room above the
+  head (a close-up); a giant word across the frame keeps its middle behind the head, as jiia's do.
 
 **Behind the speaker** ([engine/vision/person.ts](../app/src/engine/vision/person.ts)). MediaPipe's
 selfie segmenter (250 KB, Apache 2.0, served by the site) finds the person at 256 pixels square; a
@@ -85,7 +92,11 @@ open-source caption projects, and from frames where nothing is published.
 When a reference's captions are more than subtitles in a band (big lines of text coming and going
 all over the frame, or at very different sizes), the study reads its frames whole, three a second,
 round the moments text was seen ([analyze/reference.ts](../app/src/mimic/analyze/reference.ts)).
-Screens of an app's interface (no speaker's face, lines of small text all over) are skipped.
+Screens of an app's interface (no speaker's face, lines of small text all over) are skipped, and
+so, when most of the text comes while the speaker is on screen, are the long stretches without them
+(a promo's motion graphics). A frame of ten small words or more on four lines or more (a list, a
+chat), writing held still for over four and a half seconds, and mid-grey writing are an app's, not
+captions.
 
 1. **Words** ([analyze/words.ts](../app/src/mimic/analyze/words.ts)). Each line the text reader finds
    is split into its words, and each word's letters are picked out whatever their colour: what stands
@@ -112,10 +123,12 @@ Screens of an app's interface (no speaker's face, lines of small text all over) 
    spread round the speaker, the places captions sit in, the share behind the speaker, and whether
    words come on one by one as they're said.
 7. **Fonts** ([analyze/fontmatch.ts](../app/src/mimic/analyze/fontmatch.ts)). Each style's clearest
-   words are drawn in every face of the library at the size their measured heights give, laid on the
-   frame's letters baseline to baseline, stretched to the same width, and scored by how much of the
-   letters overlap, less how far they had to stretch; the best six faces are then tried at every
-   weight and width they have.
+   words are drawn in every face of the library at the size their measured heights give, with the
+   letter spacing that makes them as wide as read (editors set letters touching, or spaced out), laid
+   on the frame's letters baseline to baseline, and scored by how much of the
+   letters overlap; the best six faces are then tried at every weight and width they have. A face is
+   taken when it's at least 55% alike; below that, the face picked from the letters' proportions
+   (wide, condensed, a script, or Inter) stays.
 
 The design is what "As the reference" puts on the page; the page then lets you change any of it.
 
@@ -129,5 +142,4 @@ The design is what "As the reference" puts on the page; the page then lets you c
   measure them (popups.json) for when they are.
 - A sharper cut-out (MODNet, Apache 2.0, about 7 MB, WebGPU) for hair edges is the next step for text
   behind the speaker.
-- Places are shares of the frame, not keyed to the head (Mochi's stack sits just above it), and which
-  captions go behind is a share, not where the head is.
+- Which captions go behind the speaker is a share of them, not chosen by where the head is.

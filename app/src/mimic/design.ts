@@ -253,6 +253,8 @@ export interface LaidDesign {
   /** each line's box (pixels) */
   lines: Box[];
   block: Box;
+  /** set behind the speaker, but brought in front, there being no room for it round the head */
+  front?: boolean;
 }
 
 /** Where every word of a design's caption goes on a W × H frame. */
@@ -324,36 +326,38 @@ export function layoutDesign(ctx: Ctx, d: TextDesign, page: CaptionPage, W: numb
   const block = lines.reduce((b, l) => ({ x0: Math.min(b.x0, l.x0), y0: Math.min(b.y0, l.y0), x1: Math.max(b.x1, l.x1), y1: Math.max(b.y1, l.y1) }), { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity });
   // Clear of the speaker's head, as the reference edits keep their words (beside it, above it,
   // tucked behind its top): moved the least way it takes.
-  const [dx, dy] = page.face ? clearOfHead(block, page.face, !!page.behind, W, H) : [0, 0];
+  const { dx, dy, front } = page.face ? clearOfHead(block, page.face, !!page.behind, W, H) : { dx: 0, dy: 0, front: false };
   if (dx || dy) {
     for (const w of words) (w.x += dx), (w.y += dy);
     for (const l of [...lines, block]) (l.x0 += dx), (l.x1 += dx), (l.y0 += dy), (l.y1 += dy);
   }
-  return { words, lines, block };
+  return { words, lines, block, ...(front ? { front } : {}) };
 }
 
 /**
  * How far to move a caption so it doesn't cover the speaker's head (the face, the hair or a
  * cap above it, a little under the chin): in front, the least move up, down or to either side
- * that clears it and stays in the frame; behind, when the head would hide over a third of it,
- * up until only its foot is tucked behind the top of the head (Mochi's stacks), or as far up
- * as the frame lets it. A giant word behind, mostly showing either side of the head, stays.
+ * that clears it and stays in the frame. Behind, when the head would hide over a third of it,
+ * up until only its foot is tucked behind the top of the head (Mochi's stacks); when there's
+ * no room for that above the head (a close-up), it comes out in front (`front`), clear of the
+ * head, or failing that goes as far up as the frame lets it. A giant word behind, mostly
+ * showing either side of the head, stays.
  */
-export function clearOfHead(block: Box, face: NonNullable<CaptionPage["face"]>, behind: boolean, W: number, H: number): [number, number] {
-  const head = { x0: (face.x - 0.75 * face.w) * W, x1: (face.x + 0.75 * face.w) * W, y0: (face.y - 1.05 * face.h) * H, y1: (face.y + 0.6 * face.h) * H };
+export function clearOfHead(block: Box, face: NonNullable<CaptionPage["face"]>, behind: boolean, W: number, H: number): { dx: number; dy: number; front: boolean } {
+  const stay = { dx: 0, dy: 0, front: false };
+  const head = { x0: (face.x - 0.75 * face.w) * W, x1: (face.x + 0.75 * face.w) * W, y0: (face.y - 1.05 * face.h) * H, y1: (face.y + 0.75 * face.h) * H };
   const ix = Math.max(0, Math.min(block.x1, head.x1) - Math.max(block.x0, head.x0));
   const iy = Math.max(0, Math.min(block.y1, head.y1) - Math.max(block.y0, head.y0));
-  if (!ix || !iy) return [0, 0];
+  if (!ix || !iy) return stay;
   const bw = block.x1 - block.x0;
   const bh = block.y1 - block.y0;
-  const m = 0.015 * H;
+  const m = 0.02 * H;
   const fits = (dx: number, dy: number) => block.x0 + dx >= SAFE * W - 1 && block.x1 + dx <= (1 - SAFE) * W + 1 && block.y0 + dy >= SAFE * H - 1 && block.y1 + dy <= (1 - SAFE) * H + 1;
   if (behind) {
     // (A giant word across the frame reads with its middle hidden, as jiia's do.)
-    if ((ix * iy) / Math.max(1, bw * bh) <= (bw > 0.6 * W ? 0.55 : 0.34)) return [0, 0];
-    // (As far up as the frame lets it, when that's short of the mark.)
-    const dy = Math.max(head.y0 + 0.2 * bh - block.y1, SAFE * H - block.y0);
-    return dy < 0 ? [0, dy] : [0, 0];
+    if ((ix * iy) / Math.max(1, bw * bh) <= (bw > 0.6 * W ? 0.55 : 0.34)) return stay;
+    const tuck = head.y0 + 0.2 * bh - block.y1;
+    if (tuck < 0 && fits(0, tuck)) return { dx: 0, dy: tuck, front: false };
   }
   const moves: [number, number][] = [
     [0, head.y0 - m - block.y1],
@@ -362,7 +366,10 @@ export function clearOfHead(block: Box, face: NonNullable<CaptionPage["face"]>, 
     [head.x1 + m - block.x0, 0],
   ];
   const ok = moves.filter(([dx, dy]) => fits(dx, dy)).sort((a, b) => Math.hypot(a[0] / W, a[1] / H) - Math.hypot(b[0] / W, b[1] / H));
-  return ok[0] ?? [0, 0];
+  if (ok.length) return { dx: ok[0][0], dy: ok[0][1], front: behind };
+  if (!behind) return stay;
+  const up = Math.max(head.y0 + 0.2 * bh - block.y1, SAFE * H - block.y0);
+  return up < 0 ? { dx: 0, dy: up, front: false } : stay;
 }
 
 /** A word's state at t: coming on from its onset, going off with its caption. */

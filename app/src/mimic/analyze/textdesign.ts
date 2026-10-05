@@ -315,7 +315,11 @@ export function readDesign(samples: TextSample[], W: number, H: number, step: nu
   // the dark, dark over the light. When a few words show it plainly (over a light
   // picture), every word whose colour is its backdrop's inverse is taken as mixed so.
   const inverse = (w: SampleWord) => w.bg.every((b, c) => Math.abs(b + w.color[c] - 255) < 45);
-  const lightUnder = (w: SampleWord) => 0.299 * w.bg[0] + 0.587 * w.bg[1] + 0.114 * w.bg[2] > 100;
+  // (Over a light picture, not a white card: dark writing on white is only dark writing.)
+  const lightUnder = (w: SampleWord) => {
+    const l = 0.299 * w.bg[0] + 0.587 * w.bg[1] + 0.114 * w.bg[2];
+    return l > 100 && (l < 215 || (Math.max(...w.bg) - Math.min(...w.bg)) / Math.max(1, Math.max(...w.bg)) > 0.25);
+  };
   const flat = caps.flatMap((c) => c.lines.flat());
   // (A few, not a stray two of a long video's hundreds: white over black is its own inverse too.)
   if (flat.filter((w) => w.blend?.mode === "difference" || (inverse(w) && lightUnder(w))).length >= Math.max(2, 0.08 * flat.length))
