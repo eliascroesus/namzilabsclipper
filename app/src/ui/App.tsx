@@ -52,7 +52,7 @@ export function App() {
                 <Sparkles size={16} /> {label}
               </button>
             )}
-            <div className="why">{s.busy ? "Making edits. Keep this tab open." : why ?? ""}</div>
+            <div className="why">{s.busy ? "Making edits. Keep this tab open." : (why ?? studio.soundNote() ?? "")}</div>
           </div>
         </aside>
         <section className="outputs">

@@ -35,16 +35,35 @@ export interface Vocals {
 }
 
 let session: Promise<{ ort: typeof import("onnxruntime-web/wasm"); s: import("onnxruntime-web/wasm").InferenceSession }> | null = null;
+/** how much of the model has come down, 0 to 1, for whoever is waiting on it */
+let downloaded = 0;
 
-function load() {
+/** The network, loaded once: its 20 MB come down in pieces (so how far it's got can be shown), and a stalled download gives up. */
+function load(signal?: AbortSignal) {
   if (!session) {
+    downloaded = 0;
     session = (async () => {
       const ort = await import("onnxruntime-web/wasm");
       ort.env.wasm.numThreads = 1;
       ort.env.wasm.wasmPaths = { wasm: wasmUrl };
-      const res = await fetch(MODEL);
-      if (!res.ok) throw new Error(`The vocal model didn't load (${res.status}).`);
-      const s = await ort.InferenceSession.create(new Uint8Array(await res.arrayBuffer()), { executionProviders: ["wasm"], graphOptimizationLevel: "all" });
+      const res = await fetch(MODEL, { signal });
+      if (!res.ok || !res.body) throw new Error(`The vocal model didn't load (${res.status}).`);
+      const total = Number(res.headers.get("content-length")) || 19_681_017;
+      const parts: Uint8Array[] = [];
+      let got = 0;
+      const reader = res.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        parts.push(value);
+        got += value.length;
+        downloaded = Math.min(1, got / total);
+      }
+      const bytes = new Uint8Array(got);
+      let at = 0;
+      for (const p of parts) bytes.set(p, (at += p.length) - p.length);
+      downloaded = 1;
+      const s = await ort.InferenceSession.create(bytes, { executionProviders: ["wasm"], graphOptimizationLevel: "all" });
       return { ort, s };
     })();
     session.catch(() => (session = null));
@@ -83,7 +102,17 @@ export interface VocalOptions {
 /** The singing in mono audio at 22,050 Hz. */
 export async function findVocals(y: Float32Array, o: VocalOptions = {}): Promise<Vocals> {
   const sr = o.sr ?? 22050;
-  const { ort, s } = await load();
+  // (While the model comes down, the first half of the way.)
+  const fresh = !session;
+  const tick = fresh ? setInterval(() => o.onProgress?.(0.5 * downloaded), 250) : undefined;
+  let model: Awaited<ReturnType<typeof load>>;
+  try {
+    model = await load(o.signal);
+  } finally {
+    clearInterval(tick);
+  }
+  const { ort, s } = model;
+  const share = (f: number) => (fresh ? 0.5 + 0.5 * f : f);
   const frames = frameCount(y.length, HOP);
   const fps = sr / HOP;
   // The band a voice lives in: 150 Hz to 5 kHz.
@@ -113,7 +142,7 @@ export async function findVocals(y: Float32Array, o: VocalOptions = {}): Promise
       }
       ratio[f0 + f] = 10 * Math.log10((ve + 1e-9) / (me + 1e-9));
     }
-    o.onProgress?.(Math.min(1, (f0 + n) / frames));
+    o.onProgress?.(share(Math.min(1, (f0 + n) / frames)));
   }
   // A quarter-second average, then on above -9 dB and off below -15 dB.
   const w = Math.max(1, Math.round(0.25 * fps));

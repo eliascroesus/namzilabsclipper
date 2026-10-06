@@ -83,7 +83,7 @@ export interface Sound {
   payoff: number | null;
   /** the file, to play it back while picking */
   url?: string;
-  /** listening for the singing (vocals.ts), after the beat and the rest are ready */
+  /** listening for the singing (vocals.ts), after the beat and the rest are ready; it never holds the edits up */
   vocals?: "listening" | "done" | "failed";
   vocalProgress?: number;
   /** where sung lines start, for the timeline */
@@ -576,13 +576,21 @@ class Studio {
    */
   private async listenForVocals(id: string, y: Float32Array) {
     const progress = throttled((p) => this.set((s) => ({ sound: s.sound && s.sound.id === id ? { ...s.sound, vocalProgress: p } : s.sound })));
+    // (It gives up rather than keep anyone waiting: a minute for the model to come down and
+    // start, and a few seconds a minute of song to listen. Edits made meanwhile cut on the beat.)
+    const ctl = new AbortController();
+    const limit = setTimeout(() => ctl.abort(), 60_000 + (y.length / SR) * 5_000);
+    // (However it stalls, in the download, the model starting or a run.)
+    const late = new Promise<never>((_, no) => ctl.signal.addEventListener("abort", () => no(new Error("The singing took too long to hear."))));
     try {
-      const vocals = await findVocals(y, { onProgress: progress });
+      const vocals = await Promise.race([findVocals(y, { onProgress: progress, signal: ctl.signal }), late]);
       if (this.state.sound?.id !== id || !this.song) return;
       this.song = withVocals(this.song, vocals);
       this.set((s) => ({ sound: s.sound && s.sound.id === id ? { ...s.sound, vocals: "done", vocalProgress: 1, lines: vocals.lines } : s.sound }));
     } catch {
       this.set((s) => ({ sound: s.sound && s.sound.id === id ? { ...s.sound, vocals: "failed" } : s.sound }));
+    } finally {
+      clearTimeout(limit);
     }
   }
 
@@ -1002,6 +1010,15 @@ class Studio {
     return subtitlesFor(plan, heard);
   }
 
+  /** What the sound is still doing, that the edits needn't wait for. */
+  soundNote(): string | null {
+    const v = this.state.sound;
+    if (!v || v.status !== "ready" || this.state.style.format === "meme") return null;
+    if (v.vocals === "listening") return `Listening for the singing${v.vocalProgress ? ` (${Math.round(v.vocalProgress * 100)}%)` : ""}. Edits made now cut on the beat.`;
+    if (v.vocals === "failed") return "Cutting on the beat (the singing couldn't be listened for).";
+    return null;
+  }
+
   canGenerate(): string | null {
     const s = this.state;
     if (s.busy) return "Working on it";
@@ -1018,7 +1035,6 @@ class Studio {
     if (s.style.format !== "meme") {
       if (!s.sound) return "Add a sound first";
       if (s.sound.status !== "ready") return s.sound.status === "error" ? "The sound didn't load" : "Still listening to the sound";
-      if (s.sound.vocals === "listening") return "Still listening for the singing";
     } else if (s.sound && s.sound.status !== "ready" && s.sound.status !== "error") return "Still listening to the sound";
     return null;
   }
