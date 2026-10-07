@@ -30,6 +30,9 @@ export function SongTimeline({ s }: { s: State }) {
   // The drop pin while it's dragged (song seconds), and where a tap on the song began (x).
   const [pin, setPin] = useState<number | null>(null);
   const tap = useRef<number | null>(null);
+  // The edit's stretch close up, and the stretch it shows while the drop is dragged on it.
+  const zoom = useRef<HTMLDivElement>(null);
+  const held = useRef<[number, number] | null>(null);
   const D = Math.max(0.1, snd.duration);
   const marks = snd.downbeats?.length ? snd.downbeats : (snd.beats ?? []);
 
@@ -183,6 +186,32 @@ export function SongTimeline({ s }: { s: State }) {
     if (next !== undefined) studio.setDropMark(next);
   };
 
+  // The edit's stretch close up, to put the drop on its beat: every beat and bar line, the
+  // part before the drop and the part after it. (Held still while the drop is dragged on it.)
+  const [z0, z1] = held.current ?? [win.start, win.end];
+  const zp = (t: number) => ((t - z0) / Math.max(0.1, z1 - z0)) * 100;
+  const zAt = (x: number) => {
+    const r = zoom.current!.getBoundingClientRect();
+    return z0 + ((x - r.left) / Math.max(1, r.width)) * (z1 - z0);
+  };
+  const zDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    held.current = [z0, z1];
+    setPin(onBeat(inSong(zAt(e.clientX))));
+  };
+  const zMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (pin !== null && held.current && e.currentTarget.hasPointerCapture(e.pointerId)) setPin(onBeat(inSong(zAt(e.clientX))));
+  };
+  const zUp = () => {
+    held.current = null;
+    if (pin === null) return;
+    studio.setDropMark(pin);
+    setPin(null);
+  };
+  const zBars = (snd.downbeats ?? []).filter((d) => d >= z0 - 0.1 && d <= z1 + 0.1);
+  const footEnd = Math.min(win.cardAt, z1);
+
   const playing = head !== null;
   const play = () => {
     if (playing) {
@@ -266,6 +295,7 @@ export function SongTimeline({ s }: { s: State }) {
             />
           </span>
         )}
+        {mark !== null && <span className="drop-line" style={{ left: `${(mark / D) * 100}%` }} aria-hidden="true" />}
         {mark !== null && (
           <span
             className="drop-pin"
@@ -277,7 +307,7 @@ export function SongTimeline({ s }: { s: State }) {
             aria-valuemax={Math.round(D)}
             aria-valuenow={Math.round(mark)}
             aria-valuetext={`The drop at ${mmss(Math.round(mark))}`}
-            title="Your drop: drag it to where the drop hits"
+            title="Your drop: drag the knob to where the drop hits"
             onPointerDown={pinDown}
             onPointerMove={pinMove}
             onPointerUp={pinUp}
@@ -304,21 +334,6 @@ export function SongTimeline({ s }: { s: State }) {
           </button>
         )}
       </div>
-      {!story && s.style.format === "montage" && (
-        <div className="field">
-          <Switch
-            checked={marking}
-            onChange={(v) => studio.setDropMode(v ? "marked" : "found")}
-            hint={
-              marking
-                ? `Your drop${mark !== null ? ` at ${mmss(Math.round(mark))}` : ""}: tap the song where it hits, drag the pin, or press Play and tap Drop here as it hits (it lands on the nearest beat). The box moves to keep it in. Then tag your clips Before or After it under Footage, and give each side its caption under Style.`
-                : "Off: the edits drop where the song does, as it's found."
-            }
-          >
-            Mark the drop myself
-          </Switch>
-        </div>
-      )}
       <span className="hint">
         {story
           ? "Drag the line to the moment that should hit as the talking ends: the burst of shots starts there."
@@ -334,6 +349,77 @@ export function SongTimeline({ s }: { s: State }) {
                   : "Every edit in the batch starts here. It snaps to the bar lines."
             } Drag its right edge to make the edits longer or shorter.`}
       </span>
+      {!story && s.style.format === "montage" && (
+        <div className="field">
+          <Switch
+            checked={marking}
+            onChange={(v) => studio.setDropMode(v ? "marked" : "found")}
+            hint={
+              !marking
+                ? "Off: the edits drop where the song does, as it's found."
+                : mark !== null && win.drop === undefined
+                  ? `Your drop at ${mmss(Math.round(mark))} is too near the ${mark < D / 2 ? "start" : "end"} of the song for an edit to drop on: move the pin.`
+                  : `Your drop${mark !== null ? ` at ${mmss(Math.round(mark))}` : ""}. Put it on its beat on the close-up below (tap or drag; the arrow keys move it a beat), on the song above, or press Play and tap Drop here as it hits. Then tag clips Before or After it under Footage, and give each side a caption under Style.`
+            }
+          >
+            Mark the drop myself
+          </Switch>
+        </div>
+      )}
+      {marking && (
+        <div className="close-up">
+          <div
+            ref={zoom}
+            className="zoom"
+            role="slider"
+            tabIndex={0}
+            aria-label="Your drop, on the edit's stretch close up"
+            aria-valuemin={Math.round(z0)}
+            aria-valuemax={Math.round(z1)}
+            aria-valuenow={Math.round(mark ?? z0)}
+            aria-valuetext={mark !== null ? `The drop at ${mmss(Math.round(mark))}` : "No drop marked"}
+            onPointerDown={zDown}
+            onPointerMove={zMove}
+            onPointerUp={zUp}
+            onPointerCancel={zUp}
+            onKeyDown={pinKey}
+          >
+            {mark !== null && mark > z0 && mark < footEnd && (
+              <>
+                <span className="side before" style={{ width: `${zp(mark)}%` }} />
+                <span className="side after" style={{ left: `${zp(mark)}%`, width: `${zp(footEnd) - zp(mark)}%` }} />
+              </>
+            )}
+            <div className="bars" aria-hidden="true">
+              {studio.loudnessOver(z0, z1, 120).map((b, i) => (
+                <i key={i} style={{ height: `${Math.max(5, b * 100)}%` }} />
+              ))}
+            </div>
+            {beatsAll
+              .filter((b) => b >= z0 && b <= z1)
+              .map((b) => (
+                <span key={b} className={`beat${zBars.some((d) => Math.abs(d - b) < 0.02) ? " bar" : ""}`} style={{ left: `${zp(b)}%` }} />
+              ))}
+            {snd.drops
+              ?.filter((t) => t >= z0 && t <= z1)
+              .map((t) => (
+                <span key={`d${t}`} className="drop-mark" style={{ left: `${zp(t)}%` }} />
+              ))}
+            {win.cardAt < z1 - 0.05 && <span className="card-part" style={{ left: `${zp(win.cardAt)}%` }} />}
+            {mark !== null && mark >= z0 && mark <= z1 && <span className="drop-line" style={{ left: `${zp(mark)}%` }} aria-hidden="true" />}
+            {head !== null && head >= z0 && head <= z1 && <span className="head" style={{ left: `${zp(head)}%` }} />}
+          </div>
+          <div className="close-up-foot num">
+            <span>{mmss(Math.round(z0))}</span>
+            {mark !== null && mark > z0 && mark < footEnd && (
+              <span>
+                <b className="before">{(mark - z0).toFixed(1)}s before the drop</b> · <b className="after">{(footEnd - mark).toFixed(1)}s after</b>
+              </span>
+            )}
+            <span>{mmss(Math.round(z1))}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -325,12 +325,27 @@ input[type="range"] { width: 100%; accent-color: var(--brand); }
 .timeline-foot .num { font-size: 12px; margin-right: auto; }
 .timeline .drop-mark { position: absolute; top: -2px; bottom: 0; width: 2px; background: var(--orange); border-radius: 1px; }
 .timeline .line-mark { position: absolute; bottom: 3px; width: 5px; height: 5px; margin-left: -2px; border-radius: 50%; background: var(--brand); pointer-events: none; }
-/* the drop the user marks: a pin to drag */
-.timeline .drop-pin { position: absolute; top: -9px; bottom: -4px; width: 18px; margin-left: -9px; cursor: ew-resize; touch-action: none; z-index: 2; }
-.timeline .drop-pin::before { content: ""; position: absolute; top: 6px; bottom: 0; left: 7.5px; width: 3px; border-radius: 2px; background: var(--success); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55); }
-.timeline .drop-pin::after { content: ""; position: absolute; top: 0; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55); }
+/* the drop the user marks: a line through the song (the box under it still drags) and a knob above it to drag */
+.timeline .drop-line { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--success); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55); pointer-events: none; z-index: 2; }
+.timeline .drop-pin { position: absolute; top: -13px; width: 18px; height: 18px; margin-left: -9px; cursor: ew-resize; touch-action: none; z-index: 3; }
+.timeline .drop-pin::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55); }
 .timeline .drop-pin:hover::after, .timeline .drop-pin:focus-visible::after { background: #fff; }
 .timeline .drop-pin:focus-visible { outline: none; }
+/* the edit's stretch close up, to put the drop on its beat */
+.close-up { margin-top: 8px; }
+.close-up .zoom { position: relative; height: 48px; border-radius: 6px; overflow: hidden; background: var(--control); cursor: pointer; touch-action: none; user-select: none; }
+.close-up .zoom:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.close-up .zoom .bars { position: absolute; inset: 0; height: auto; margin: 0; }
+.close-up .zoom .bars i { background: #4a4a4a; }
+.close-up .zoom .side { position: absolute; top: 0; bottom: 0; pointer-events: none; }
+.close-up .zoom .side.before { left: 0; background: rgba(86, 140, 255, 0.2); }
+.close-up .zoom .side.after { background: rgba(0, 212, 146, 0.16); }
+.close-up .zoom .beat { position: absolute; bottom: 0; height: 24%; width: 1px; margin-left: -0.5px; background: rgba(255, 255, 255, 0.3); pointer-events: none; }
+.close-up .zoom .beat.bar { top: 0; height: auto; background: rgba(255, 255, 255, 0.5); }
+.close-up .zoom .card-part { position: absolute; top: 0; bottom: 0; right: 0; background: rgba(0, 0, 0, 0.35); border-left: 1px dashed rgba(255, 255, 255, 0.45); pointer-events: none; }
+.close-up-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.close-up-foot .before { color: var(--brand); font-weight: 500; }
+.close-up-foot .after { color: var(--success); font-weight: 500; }
 
 /* deleting an edit */
 .job .del {

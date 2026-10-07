@@ -725,6 +725,23 @@ class Studio {
     if (win && picked != null && Math.abs(win.start - picked) > 1e-3) this.setSongStart(null);
   }
 
+  /** The song's loudness over a stretch of it (song seconds) in `n` slices, 0 to 1 as the strip draws it: the stretch close up. */
+  loudnessOver(from: number, to: number, n: number): number[] {
+    const song = this.song;
+    if (!song || !(to > from)) return [];
+    const fps = song.sr / song.hop;
+    const L = song.loudness;
+    const out: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const a = Math.max(0, Math.floor((from + ((to - from) * i) / n) * fps));
+      const b = Math.min(L.length, Math.max(a + 1, Math.floor((from + ((to - from) * (i + 1)) / n) * fps)));
+      let m = 0;
+      for (let k = a; k < b; k++) m += L[k];
+      out.push(b > a ? 0.12 + 0.88 * (m / (b - a)) ** 1.6 : 0.12);
+    }
+    return out;
+  }
+
   /** Keep a clip to before the drop, to the drop and after, or either side. */
   setSide(id: string, side: "before" | "after" | undefined) {
     this.patchFootage(id, { side });

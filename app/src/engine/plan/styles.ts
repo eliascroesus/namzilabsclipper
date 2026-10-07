@@ -483,19 +483,11 @@ export function headPops(host: ShotEvent, next: number, beats: number[], scans: 
  * first, the last held to the next cut. The user's photos first, then the best moment
  * of clips the edit hasn't shown near there (the one held, a clip when there's one).
  * Before it, pictures on the head of whoever is in the shot (headPops), on the hits in
- * `beats`. Returns the shots with the burst in, or the shots as they were when there's
- * no room or too few pictures.
+ * `beats`. Each picture from the clips `ok` lets play where it goes (the user's split
+ * round a drop they marked). Returns the shots with the burst in, or the shots as they
+ * were when there's no room or too few pictures.
  */
-export function photoBurst(
-  shots: ShotEvent[],
-  scans: Scan[],
-  period: number,
-  aspect: Aspect,
-  variant: number,
-  most = 5,
-  beats: number[] = [],
-  ok: (t: number, id: string) => boolean = () => true,
-): { shots: ShotEvent[]; overlays: OverlayEvent[] } {
+export function photoBurst(shots: ShotEvent[], scans: Scan[], period: number, aspect: Aspect, variant: number, most = 5, beats: number[] = [], ok: (t: number, id: string) => boolean = () => true): { shots: ShotEvent[]; overlays: OverlayEvent[] } {
   shots = [...shots];
   // On the sixteenths (three frames at the least), as many as fit, from the hit the shot
   // starts on, the last one held to the next cut (nio.trade's …0002: four photos from a
