@@ -90,5 +90,10 @@ export function Drop({ accept, multiple, onFiles, tall, children }: { accept: st
   );
 }
 
-export const fmtTime = (s: number) => (s >= 60 ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}` : `${s.toFixed(s < 10 ? 1 : 0)}s`);
+export const fmtTime = (s: number) => {
+  if (s < 59.5) return `${s.toFixed(s < 10 ? 1 : 0)}s`;
+  // (Rounded first: 1:59.7 is 2:00, not 1:60.)
+  const r = Math.round(s);
+  return `${Math.floor(r / 60)}:${String(r % 60).padStart(2, "0")}`;
+};
 export const fmtBytes = (b: number) => (b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.round(b / 1e3)} KB`);

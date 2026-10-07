@@ -228,6 +228,21 @@ describe("edit designs", () => {
     expect(wordByWord({ style: "mood", text: "a b c", start: 0, end: 0.5 }, "impact", [0.3])).toEqual([{ style: "impact", text: "a b c", start: 0, end: 0.5 }]);
   });
 
+  it("a caption either side of the drop the user marked, each the design's way: the second a word on each beat after the drop", () => {
+    const scans = footage();
+    const mark = song.downbeats.find((b) => b > 9)!;
+    const plan = applyDesign(planMontage({ ...base, scans, card, caption: { style: "mood", text: "Peak life." }, captionAfter: "Only the beginning.", drop: mark }), "flash", song, { scans, now: NOW, restyle: true });
+    const drop = plan.shots.find((s) => s.role === "drop")!.start;
+    const before = plan.captions.filter((c) => c.start < drop - 1e-3);
+    const after = plan.captions.filter((c) => c.start >= drop - 1e-3);
+    expect(before.map((c) => c.text)).toEqual(["Peak", "life.", "Peak life."]);
+    expect(Math.max(...before.map((c) => c.end))).toBeLessThanOrEqual(drop + 1e-6);
+    expect(after.map((c) => c.text)).toEqual(["Only", "the", "beginning.", "Only the beginning."]);
+    expect(after.every((c) => c.style === "impact" && c.pop)).toBe(true);
+    // (Each word on a beat after the drop.)
+    for (const c of after.slice(1)) expect(Math.min(...song.beats.map((b) => Math.abs(b - plan.music!.songStart - c.start)))).toBeLessThan(0.05);
+  });
+
   it("reframe: hard cuts only; the picture stepping closer on the beats inside clips, black and white snapping to colour, a crash zoom landing on a beat before the drop", () => {
     const p = plans.get("reframe")!;
     const drop = p.shots.find((s) => s.role === "drop")!.start;

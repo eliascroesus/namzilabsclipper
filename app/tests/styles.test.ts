@@ -197,6 +197,20 @@ describe("edit styles", () => {
     expect(plan.fx.some((f) => f.kind === "fadein" && f.start === 0)).toBe(true);
   });
 
+  it("photo burst: with the drop marked, before it only the pictures the user didn't keep to after it", () => {
+    const mark = song.downbeats.find((d) => d > 9)!;
+    const after = ["photo1", "car"];
+    const plan = planMontage({ ...base, scans, card, style: "burst", drop: mark, sides: { before: [], after } });
+    const drop = plan.shots.find((s) => s.role === "drop")!.start;
+    const burst = plan.shots.filter((s) => s.crop.tilt);
+    expect(burst.length).toBeGreaterThanOrEqual(4);
+    expect(burst[burst.length - 1].end).toBeLessThanOrEqual(drop + 1e-6);
+    const early = [...plan.shots, ...(plan.overlays ?? [])].filter((s) => s.start < drop - 0.01).map((s) => s.source);
+    for (const id of after) expect(early).not.toContain(id);
+    // (The other photo still leads it.)
+    expect(burst[0].source).toBe("photo2");
+  });
+
   it("windows: cards land in the middle on the beats, each clip in its own shape, and the last one, the next shot, goes full frame carrying straight on (TJR)", () => {
     const plan = planMontage({ ...base, scans, card, style: "beat", variant: 1 });
     const ws = (plan.overlays ?? []).filter((o) => !o.place);

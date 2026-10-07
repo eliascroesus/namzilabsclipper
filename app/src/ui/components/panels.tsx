@@ -117,6 +117,9 @@ export function FootagePanel({ s }: { s: State }) {
   const ready = s.footage.filter((f) => f.status === "ready");
   const total = ready.reduce((a, f) => a + f.duration, 0);
   const twist = s.style.format === "twist";
+  // With the drop marked by hand: each clip kept to before it, to it and after, or either side.
+  const sides = s.style.format === "montage" && s.style.dropMode === "marked";
+  const sided = (side: "before" | "after") => ready.filter((f) => f.side === side && !f.opener).length;
   return (
     <Section title="Footage" right={s.footage.length ? <span className="num">{s.footage.length} {s.footage.length === 1 ? "file" : "files"}{total ? ` · ${fmtTime(total)}` : ""}</span> : undefined}>
       <Drop accept="video/*,image/*,.mov,.mp4,.m4v,.webm,.mkv,.jpg,.jpeg,.png,.webp" multiple onFiles={(f) => studio.addFootage(f)} tall={!s.footage.length}>
@@ -140,6 +143,12 @@ export function FootagePanel({ s }: { s: State }) {
       {s.style.format === "montage" && s.footage.some((f) => f.status === "ready") && (
         <p className="hint" style={{ margin: "10px 0 0" }}>
           Tap <b>Open</b> on a clip to start every edit with it: it plays as it is, with its own sound (someone talking, a moment you want first), and the edit hits on the song's drop right after. Pick several and they play in order (up to 20 seconds).
+        </p>
+      )}
+      {sides && ready.length > 0 && (
+        <p className="hint" style={{ margin: "10px 0 0" }}>
+          Tap a clip's tag to keep it <b style={{ color: "var(--brand)" }}>Before</b> the drop or <b style={{ color: "var(--success)" }}>After</b> it (the drop and on). <b>Either</b> can go on both sides.
+          {sided("before") || sided("after") ? ` ${sided("before")} before, ${sided("after")} after.` : ""}
         </p>
       )}
       {s.footage.length > 0 && (
@@ -173,6 +182,17 @@ export function FootagePanel({ s }: { s: State }) {
               {s.style.format === "montage" && f.status === "ready" && (
                 <button type="button" className={`act opener${f.opener ? " b" : ""}`} aria-pressed={!!f.opener} onClick={() => studio.setOpener(f.id, !f.opener)} aria-label={`${f.name}: ${f.opener ? "opens the edit" : "open the edit with it"}`}>
                   {f.opener ? `Opens ${s.footage.filter((x) => x.opener && x.status === "ready").findIndex((x) => x.id === f.id) + 1}` : "Open"}
+                </button>
+              )}
+              {sides && f.status === "ready" && !f.opener && (
+                <button
+                  type="button"
+                  className={`act side${f.side ? ` ${f.side}` : ""}`}
+                  onClick={() => studio.setSide(f.id, f.side === undefined ? "before" : f.side === "before" ? "after" : undefined)}
+                  aria-label={`${f.name}: ${f.side === "before" ? "before the drop" : f.side === "after" ? "after the drop" : "either side of the drop"}`}
+                  title="Before the drop, after it, or either side"
+                >
+                  {f.side === "before" ? "Before" : f.side === "after" ? "After" : "Either"}
                 </button>
               )}
               {twist && f.status === "ready" && (
@@ -590,10 +610,11 @@ function DropField({ s }: { s: State }) {
     requestAnimationFrame(stop);
   };
   const bwOff = st.fxOff.includes("bw");
+  const mine = studio.markedDrop() !== undefined;
   return (
     <div className="field">
       <div className="row between">
-        <span className="label">At the drop ({fmtTime(drop)})</span>
+        <span className="label">At {mine ? "your" : "the"} drop ({fmtTime(drop)})</span>
         <button type="button" className="btn ghost small" onClick={hear} aria-label={playing ? "Stop" : "Hear the drop"}>
           {playing ? <Pause size={13} /> : <Play size={13} />} {playing ? "Stop" : "Hear it"}
         </button>
@@ -604,7 +625,11 @@ function DropField({ s }: { s: State }) {
       <Switch checked={st.dropHit} onChange={(v) => studio.setStyle({ dropHit: v })} hint={st.dropHit ? "The drop lands with its design's hit: a flash, a punch-in, a strobe, a freeze or a move into it." : "Off: a plain cut on the drop."}>
         A hit on the drop
       </Switch>
-      <span className="hint">The drop the edits land on, found in the song: hear it to check it's the one you mean, or move the stretch on the song above.</span>
+      <span className="hint">
+        {mine
+          ? "The drop you marked on the song: hear it to check it lands as the drop hits, or move the pin."
+          : "The drop the edits land on, found in the song: hear it to check it's the one you mean, move the stretch on the song above, or mark it yourself (Mark the drop myself)."}
+      </span>
     </div>
   );
 }
@@ -612,6 +637,8 @@ function DropField({ s }: { s: State }) {
 export function StylePanel({ s }: { s: State }) {
   const st = s.style;
   const hold = cardHoldOf(s.kit);
+  // (The drop marked by hand: a caption either side of it.)
+  const marked = st.format === "montage" && st.dropMode === "marked";
   const aspects: { value: Aspect; label: string }[] = [
     { value: "9x16", label: "9:16" },
     { value: "4x3", label: "4:3" },
@@ -695,8 +722,16 @@ export function StylePanel({ s }: { s: State }) {
           </div>
           {st.caption !== "none" && (
             <div className="field">
-              <label htmlFor="cap">{st.format === "twist" ? "Before the flip" : "Text"}</label>
+              <label htmlFor="cap">{st.format === "twist" ? "Before the flip" : marked ? "Before the drop" : "Text"}</label>
               <textarea id="cap" className="textarea line" rows={1} value={st.text} maxLength={160} placeholder={st.caption === "pov" ? "kimchi after retiring:" : "Peak life."} onChange={(e) => studio.setStyle({ text: e.target.value })} />
+              {marked && (
+                <>
+                  <label htmlFor="cap-after" style={{ marginTop: 6 }}>
+                    After the drop
+                  </label>
+                  <textarea id="cap-after" className="textarea line" rows={1} value={st.captionAfter} maxLength={160} placeholder="and it's only the beginning." onChange={(e) => studio.setStyle({ captionAfter: e.target.value })} />
+                </>
+              )}
               {st.format === "twist" && (
                 <>
                   <label htmlFor="cap2" style={{ marginTop: 6 }}>
@@ -705,7 +740,7 @@ export function StylePanel({ s }: { s: State }) {
                   <textarea id="cap2" className="textarea line" rows={1} value={st.textB} maxLength={160} placeholder="what they don't..." onChange={(e) => studio.setStyle({ textB: e.target.value })} />
                 </>
               )}
-              <span className="hint">Press Enter for a new line.</span>
+              <span className="hint">{marked ? "The first up to your drop, the second from it to the end. Leave one empty for no caption on that side. Press Enter for a new line." : "Press Enter for a new line."}</span>
             </div>
           )}
           {st.caption !== "none" && <CaptionEditor s={s} />}

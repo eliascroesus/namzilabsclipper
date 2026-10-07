@@ -205,6 +205,10 @@ input[type="range"] { width: 100%; accent-color: var(--brand); }
   background: rgba(0, 0, 0, 0.72); color: #fff;
 }
 .thumb .act.b { background: var(--orange); color: var(--ink); }
+/* a clip kept to one side of the drop the user marked */
+.thumb .act.side { left: auto; top: auto; right: 4px; bottom: 4px; }
+.thumb .act.side.before { background: var(--brand); color: #fff; }
+.thumb .act.side.after { background: var(--success); color: var(--ink); }
 .thumb .state { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; color: var(--muted); padding: 6px; text-align: center; }
 .thumb .bar { position: absolute; left: 6px; right: 6px; bottom: 6px; height: 3px; border-radius: 2px; background: var(--hover); overflow: hidden; }
 .thumb .bar i { display: block; height: 100%; background: var(--brand); transition: width 120ms linear; }
@@ -321,6 +325,12 @@ input[type="range"] { width: 100%; accent-color: var(--brand); }
 .timeline-foot .num { font-size: 12px; margin-right: auto; }
 .timeline .drop-mark { position: absolute; top: -2px; bottom: 0; width: 2px; background: var(--orange); border-radius: 1px; }
 .timeline .line-mark { position: absolute; bottom: 3px; width: 5px; height: 5px; margin-left: -2px; border-radius: 50%; background: var(--brand); pointer-events: none; }
+/* the drop the user marks: a pin to drag */
+.timeline .drop-pin { position: absolute; top: -9px; bottom: -4px; width: 18px; margin-left: -9px; cursor: ew-resize; touch-action: none; z-index: 2; }
+.timeline .drop-pin::before { content: ""; position: absolute; top: 6px; bottom: 0; left: 7.5px; width: 3px; border-radius: 2px; background: var(--success); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55); }
+.timeline .drop-pin::after { content: ""; position: absolute; top: 0; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55); }
+.timeline .drop-pin:hover::after, .timeline .drop-pin:focus-visible::after { background: #fff; }
+.timeline .drop-pin:focus-visible { outline: none; }
 
 /* deleting an edit */
 .job .del {

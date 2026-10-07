@@ -398,7 +398,7 @@ export function someone(scan: Scan, a: number, b: number): number {
  * a clip with someone in it that the edit doesn't show near there, as long as the shot
  * (a clip, and nobody talking over it). Null when there's none.
  */
-function withSomeone(shots: ShotEvent[], i: number, scans: Scan[], aspect: Aspect): ShotEvent | null {
+function withSomeone(shots: ShotEvent[], i: number, scans: Scan[], aspect: Aspect, ok: (id: string) => boolean = () => true): ShotEvent | null {
   const shot = shots[i];
   if (!shot || shot.again || shot.audio || shot.end - shot.start < 0.9) return null;
   const byId = new Map(scans.map((sc) => [sc.id, sc]));
@@ -408,7 +408,7 @@ function withSomeone(shots: ShotEvent[], i: number, scans: Scan[], aspect: Aspec
   const near = new Set(shots.filter((s) => s.end > shot.start - 2.5 && s.start < shot.end + 2.5).map((s) => s.source));
   let best: { scan: Scan; t: number; v: number } | null = null;
   for (const scan of scans) {
-    if (scan.kind !== "video" || near.has(scan.id)) continue;
+    if (scan.kind !== "video" || near.has(scan.id) || !ok(scan.id)) continue;
     const interest = scan.interest ?? new Float32Array(scan.stats.t.length).fill(0.5);
     for (let k = 0; k < scan.stats.t.length; k++) {
       const t = scan.stats.t[k];
@@ -486,7 +486,16 @@ export function headPops(host: ShotEvent, next: number, beats: number[], scans: 
  * `beats`. Returns the shots with the burst in, or the shots as they were when there's
  * no room or too few pictures.
  */
-export function photoBurst(shots: ShotEvent[], scans: Scan[], period: number, aspect: Aspect, variant: number, most = 5, beats: number[] = []): { shots: ShotEvent[]; overlays: OverlayEvent[] } {
+export function photoBurst(
+  shots: ShotEvent[],
+  scans: Scan[],
+  period: number,
+  aspect: Aspect,
+  variant: number,
+  most = 5,
+  beats: number[] = [],
+  ok: (t: number, id: string) => boolean = () => true,
+): { shots: ShotEvent[]; overlays: OverlayEvent[] } {
   shots = [...shots];
   // On the sixteenths (three frames at the least), as many as fit, from the hit the shot
   // starts on, the last one held to the next cut (nio.trade's …0002: four photos from a
@@ -511,21 +520,22 @@ export function photoBurst(shots: ShotEvent[], scans: Scan[], period: number, as
   // Before it, the pictures on someone's head (not the ones the burst shows, while there
   // are others): the shot there has someone in it, or becomes the best moment of a clip
   // that has (the gag is the hook, as in nio.trade's …0002).
-  const host = withSomeone(shots, at - 1, scans, aspect);
+  // (Each from the clips that may play where it goes: the user's split round the drop.)
+  const host = withSomeone(shots, at - 1, scans, aspect, (id) => ok(shots[at - 1].start, id));
   if (host) shots = [...shots.slice(0, at - 1), host, ...shots.slice(at)];
-  const pops = host ? headPops(host, target.start, beats, scans, shots, variant) : [];
+  const pops = host ? headPops(host, target.start, beats, scans.filter((sc) => ok(host.start, sc.id)), shots, variant) : [];
   const popped = new Set(pops.map((p) => p.source));
   // (Not the pictures either side of it or its own: the burst isn't a preview of the next shot.)
   const near = [shots[0], shots[at - 1], target, shots[at + 1]].filter(Boolean).map((s) => s.source);
   const photos = scans
-    .filter((s) => s.kind === "image" && !near.includes(s.id))
+    .filter((s) => s.kind === "image" && !near.includes(s.id) && ok(target.start, s.id))
     .sort((a, b) => Number(popped.has(a.id)) - Number(popped.has(b.id)) || (b.interest?.[0] ?? 0) - (a.interest?.[0] ?? 0));
   const picks: { scan: Scan; t: number }[] = photos.map((scan) => ({ scan, t: 0 }));
   // Then a moment of each clip (not someone talking): its most interesting sample the
   // edit doesn't use, or failing that one it does (three frames of it, seconds away).
   const usedAt = (id: string, t: number) => shots.some((s) => s.source === id && t > s.srcStart - 0.3 && t < s.srcStart + sourceSpan(s) + 0.3);
   const clips = scans
-    .filter((s) => s.kind === "video" && !near.includes(s.id) && !talky(s))
+    .filter((s) => s.kind === "video" && !near.includes(s.id) && !talky(s) && ok(target.start, s.id))
     .map((scan) => {
       let bi = -1;
       let bv = -Infinity;

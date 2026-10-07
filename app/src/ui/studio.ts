@@ -50,6 +50,8 @@ export interface Footage {
   act: "a" | "b";
   /** in a montage: one of the clips the edit opens with, played as it is with its own sound, before the edit comes in on the drop */
   opener?: boolean;
+  /** in a montage with the drop marked by the user: kept to before the drop, or to the drop and after (either, unset) */
+  side?: "before" | "after";
   /** smart picks: Gemini looking at it */
   look?: "queued" | "rating" | "done" | "failed";
   lookProgress?: number;
@@ -89,6 +91,8 @@ export interface Sound {
   vocalProgress?: number;
   /** where sung lines start, for the timeline */
   lines?: number[];
+  /** the drop the user marked in it (song seconds), when they mark it themselves */
+  mark?: number | null;
 }
 
 export interface Kit extends KitFields {
@@ -140,6 +144,10 @@ export interface Style {
   bwToDrop: boolean;
   /** with a drop: it lands with a hit (a flash, a punch-in, a strobe, a freeze); off, a plain cut */
   dropHit: boolean;
+  /** where the drop is: the song's own, found in it, or where the user marks it (with clips and a caption for each side of it) */
+  dropMode: "found" | "marked";
+  /** with the drop marked: the caption after it (the caption's text is the one before it) */
+  captionAfter: string;
   /** how hard a montage cuts on the music (engine/plan/rhythm.ts): steady (the editors' rhythm, on the loudest hits), hard (more of the hits), or relaxed */
   pace: Pace;
   /** with the card off: end on the moment the edit opens on, so the replay loops */
@@ -228,6 +236,8 @@ const DEFAULT_STYLE: Style = {
   fxOff: [],
   bwToDrop: true,
   dropHit: true,
+  dropMode: "found",
+  captionAfter: "",
   pace: "beat",
   loop: true,
   ownCaption: false,
@@ -578,6 +588,7 @@ class Studio {
       this.set((s) => ({
         sound: s.sound && s.sound.id === id ? { ...s.sound, status: "ready", progress: 1, bpm: song.bpm, bars, downbeats: song.downbeats, beats: song.beats, drops: song.drops.map((d) => d.t), vocals: "listening", vocalProgress: 0 } : s.sound,
       }));
+      if (this.state.style.dropMode === "marked") this.markDefault();
       void this.listenForVocals(id, y);
     } catch (e) {
       this.set((s) => ({ sound: s.sound && s.sound.id === id ? { ...s.sound, status: "error", error: e instanceof Error ? e.message : String(e) } : s.sound }));
@@ -633,7 +644,7 @@ class Studio {
    * starts, where the card comes in and where it ends (song seconds), and for
    * story clips the moment the burst hits.
    */
-  songWindow(): { start: number; cardAt: number; end: number; payoff: number | null; auto: boolean; drop?: number; clear?: boolean } | null {
+  songWindow(found = false): { start: number; cardAt: number; end: number; payoff: number | null; auto: boolean; drop?: number; clear?: boolean } | null {
     const s = this.state;
     const song = this.song;
     if (!song || !s.sound || s.sound.status !== "ready") return null;
@@ -642,13 +653,14 @@ class Studio {
       const payoff = s.sound.payoff ?? auto;
       return { start: Math.max(0, payoff - 20), cardAt: payoff + 3.2, end: Math.min(song.duration, payoff + 3.2 + (s.kit.enabled ? cardHoldOf(s.kit) : 0.6)), payoff, auto: s.sound.payoff === null };
     }
-    const win = musicWindow(song, s.style.length, cardHoldOf(s.kit), s.sound.fromReel, s.sound.start ?? undefined);
+    const mark = !found ? this.markedDrop() : undefined;
+    const win = musicWindow(song, s.style.length, cardHoldOf(s.kit), s.sound.fromReel, s.sound.start ?? undefined, undefined, mark);
     // (The drop the edits land on, as the planner finds it in this stretch, and whether it's
     // a clear one: a loudness step of 0.4 or more, as every reference edit's drop is; the
     // return after a break counts.)
     const drop = win.dropAt !== undefined ? win.songStart + win.dropAt : undefined;
     const step = drop !== undefined ? song.drops.find((d) => Math.abs(d.t - drop) < 0.6)?.strength : undefined;
-    const clear = drop !== undefined && (step === undefined ? !!song.structure?.breaks.some(([, b]) => Math.abs(b - drop) < 2.5) : step >= 0.4);
+    const clear = drop !== undefined && (mark !== undefined || (step === undefined ? !!song.structure?.breaks.some(([, b]) => Math.abs(b - drop) < 2.5) : step >= 0.4));
     return { start: win.songStart, cardAt: win.songStart + win.cardAt, end: win.songStart + win.duration, payoff: null, auto: s.sound.start === null, ...(drop !== undefined ? { drop, clear } : {}) };
   }
 
@@ -678,6 +690,44 @@ class Studio {
     this.set((s) => ({ kit: { ...s.kit, shot: DEFAULT_SHOT, shotName: "Namzilabs dashboard" } }));
     await saveKitShot(null, "");
     await this.loadCardImage();
+  }
+
+  /** The drop the user marked, when they mark it themselves (song seconds). */
+  markedDrop(): number | undefined {
+    const s = this.state;
+    return s.style.format === "montage" && s.style.dropMode === "marked" && s.sound?.mark != null ? s.sound.mark : undefined;
+  }
+
+  /** Mark the drop yourself, or go back to the song's own; marking starts on the drop it found (or two fifths into the stretch). */
+  setDropMode(mode: "found" | "marked") {
+    this.setStyle({ dropMode: mode });
+    if (mode === "marked" && this.state.sound?.mark == null) this.markDefault();
+  }
+
+  private markDefault() {
+    const win = this.songWindow(true);
+    if (win) this.setDropMark(win.drop ?? win.start + 0.4 * (win.cardAt - win.start));
+  }
+
+  /** Where the drop is, as the user marks it (song seconds), on the nearest beat when one is close. */
+  setDropMark(t: number | null) {
+    const song = this.song;
+    let at = t;
+    if (at !== null && song) {
+      const near = song.beats.reduce((b, x) => (Math.abs(x - at!) < Math.abs(b - at!) ? x : b), song.beats[0] ?? at);
+      if (Math.abs(near - at) < 0.2) at = near;
+      at = Math.min(Math.max(0, at), song.duration);
+    }
+    this.set((s) => ({ sound: s.sound ? { ...s.sound, mark: at } : s.sound }));
+    // (A start the user picked that the drop now falls outside of: the stretch follows the drop again.)
+    const picked = this.state.sound?.start;
+    const win = at !== null && picked != null ? this.songWindow() : null;
+    if (win && picked != null && Math.abs(win.start - picked) > 1e-3) this.setSongStart(null);
+  }
+
+  /** Keep a clip to before the drop, to the drop and after, or either side. */
+  setSide(id: string, side: "before" | "after" | undefined) {
+    this.patchFootage(id, { side });
   }
 
   /** Tick or untick an edit style for the batch (the last one ticked stays). */
@@ -1153,6 +1203,12 @@ class Studio {
     // A montage's style, edit by edit: the one picked, or each edit the next in the mix
     // (the talking style only when someone talks in the footage).
     const canTalk = style.format === "montage" ? this.talkingClips(ready) : [];
+    // The drop where the user marked it, with their clips and caption either side of it.
+    const mark = this.markedDrop();
+    const marked =
+      mark !== undefined
+        ? { drop: mark, sides: { before: ready.filter((f) => f.side === "before").map((f) => f.id), after: ready.filter((f) => f.side === "after").map((f) => f.id) }, captionAfter: style.captionAfter }
+        : {};
     // The clips the user picked to open the edit with, in their order.
     const openers = style.format === "montage" ? ready.filter((f) => f.opener && (f.kind === "video" || f.kind === "image")).map((f) => f.id) : [];
     // (Only the ticked styles and designs, and only those the effects left on allow: black
@@ -1258,11 +1314,11 @@ class Studio {
             }
             if (!song) throw new Error("Add a sound first");
             const kind = style.caption === "animated" ? "mood" : style.caption;
-            const plan = dress(planMontage({ ...common, song, caption: kind === "none" ? null : { style: kind, text: style.text }, style: edit, talkers, loop: style.loop, pace: style.pace, lean: design && leanOf(design), openers, subtitles: style.subtitles }));
+            const plan = dress(planMontage({ ...common, song, caption: kind === "none" ? null : { style: kind, text: style.text }, style: edit, talkers, loop: style.loop, pace: style.pace, lean: design && leanOf(design), openers, subtitles: style.subtitles, ...marked }));
             // The design's effects and colour (a split screen's panels checked with the shots),
             // the caption in its own look unless it's to come on the design's way; then the
             // effects left out taken away.
-            return withoutFx(design ? applyDesign(plan, design, song, { scans, restyle: style.caption === "animated" }) : comeOn(plan), fx);
+            return withoutFx(design ? applyDesign(plan, design, song, { scans, restyle: style.caption === "animated", sides: marked.sides }) : comeOn(plan), fx);
           };
           // Planned, then planned again until no shot runs over one of a long video's own
           // cuts (media/cuts.ts: every frame of what the edit uses gets looked at).

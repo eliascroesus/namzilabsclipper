@@ -146,6 +146,34 @@ describe("planners on a synthetic song (runs everywhere)", () => {
     expect(plan.card!.end - plan.card!.start).toBeCloseTo(4, 1);
   });
 
+  it("drops where the user marked, with their clips and captions either side of it", () => {
+    // The song's own drop is at 8.1 s; the user marks a later bar line.
+    const mark = song.downbeats.find((d) => d > 14)!;
+    const before = ["clip0", "clip1", "clip2"];
+    const after = ["clip4", "clip5", "clip6"];
+    const plan = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans, aspect: "9x16", length: 12, card, caption: { style: "mood", text: "Before it." }, captionAfter: "After it.", drop: mark, sides: { before, after }, variant: 1 });
+    const drop = plan.shots.find((s) => s.role === "drop")!;
+    expect(drop).toBeDefined();
+    // The drop's cut is on the mark, as cut (a hair ahead of the hit).
+    expect(plan.music!.songStart + drop.start + CUT_LEAD).toBeCloseTo(mark, 1);
+    // (The stretch starts on a bar line about two fifths of the edit before it.)
+    expect(song.downbeats.some((d) => Math.abs(d - plan.music!.songStart) < 0.02)).toBe(true);
+    expect(drop.start).toBeGreaterThan(3);
+    expect(drop.start).toBeLessThan(6.5);
+    for (const sh of plan.shots) {
+      if (sh.start < drop.start - 0.01) expect(after, `${sh.source} at ${sh.start}`).not.toContain(sh.source);
+      else expect(before, `${sh.source} at ${sh.start}`).not.toContain(sh.source);
+    }
+    // One caption up to the drop, the other from it.
+    expect(plan.captions.map((c) => c.text)).toEqual(["Before it.", "After it."]);
+    expect(plan.captions[0].end).toBeCloseTo(drop.start, 6);
+    expect(plan.captions[1].start).toBeCloseTo(drop.start, 6);
+    // The user's start is kept when their drop falls well inside the stretch from it.
+    const start = song.downbeats.find((d) => d > 10)!;
+    const kept = planMontage({ song, songSource: "song", songName: "click", fromStart: false, songStart: start, scans, aspect: "9x16", length: 12, card, caption: null, drop: mark, variant: 0 });
+    expect(kept.music!.songStart).toBeCloseTo(start, 6);
+  });
+
   it("starts where the user picked, and says so in the post note", () => {
     const at = song.downbeats.find((d) => d > 6)!;
     const fromReel = planMontage({ song, songSource: "song", songName: "click", fromStart: true, songStart: at, scans, aspect: "9x16", length: 8, card, caption: null, variant: 0 });

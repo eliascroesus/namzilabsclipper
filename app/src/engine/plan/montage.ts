@@ -172,12 +172,30 @@ function cardTime(song: SongAnalysis, songStart: number, target: number, availab
  * The part of the song an edit uses: `length` seconds of footage, then the card
  * for `cardHold` seconds with the music still playing under it. It starts at
  * `start` when the user picked where; otherwise at the Reel's 0:00, or on the
- * song's strongest stretch.
+ * song's strongest stretch. With a drop the user marked (`drop`, song seconds),
+ * that's the drop: the stretch keeps their start (or the Reel's 0:00) when the drop
+ * falls well inside it, and otherwise starts on the bar line about two fifths of
+ * the edit before it.
  */
-export function musicWindow(song: SongAnalysis, length: number, cardHold: number, fromStart: boolean, start?: number, dropIn?: [number, number]): MusicWindow {
+export function musicWindow(song: SongAnalysis, length: number, cardHold: number, fromStart: boolean, start?: number, dropIn?: [number, number], drop?: number): MusicWindow {
   const picked = start !== undefined && Number.isFinite(start);
-  const section = picked ? { start: 0, drop: undefined } : pickSection(song, length + cardHold, fromStart, dropIn);
-  const songStart = picked ? clamp(start, 0, Math.max(0, song.duration - 3)) : fromStart ? 0 : section.start;
+  const marked = drop !== undefined && Number.isFinite(drop) ? clamp(drop, 0, song.duration) : undefined;
+  const latest = Math.max(0, song.duration - 3);
+  const inside = (s0: number) => marked !== undefined && marked - s0 > 1.5 && marked - s0 < length - 1.5;
+  let section: { start: number; drop?: number } = { start: 0 };
+  let songStart: number;
+  if (marked !== undefined) {
+    if (picked && inside(clamp(start, 0, latest))) songStart = clamp(start, 0, latest);
+    else if (fromStart && !picked && inside(0)) songStart = 0;
+    else {
+      const want = marked - 0.4 * length;
+      const bar = [...song.downbeats].reverse().find((b) => b <= want + 0.05);
+      songStart = clamp(bar !== undefined && inside(clamp(bar, 0, latest)) ? bar : want, 0, latest);
+    }
+  } else {
+    section = picked ? { start: 0 } : pickSection(song, length + cardHold, fromStart, dropIn);
+    songStart = picked ? clamp(start, 0, latest) : fromStart ? 0 : section.start;
+  }
   const available = song.duration - songStart;
   // A short sound shortens the card first (to 2.5 s), then the footage (to 3 s);
   // past that the card runs on after the song ends.
@@ -185,16 +203,16 @@ export function musicWindow(song: SongAnalysis, length: number, cardHold: number
   const len = Math.max(3, Math.min(length, available - hold - 0.2));
   const cardAt = frame(cardTime(song, songStart, len, Math.max(len, available - hold)));
   const duration = frame(cardAt + hold);
-  let dropSong = section.drop ?? [...song.drops].filter((d) => d.t - songStart > 1.2 && d.t - songStart < cardAt - 1.2).sort((a, b) => b.strength - a.strength)[0]?.t;
+  let dropSong = marked ?? section.drop ?? [...song.drops].filter((d) => d.t - songStart > 1.2 && d.t - songStart < cardAt - 1.2).sort((a, b) => b.strength - a.strength)[0]?.t;
   // A hit the song then drops out after isn't where the edit takes off: the return
   // is (the section that comes back on the other side), and the shot on the hit
-  // holds through the silence.
-  const brk = dropSong !== undefined ? song.structure?.breaks.find(([s]) => s > dropSong! - 0.05 && s - dropSong! < 1.6) : undefined;
+  // holds through the silence. (Not one the user marked: that's where they hear it.)
+  const brk = dropSong !== undefined && marked === undefined ? song.structure?.breaks.find(([s]) => s > dropSong! - 0.05 && s - dropSong! < 1.6) : undefined;
   if (brk) dropSong = song.structure!.sections.find((s) => s.t >= brk[1] - 0.05 && s.t - brk[1] < 2.5)?.t ?? brk[1];
   // A drop read off the loudness can land a beat early, off the bar line, just after the
   // last of a run of stabs: when nothing hits on it and a loud hit comes on the bar line
   // within the next beat, that's the drop.
-  if (dropSong !== undefined) {
+  if (dropSong !== undefined && marked === undefined) {
     const d = dropSong;
     const onBar = (t: number) => song.downbeats.some((b) => Math.abs(b - t) <= 0.07);
     const hitOn = song.accents.some((a) => Math.abs(a.t - d) <= 0.07 && a.s >= 0.3);
@@ -213,15 +231,16 @@ export function musicWindow(song: SongAnalysis, length: number, cardHold: number
  * it; failing one, the strongest new section; failing that, the first bar line after
  * the opening. A song start the user picked is kept, wherever its drop falls.
  */
-export function openingWindow(song: SongAnalysis, intro: number, length: number, cardHold: number, start?: number): MusicWindow {
+export function openingWindow(song: SongAnalysis, intro: number, length: number, cardHold: number, start?: number, marked?: number): MusicWindow {
   const total = intro + length;
   let songStart: number;
-  if (start !== undefined && Number.isFinite(start)) songStart = clamp(start, 0, Math.max(0, song.duration - 3));
+  if (start !== undefined && Number.isFinite(start) && marked === undefined) songStart = clamp(start, 0, Math.max(0, song.duration - 3));
   else {
     const fits = (t: number) => t >= intro - 0.05 && t - intro + Math.min(total, intro + 3) <= song.duration;
     const drop = [...song.drops].filter((d) => fits(d.t)).sort((a, b) => b.strength - a.strength)[0]?.t;
     const section = [...(song.structure?.sections ?? [])].filter((x) => fits(x.t)).sort((a, b) => b.strength - a.strength)[0]?.t;
-    const at = drop ?? section ?? song.downbeats.find((d) => d >= intro) ?? intro;
+    // (A drop the user marked: the opening ends on it.)
+    const at = (marked !== undefined && fits(marked) ? marked : undefined) ?? drop ?? section ?? song.downbeats.find((d) => d >= intro) ?? intro;
     // (The hit a hair after the cut, as every cut is: CUT_LEAD.)
     songStart = Math.max(0, at - intro - CUT_LEAD);
   }
@@ -935,6 +954,8 @@ export interface AssignContext {
   loop?: boolean;
   /** what the edit's design wants more of (designs.ts): movement and people (a cold edit, a zoom edit), or calm, steady pictures (cinematic, a tape) */
   lean?: "action" | "calm";
+  /** which clips may play at a time in the edit (the user's split of the footage round the drop); any, when unset or when none of the slot's clips fit */
+  side?: (t: number, id: string) => boolean;
 }
 
 /** A velocity ramp takes this much more footage than the slot is long. */
@@ -1138,7 +1159,8 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
   for (const i of order) {
     const slot = slots[i];
     const d = slot.end - slot.start;
-    if (looping && i === last && chosen[0]) {
+    // (Not when the user kept the opening's clip to before the drop.)
+    if (looping && i === last && chosen[0] && (!ctx.side || ctx.side(slot.start, chosen[0].scan.id))) {
       const hook = chosen[0];
       let start = hook.start;
       if (hook.scan.kind === "video") {
@@ -1169,6 +1191,11 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
         const more = segmentsFor([sc], L, motionScale, false, ctx.purpose, hand, life).map((g) => ({ ...g, len: L }));
         if (more.length) segs = [...segs, ...more];
       }
+    }
+    // The user's split round the drop: this side's clips only, while any of them fits.
+    if (ctx.side) {
+      const mine = segs.filter((g) => ctx.side!(slot.start, g.scan.id));
+      if (mine.length) segs = mine;
     }
     const energy = ctx.song ? driveOver(ctx.song, ctx.songStart, slot.start, slot.end, dropStart) : 0.5;
     const r = slot.role;
@@ -1587,6 +1614,12 @@ export interface MontageOptions {
   openers?: string[];
   /** the talking it opens on gets subtitles (subtitles.ts): the caption waits for the edit to come in */
   subtitles?: boolean;
+  /** the drop the user marked in the song (song seconds): the edit's drop, wherever the song's own may be */
+  drop?: number;
+  /** the clips the user put on one side of the drop only (the rest go either side) */
+  sides?: { before: string[]; after: string[] };
+  /** with the user's drop: the caption after it (the caption's text is the one before it) */
+  captionAfter?: string;
 }
 
 /** A pace's cutting against the references' (the template's shot length, times this). */
@@ -1598,8 +1631,8 @@ export function planMontage(o: MontageOptions): EditPlan {
   // The user's own opening, when they picked one: it plays first, the edit on the drop after it.
   const opening = o.openers?.length ? openingIntro(o.scans, o.openers, o.aspect) : null;
   const win = opening
-    ? openingWindow(song, opening.end, o.length, o.card ? o.card.hold : 0, o.songStart)
-    : musicWindow(song, o.length, o.card ? o.card.hold : 0, o.fromStart, o.songStart, style === "talk" ? TALK_DROP : undefined);
+    ? openingWindow(song, opening.end, o.length, o.card ? o.card.hold : 0, o.songStart, o.drop)
+    : musicWindow(song, o.length, o.card ? o.card.hold : 0, o.fromStart, o.songStart, style === "talk" ? TALK_DROP : undefined, o.drop);
   const pace = variantPace(o.variant);
   const lead = (t: number) => frame(Math.max(1 / FPS, t - CUT_LEAD));
   const calm = win.dropAt === undefined && driveOver(song, win.songStart, 0, win.cardAt) < 0.6;
@@ -1657,7 +1690,12 @@ export function planMontage(o: MontageOptions): EditPlan {
   // (The user's own opening clips aren't the edit's footage: what follows is everything else.)
   const introIds = new Set(intro?.shots.map((sh) => sh.source) ?? []);
   const rest = intro ? o.scans.filter((sc) => !introIds.has(sc.id)) : o.scans;
-  let shots = assignShots(slots, rest.length >= 2 ? rest : o.scans, { song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, toCome: o.toCome, velocity: o.velocity, used, loop: looped, lean: o.lean });
+  // The user's own split of the footage round the drop: a clip put before it only goes
+  // into the shots before the drop, one put after it only into the drop and after.
+  const onlyBefore = new Set(o.sides?.before ?? []);
+  const onlyAfter = new Set(o.sides?.after ?? []);
+  const side = dropCut !== undefined && (onlyBefore.size || onlyAfter.size) ? (t: number, id: string) => (t < dropCut - 0.01 ? !onlyAfter.has(id) : !onlyBefore.has(id)) : undefined;
+  let shots = assignShots(slots, rest.length >= 2 ? rest : o.scans, { song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, toCome: o.toCome, velocity: o.velocity, used, loop: looped, lean: o.lean, side });
   if (intro) shots = [...intro.shots, ...shots];
   // The beats and half beats the song hits, as cut (for pictures landing on the music).
   const grid = song.beats
@@ -1665,7 +1703,7 @@ export function planMontage(o: MontageOptions): EditPlan {
     .filter((b) => heardAt(song, b))
     .map((b) => lead(b - win.songStart));
   let overlays: OverlayEvent[] = [];
-  if (style === "burst") ({ shots, overlays } = photoBurst(shots, o.scans, song.period, o.aspect, o.variant, 5, grid));
+  if (style === "burst") ({ shots, overlays } = photoBurst(shots, o.scans, song.period, o.aspect, o.variant, 5, grid, side));
   const drop = shots.find((s) => s.role === "drop");
   // The shot into the drop pushes in as it holds (through the silence, when the song
   // drops out first), and the drop lands on the push.
@@ -1686,14 +1724,23 @@ export function planMontage(o: MontageOptions): EditPlan {
   // TJR's window with the next clip in it, once after the drop (talking edits, and every other straight one).
   const under: FxEvent[] = [];
   if (style === "talk" || (style === "beat" && o.variant % 2 === 1)) {
-    const w = windows(shots, song.beats.map((b) => lead(b - win.songStart)), o.scans, drop?.start ?? 1, FRAME_SIZE[o.aspect][0] / FRAME_SIZE[o.aspect][1]);
+    // (After the drop: none of the clips the user kept to before it.)
+    const after = drop?.start ?? 1;
+    const w = windows(shots, song.beats.map((b) => lead(b - win.songStart)), side ? o.scans.filter((sc) => side(after, sc.id)) : o.scans, after, FRAME_SIZE[o.aspect][0] / FRAME_SIZE[o.aspect][1]);
     shots = w.shots;
     overlays.push(...w.overlays);
     under.push(...w.fx);
   }
   // (Under subtitled talking, the caption comes in with the edit.)
   const capFrom = o.subtitles && intro && handover !== undefined ? lead(handover) : 0;
-  const captions: CaptionEvent[] = o.caption?.text.trim() ? [{ style: o.caption.style, text: o.caption.text.trim(), start: capFrom, end: o.card ? win.cardAt - 4 / FPS : win.duration }] : [];
+  const capEnd = o.card ? win.cardAt - 4 / FPS : win.duration;
+  const captions: CaptionEvent[] = [];
+  if (o.caption && o.captionAfter !== undefined && dropCut !== undefined) {
+    // One caption up to the drop, another from it (either can be left empty; the first
+    // has no room when subtitled talking runs up to the drop).
+    if (o.caption.text.trim() && dropCut - capFrom >= 0.5) captions.push({ style: o.caption.style, text: o.caption.text.trim(), start: capFrom, end: dropCut });
+    if (o.captionAfter.trim()) captions.push({ style: o.caption.style, text: o.captionAfter.trim(), start: dropCut, end: capEnd });
+  } else if (o.caption?.text.trim()) captions.push({ style: o.caption.style, text: o.caption.text.trim(), start: capFrom, end: capEnd });
   // Punch-ins come after the drop: the build holds back, so the drop is its first hit.
   // (None in a slow edit, and no flourish on its drop: the cut is enough.)
   const quiet = style === "slow";

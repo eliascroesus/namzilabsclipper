@@ -212,6 +212,8 @@ interface Ctx {
   drive: (t: number) => number;
   fx: FxEvent[];
   scans: Scan[];
+  /** whether a clip may play at a time (the user's split round the drop) */
+  ok: (t: number, id: string) => boolean;
   now: Date;
 }
 
@@ -224,7 +226,7 @@ export function heardBeats(plan: EditPlan, song: SongAnalysis): number[] {
     .filter((t) => t > 0.05 && t < end - 0.2 && song.accents.some((a) => Math.abs(a.t - songStart - CUT_LEAD - t) <= 0.05 && a.s >= 0.05 && (a.ls ?? a.s) >= 0.5));
 }
 
-function contextOf(plan: EditPlan, song: SongAnalysis, scans: Scan[], now: Date): Ctx {
+function contextOf(plan: EditPlan, song: SongAnalysis, scans: Scan[], now: Date, sides?: DesignOptions["sides"]): Ctx {
   const songStart = plan.music?.songStart ?? 0;
   const end = plan.card?.start ?? plan.duration;
   const shots = plan.shots.filter((s) => s.start < end - 1e-6);
@@ -251,7 +253,10 @@ function contextOf(plan: EditPlan, song: SongAnalysis, scans: Scan[], now: Date)
   const phraseAt = firstBar < 0 ? [] : song.downbeats.filter((_, i) => i >= firstBar && (i - firstBar) % 4 === 0).map((d) => d - songStart - CUT_LEAD);
   const sectionAt = (song.structure?.sections ?? []).map((s) => s.t - songStart - CUT_LEAD);
   const near = (ts: number[]) => new Set(cuts.filter((c) => ts.some((p) => Math.abs(p - c.t) <= 1.5 * F)).map((c) => c.t));
-  return { plan, song, songStart, end, drop, hits, beats, cuts, phrases: near([...phraseAt, ...sectionAt]), sections: near(sectionAt), drive: (t) => driveOver(song, songStart, Math.max(0, t - T), t + T, drop), fx: [], scans, now };
+  const before = new Set(sides?.before ?? []);
+  const after = new Set(sides?.after ?? []);
+  const ok = (t: number, id: string) => drop === undefined || (t < drop - 0.01 ? !after.has(id) : !before.has(id));
+  return { plan, song, songStart, end, drop, hits, beats, cuts, phrases: near([...phraseAt, ...sectionAt]), sections: near(sectionAt), drive: (t) => driveOver(song, songStart, Math.max(0, t - T), t + T, drop), fx: [], scans, ok, now };
 }
 
 /** A transition peaking on the cut at `t`: `pre` frames of the shot going out, `post` of the one coming in, shortened to leave each two frames of its own. */
@@ -1047,7 +1052,7 @@ function reframe(ctx: Ctx) {
   // some (…5448 freezes, …2531 plays on); not when the edit has its own pictures on heads.
   const dropShot = plan.shots.find((sh) => sh.role === "drop");
   if (dropShot && dropShot.kind === "video" && !plan.overlays?.some((o) => o.place) && someoneIn(dropShot) >= 0.5) {
-    const pops = headPops(dropShot, dropShot.end, grid, ctx.scans, plan.shots, Math.floor(rand() * 4)).slice(-2);
+    const pops = headPops(dropShot, dropShot.end, grid, ctx.scans.filter((sc) => ctx.ok(dropShot.start, sc.id)), plan.shots, Math.floor(rand() * 4)).slice(-2);
     if (pops.length) {
       plan.overlays = [...(plan.overlays ?? []), ...pops].sort((a, b) => a.start - b.start);
       if (rand() < 0.5) push(ctx, { kind: "freeze", start: pops[0].start, end: dropShot.end, strength: 1 });
@@ -1127,6 +1132,8 @@ export interface DesignOptions {
   now?: Date;
   /** the caption brought on the design's own way (a word on each beat, a film title, a tape's line); off, it keeps its own look */
   restyle?: boolean;
+  /** the clips the user kept to one side of the drop: the pictures a design adds keep to it too */
+  sides?: { before: string[]; after: string[] };
 }
 
 /**
@@ -1139,13 +1146,17 @@ export function applyDesign(plan: EditPlan, design: Design, song: SongAnalysis, 
   plan.grade = DESIGN_GRADES[design];
   plan.design = design;
   plan.checks = { ...plan.checks, design };
-  // (Captions of the user's own design: before the drop, as they asked to come on.)
+  // (Captions of the user's own design: before the drop, as they asked to come on; one
+  // from the drop on, the caption for after it, on the beats after it.)
+  const dropAt = plan.shots.find((s) => s.role === "drop")?.start;
+  const after = (c: CaptionEvent) => dropAt !== undefined && c.start >= dropAt - 1e-3;
   if (plan.captions.some((c) => c.look)) {
-    const drop = plan.shots.find((s) => s.role === "drop")?.start;
-    plan.captions = ownCaptions(plan.captions, design, heardBeats(plan, song).filter((b) => b < (drop ?? Infinity)));
+    const heard = heardBeats(plan, song);
+    const before = heard.filter((b) => b < (dropAt ?? Infinity));
+    plan.captions = plan.captions.flatMap((c) => ownCaptions([c], design, after(c) ? heard : before));
   }
   if (design === "clean") return plan;
-  const ctx = contextOf(plan, song, opts.scans ?? [], opts.now ?? new Date());
+  const ctx = contextOf(plan, song, opts.scans ?? [], opts.now ?? new Date(), opts.sides);
   // (What finish added for the plain edit goes: its flash, burn, shake, punches and blurs.
   // Up from black stays for the designs that don't open their own way.)
   const own = new Set<FxEvent["kind"]>(["flash", "burn", "punch", "shake", "zoomblur", "split"]);
@@ -1160,7 +1171,7 @@ export function applyDesign(plan: EditPlan, design: Design, song: SongAnalysis, 
       // own caption covers the bottom, in the middle. A tape's, under the date.)
       const y = cap.style === "film" ? (plan.height > plan.width * 1.2 ? 0.5 : 1 - BARS[plan.aspect] / 2) : cap.style === "osd" ? osdLine(plan, 2) : undefined;
       const placed = y !== undefined ? { ...c, y } : c;
-      return cap.words ? wordByWord(placed, cap.style, beats) : [{ ...placed, style: cap.style }];
+      return cap.words ? wordByWord(placed, cap.style, after(c) ? ctx.beats : beats) : [{ ...placed, style: cap.style }];
     });
   }
   RECIPES[design](ctx);
