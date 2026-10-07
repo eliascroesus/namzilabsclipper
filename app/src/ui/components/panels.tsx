@@ -1,11 +1,12 @@
-import { AudioWaveform, Clapperboard, Dices, Eye, EyeOff, Film, ImagePlus, MessageSquareQuote, Music, Plus, RotateCcw, Shuffle, Sparkles, Type, X } from "lucide-react";
+import { AudioWaveform, Clapperboard, Eye, EyeOff, Film, ImagePlus, MessageSquareQuote, Music, Pause, Play, Plus, RotateCcw, Shuffle, Sparkles, Square, SquareCheck, Type, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { drawCard } from "../../engine/render/card";
 import { loadFonts } from "../../engine/render/fonts";
 import { FRAME_SIZE, type Aspect } from "../../engine/plan/types";
 import type { Pace } from "../../engine/plan/rhythm";
 import { EDIT_STYLES, paceOf } from "../../engine/plan/styles";
-import { DESIGNS } from "../../engine/plan/designs";
+import { DESIGNS, designName } from "../../engine/plan/designs";
+import { designAllowed, FX_GROUPS, styleAllowed, type FxChoice } from "../../engine/plan/effects";
 import { CARD_VIDEO_LENGTH, cardHoldOf, MAX_LENGTH, studio, type Format, type State, type Style } from "../studio";
 import { Drop, fmtTime, Section, Segmented, Switch } from "./bits";
 import { CaptionEditor } from "./captions";
@@ -425,18 +426,19 @@ const CUTTING: { value: Pace; label: string }[] = [
 
 /** How hard a montage cuts on the music; slow and fast re-cuts have their own pace. */
 function CuttingField({ st }: { st: Style }) {
-  const own = st.edit === "slow" || st.edit === "recut" ? paceOf(st.edit, st.pace) : undefined;
-  const mix = st.edit === "mix";
+  const only = st.edits.length === 1 ? st.edits[0] : undefined;
+  const own = only === "slow" || only === "recut" ? paceOf(only, st.pace) : undefined;
+  const mix = st.edits.length > 1;
   const hint =
-    st.edit === "slow"
+    only === "slow"
       ? "Slow and cinematic keeps its long holds."
-      : st.edit === "recut"
+      : only === "recut"
         ? "Fast re-cuts always cut hard."
         : st.pace === "hard"
-          ? `More cuts, still only on hits: every beat with a hit into the drop, more of the hits that stand out, and more clips re-cut on the beat.${mix ? " A mix leaves out the slow style." : ""}`
+          ? `More cuts, still only on hits: every beat with a hit into the drop, more of the hits that stand out, and more clips re-cut on the beat.${mix && st.edits.includes("slow") ? " A mix leaves out the slow style." : ""}`
           : st.pace === "beat"
             ? "The reference editors' rhythm: on the song's loudest hits, two beats a shot or more into the drop and their pattern after it."
-            : `Longer shots: a cut on the biggest hits only.${mix ? " A mix leaves out the fast re-cuts." : ""}`;
+            : `Longer shots: a cut on the biggest hits only.${mix && st.edits.includes("recut") ? " A mix leaves out the fast re-cuts." : ""}`;
   return (
     <div className="field">
       <span className="label">Cutting</span>
@@ -470,6 +472,143 @@ function TalkClipField({ s }: { s: State }) {
   );
 }
 
+/** The effects left on, for what the batch can use. */
+const fxOf = (st: Style): FxChoice => ({ off: st.fxOff, bwToDrop: st.bwToDrop, dropHit: st.dropHit });
+
+/** A card ticked or not: in the batch, or left out. */
+function TickCard({ on, name, desc, onClick, note }: { on: boolean; name: string; desc: string; onClick: () => void; note?: string }) {
+  return (
+    <button type="button" className="format tick" aria-pressed={on} onClick={onClick}>
+      <span className="name">
+        {on ? <SquareCheck size={15} strokeWidth={2.25} /> : <Square size={15} strokeWidth={2} />}
+        {name}
+      </span>
+      <span className="desc">{note ?? desc}</span>
+    </button>
+  );
+}
+
+/** The edit styles a batch goes through: tick the ones wanted, untick the rest. */
+function TickedStyles({ st }: { st: Style }) {
+  const all = st.edits.length === EDIT_STYLES.length;
+  const fx = fxOf(st);
+  return (
+    <div className="field" style={{ marginTop: 0 }}>
+      <div className="row between">
+        <span className="label">Edit styles</span>
+        {!all && (
+          <button type="button" className="btn ghost small" onClick={() => studio.setStyle({ edits: EDIT_STYLES.map((e) => e.value) })}>
+            Tick all
+          </button>
+        )}
+      </div>
+      <div className="formats styles">
+        {EDIT_STYLES.map((e) => (
+          <TickCard key={e.value} on={st.edits.includes(e.value)} name={e.name} desc={e.desc} note={st.edits.includes(e.value) && !styleAllowed(e.value, fx) ? "Left out while its black and white is off." : undefined} onClick={() => studio.toggleEdit(e.value)} />
+        ))}
+      </div>
+      <span className="hint">{st.edits.length === 1 ? "Every edit in this style. Tick more to mix them." : `Each edit in the batch takes the next of the ${st.edits.length} ticked.`}</span>
+    </div>
+  );
+}
+
+/** The designs a batch goes through: tick the ones wanted, untick the rest. */
+function TickedDesigns({ st }: { st: Style }) {
+  const all = st.designs.length === DESIGNS.length;
+  const fx = fxOf(st);
+  const skipped = st.designs.filter((d) => !designAllowed(d, fx));
+  return (
+    <div className="field">
+      <div className="row between">
+        <span className="label">Designs</span>
+        {!all && (
+          <button type="button" className="btn ghost small" onClick={() => studio.setStyle({ designs: DESIGNS.map((d) => d.value) })}>
+            Tick all
+          </button>
+        )}
+      </div>
+      <div className="formats styles">
+        {DESIGNS.map((d) => (
+          <TickCard key={d.value} on={st.designs.includes(d.value)} name={d.name} desc={d.desc} note={st.designs.includes(d.value) && !designAllowed(d.value, fx) ? (d.value === "vhs" ? "Left out while the VHS tape is off." : "Left out while black and white is off.") : undefined} onClick={() => studio.toggleDesign(d.value)} />
+        ))}
+      </div>
+      <span className="hint">
+        {st.designs.length === 1 ? "Every edit in this design. Tick more to mix them." : `Each edit in the batch takes the next of the ${st.designs.length} ticked, the ones that suit the song first.`}
+        {skipped.length && skipped.length < st.designs.length ? ` ${skipped.map(designName).join(" and ")} left out for the effects you turned off.` : ""}
+      </span>
+    </div>
+  );
+}
+
+/** The effects every edit can use: each group on, or left out. */
+function EffectsField({ st }: { st: Style }) {
+  const off = FX_GROUPS.filter((g) => st.fxOff.includes(g.value));
+  return (
+    <div className="field">
+      <div className="row between">
+        <span className="label">Effects</span>
+        <button type="button" className="btn ghost small" onClick={() => studio.setStyle({ fxOff: off.length === FX_GROUPS.length ? [] : FX_GROUPS.map((g) => g.value) })}>
+          {off.length === FX_GROUPS.length ? "All on" : "All off"}
+        </button>
+      </div>
+      <div className="chips" role="group" aria-label="Effects">
+        {FX_GROUPS.map((g) => (
+          <button key={g.value} type="button" className="chip" aria-pressed={!st.fxOff.includes(g.value)} title={g.desc} onClick={() => studio.toggleFx(g.value)}>
+            {g.name}
+          </button>
+        ))}
+      </div>
+      <span className="hint">{off.length ? `Left out of every edit: ${off.map((g) => g.name).join(", ")}. Tap again to bring it back.` : "All on: each design uses the ones it's made of. Tap one to leave it out of every edit (hold the pointer on one to see what it covers)."}</span>
+    </div>
+  );
+}
+
+/** What happens on the song's drop, when the stretch the edits use has one: shown with its time, to hear. */
+function DropField({ s }: { s: State }) {
+  const st = s.style;
+  const win = studio.songWindow();
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => () => audio.current?.pause(), [s.sound?.url]);
+  if (!win?.drop || !win.clear || !s.sound?.url) return null;
+  const drop = win.drop;
+  const hear = () => {
+    const a = (audio.current ??= new Audio(s.sound!.url));
+    if (playing) {
+      a.pause();
+      setPlaying(false);
+      return;
+    }
+    a.currentTime = Math.max(0, drop - 3);
+    void a.play().then(() => setPlaying(true), () => setPlaying(false));
+    const stop = () => {
+      if (a.currentTime >= drop + 2.5 || a.paused) {
+        a.pause();
+        setPlaying(false);
+      } else requestAnimationFrame(stop);
+    };
+    requestAnimationFrame(stop);
+  };
+  const bwOff = st.fxOff.includes("bw");
+  return (
+    <div className="field">
+      <div className="row between">
+        <span className="label">At the drop ({fmtTime(drop)})</span>
+        <button type="button" className="btn ghost small" onClick={hear} aria-label={playing ? "Stop" : "Hear the drop"}>
+          {playing ? <Pause size={13} /> : <Play size={13} />} {playing ? "Stop" : "Hear it"}
+        </button>
+      </div>
+      <Switch checked={st.bwToDrop && !bwOff} onChange={(v) => studio.setStyle({ bwToDrop: v })} hint={bwOff ? "Black and white is off in Effects." : st.bwToDrop ? "The black and white styles and designs stay in black and white until the drop, then snap to colour." : "Off: no black and white before the drop (the black and white to colour style is left out)."}>
+        Black and white until the drop
+      </Switch>
+      <Switch checked={st.dropHit} onChange={(v) => studio.setStyle({ dropHit: v })} hint={st.dropHit ? "The drop lands with its design's hit: a flash, a punch-in, a strobe, a freeze or a move into it." : "Off: a plain cut on the drop."}>
+        A hit on the drop
+      </Switch>
+      <span className="hint">The drop the edits land on, found in the song: hear it to check it's the one you mean, or move the stretch on the song above.</span>
+    </div>
+  );
+}
+
 export function StylePanel({ s }: { s: State }) {
   const st = s.style;
   const hold = cardHoldOf(s.kit);
@@ -481,47 +620,11 @@ export function StylePanel({ s }: { s: State }) {
   ];
   return (
     <Section title="Style">
-      {st.format === "montage" && (
-        <div className="field" style={{ marginTop: 0 }}>
-          <span className="label">Edit style</span>
-          <div className="formats styles">
-            <button type="button" className="format" aria-pressed={st.edit === "mix"} onClick={() => studio.setStyle({ edit: "mix" })}>
-              <span className="name">
-                <Dices size={15} strokeWidth={2.25} />
-                Mix
-              </span>
-              <span className="desc">Each edit in the batch in another style.</span>
-            </button>
-            {EDIT_STYLES.map((e) => (
-              <button key={e.value} type="button" className="format" aria-pressed={st.edit === e.value} onClick={() => studio.setStyle({ edit: e.value })}>
-                <span className="name">{e.name}</span>
-                <span className="desc">{e.desc}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {st.format === "montage" && (
-        <div className="field">
-          <span className="label">Design</span>
-          <div className="formats styles">
-            <button type="button" className="format" aria-pressed={st.design === "mix"} onClick={() => studio.setStyle({ design: "mix" })}>
-              <span className="name">
-                <Dices size={15} strokeWidth={2.25} />
-                Mix
-              </span>
-              <span className="desc">Each edit in the batch in another design, the ones that suit the song first.</span>
-            </button>
-            {DESIGNS.map((d) => (
-              <button key={d.value} type="button" className="format" aria-pressed={st.design === d.value} onClick={() => studio.setStyle({ design: d.value })}>
-                <span className="name">{d.name}</span>
-                <span className="desc">{d.desc}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {st.format === "montage" && (st.edit === "talk" || st.edit === "mix") && <TalkClipField s={s} />}
+      {st.format === "montage" && <TickedStyles st={st} />}
+      {st.format === "montage" && <TickedDesigns st={st} />}
+      {st.format === "montage" && st.edits.includes("talk") && <TalkClipField s={s} />}
+      {st.format === "montage" && <EffectsField st={st} />}
+      {st.format === "montage" && <DropField s={s} />}
       {st.format === "montage" && <CuttingField st={st} />}
       <div className="field" style={st.format === "montage" ? undefined : { marginTop: 0 }}>
         <span className="label">Frame</span>
@@ -569,14 +672,26 @@ export function StylePanel({ s }: { s: State }) {
                       { value: "none", label: "None" },
                     ]
                   : [
-                      { value: "mood", label: "Mood line" },
+                      { value: "mood", label: st.format === "montage" ? "Mood" : "Mood line" },
                       { value: "pov", label: "POV" },
                       { value: "meme", label: "Text" },
+                      ...(st.format === "montage" ? [{ value: "animated" as const, label: "Animated" }] : []),
                       { value: "none", label: "None" },
                     ]
               }
               onChange={(v) => studio.setStyle({ caption: v })}
             />
+            {st.format === "montage" && !st.ownCaption && st.caption !== "none" && (
+              <span className="hint">
+                {st.caption === "animated"
+                  ? "Each edit's design brings the words on its own way: a word on each beat, a film title, a tape's line, glitch letters."
+                  : st.caption === "mood"
+                    ? "The mood line in its own look (a soft italic serif), the same in every edit whatever its design."
+                    : st.caption === "pov"
+                      ? "The POV label in its own look in every edit, whatever its design."
+                      : "The two lines as they are, in every edit."}
+              </span>
+            )}
           </div>
           {st.caption !== "none" && (
             <div className="field">
@@ -643,7 +758,7 @@ export function StylePanel({ s }: { s: State }) {
       <div className="field">
         <span className="label">How many edits</span>
         <Segmented label="Number of edits" value={st.variants} options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: String(n) }))} onChange={(v) => studio.setStyle({ variants: v })} />
-        <span className="hint">{st.format === "montage" && (st.edit === "mix" || st.design === "mix") ? `Each one in another ${st.edit === "mix" && st.design === "mix" ? "style and design" : st.edit === "mix" ? "style" : "design"}, with its own moments.` : "Each one uses different moments and a different flourish."}</span>
+        <span className="hint">{st.format === "montage" && (st.edits.length > 1 || st.designs.length > 1) ? `Each one in another ${st.edits.length > 1 && st.designs.length > 1 ? "style and design" : st.edits.length > 1 ? "style" : "design"} of the ticked ones, with its own moments.` : "Each one uses different moments and a different flourish."}</span>
       </div>
     </Section>
   );

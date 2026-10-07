@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { analyzeSong, type SongAnalysis } from "../src/engine/audio/song";
 import { lifeFootage, scoreInterest, type Kind, type Scan } from "../src/engine/media/scan";
 import { applyDesign, BARS, designFor, designOrder, DESIGNS, fits, heatOf, limitFlashes, panelsFor, wordByWord, type Design } from "../src/engine/plan/designs";
+import { ALL_FX, designAllowed, styleAllowed, usable, withoutFx } from "../src/engine/plan/effects";
 import { CUT_LEAD, planMontage } from "../src/engine/plan/montage";
 import { FPS, TWO_SHOT, type CardSpec, type EditPlan, type FxEvent } from "../src/engine/plan/types";
 import { fxAt } from "../src/engine/render/export";
@@ -47,7 +48,7 @@ const NOW = new Date(2026, 9, 1);
 function planIn(design: Design, opts: Partial<Parameters<typeof planMontage>[0]> = {}): EditPlan {
   const scans = footage();
   const plan = planMontage({ ...base, scans, card, caption: { style: "mood", text: "Peak life." }, velocity: design === "velocity", ...opts });
-  return applyDesign(plan, design, song, { scans, now: NOW });
+  return applyDesign(plan, design, song, { scans, now: NOW, restyle: true });
 }
 
 describe("edit designs", () => {
@@ -195,6 +196,16 @@ describe("edit designs", () => {
         .sort((a, b) => a - b);
       expect(ts.length, d).toBeGreaterThan(3);
       for (let i = 1; i < ts.length; i++) expect(ts[i] - ts[i - 1], d).toBeGreaterThanOrEqual(0.8 * song.period - 1e-6);
+    }
+  });
+
+  it("keeps a mood line in its own look unless asked for the design's way", () => {
+    const scans = footage();
+    for (const d of ["flash", "zoom", "cinematic", "glitch"] as Design[]) {
+      const plan = applyDesign(planMontage({ ...base, scans, card, caption: { style: "mood", text: "Only the beginning..." } }), d, song, { scans, now: NOW });
+      const line = plan.captions.filter((c) => c.text === "Only the beginning...");
+      expect(line, d).toHaveLength(1);
+      expect(line[0].style, d).toBe("mood");
     }
   });
 
@@ -477,5 +488,64 @@ describe("the designs' moves, frame by frame", () => {
     expect(fxAt(bars, 0, FPS).bars).toBeLessThan(0.05);
     expect(fxAt(bars, 9 * F, FPS).bars).toBeGreaterThan(0.05);
     expect(fxAt(bars, 2, FPS).bars).toBeCloseTo(0.14, 6);
+  });
+});
+
+describe("effects left out", () => {
+  const copy = (p: EditPlan): EditPlan => JSON.parse(JSON.stringify(p));
+  const kinds = (p: EditPlan) => new Set(p.fx.map((e) => e.kind));
+
+  it("takes each group out of an edit, whatever its design put in", () => {
+    const flash = planIn("flash");
+    expect(kinds(flash).has("flash")).toBe(true);
+    const noFlash = withoutFx(copy(flash), { ...ALL_FX, off: ["flashes"] });
+    for (const k of ["flash", "strobe", "invert", "burn", "glow"]) expect(kinds(noFlash).has(k as FxEvent["kind"]), k).toBe(false);
+    // (The rest of what it does stays.)
+    expect(noFlash.fx.length).toBeGreaterThan(0);
+    const whip = planIn("whip");
+    expect([...kinds(whip)].some((k) => ["whip", "spin", "push", "slide"].includes(k))).toBe(true);
+    const cuts = withoutFx(copy(whip), { ...ALL_FX, off: ["moves"] });
+    expect([...kinds(cuts)].some((k) => ["whip", "spin", "push", "slide", "dissolve", "zoomin", "blur"].includes(k))).toBe(false);
+    // The tape goes with its lines and its writing on screen.
+    const tape = withoutFx(copy(planIn("vhs")), { ...ALL_FX, off: ["tape"] });
+    expect(kinds(tape).has("vhs")).toBe(false);
+    expect(tape.captions.some((c) => c.style === "osd")).toBe(false);
+    // Black and white, everywhere.
+    const noir = withoutFx(copy(planIn("noir")), { ...ALL_FX, off: ["bw"] });
+    expect(kinds(noir).has("mono")).toBe(false);
+  });
+
+  it("keeps the drop plain, or in colour from the start, when asked", () => {
+    const mono = planIn("clean", { style: "mono" });
+    const drop = mono.shots.find((s) => s.role === "drop")!.start;
+    const flip = (p: EditPlan) => p.fx.filter((e) => e.kind === "mono" && e.start < drop && Math.abs(e.end - drop) < 0.25);
+    expect(flip(mono).length).toBeGreaterThan(0);
+    expect(flip(withoutFx(copy(mono), { ...ALL_FX, bwToDrop: false }))).toHaveLength(0);
+    // Nothing lands on the drop but the cut; what lasts (a letterbox, a tape) stays.
+    const on = (p: EditPlan) => p.fx.filter((e) => e.start <= drop + 0.12 && e.end >= drop - 0.12 && !["mono", "bw", "bars", "vhs", "leak", "fadein"].includes(e.kind));
+    for (const d of ["flash", "phonk", "zoom", "ice"] as Design[]) {
+      const p = planIn(d);
+      const at = p.shots.find((s) => s.role === "drop")?.start;
+      if (at === undefined) continue;
+      const plain = withoutFx(copy(p), { ...ALL_FX, dropHit: false });
+      expect(plain.fx.filter((e) => e.start <= at + 0.12 && e.end >= at - 0.12 && !["mono", "bw", "bars", "vhs", "leak", "fadein"].includes(e.kind)), d).toHaveLength(0);
+      // (Hits elsewhere stay.)
+      expect(plain.fx.length, d).toBeGreaterThan(0);
+    }
+    expect(on(withoutFx(copy(mono), { ...ALL_FX, dropHit: false }))).toHaveLength(0);
+  });
+
+  it("leaves out the styles and designs that are nothing but what's off, unless they're all that's ticked", () => {
+    expect(styleAllowed("mono", { ...ALL_FX, bwToDrop: false })).toBe(false);
+    expect(styleAllowed("mono", { ...ALL_FX, off: ["bw"] })).toBe(false);
+    expect(styleAllowed("beat", { ...ALL_FX, off: ["bw"] })).toBe(true);
+    expect(designAllowed("vhs", { ...ALL_FX, off: ["tape"] })).toBe(false);
+    expect(designAllowed("noir", { ...ALL_FX, off: ["bw"] })).toBe(false);
+    expect(designAllowed("zoom", { ...ALL_FX, off: ["bw", "tape"] })).toBe(true);
+    expect(usable(["vhs", "zoom"] as Design[], (d) => designAllowed(d, { ...ALL_FX, off: ["tape"] }))).toEqual(["zoom"]);
+    expect(usable(["vhs"] as Design[], (d) => designAllowed(d, { ...ALL_FX, off: ["tape"] }))).toEqual(["vhs"]);
+    // A mix of designs none of which goes with the style still keeps to the ones ticked.
+    expect(designFor(0, "mix", ["noir"], "mono")).toBe("noir");
+    expect(designFor(1, "mix", ["noir", "zoom"], "mono")).toBe("zoom");
   });
 });

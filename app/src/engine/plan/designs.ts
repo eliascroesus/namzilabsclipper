@@ -135,15 +135,20 @@ export function designOrder(song: SongAnalysis | null | undefined, scans: Scan[]
   return [...base].sort((a, b) => rank.get(a)! - rank.get(b)!);
 }
 
-/** The design for edit number `n` of a batch (counting on from earlier batches): the one picked, or the next in the mix that goes with its style. */
+/**
+ * The design for edit number `n` of a batch (counting on from earlier batches): the one
+ * picked, or the next in the mix that goes with its style (none of them going with it,
+ * the next of the mix anyway: the designs in it are the ones the user wants).
+ */
 export function designFor(n: number, pick: Design | "mix", order: Design[], style: EditStyle = "beat"): Design {
   if (pick !== "mix") return pick;
   const len = order.length;
+  if (!len) return "clean";
   for (let k = 0; k < len; k++) {
     const d = order[(((n + k) % len) + len) % len];
     if (fits(d, style)) return d;
   }
-  return "clean";
+  return order[((n % len) + len) % len];
 }
 
 /** What a design wants of the footage: movement and people (the hard ones), or calm, steady pictures (a film, a tape); the clean edit, the plain picks. */
@@ -1120,12 +1125,15 @@ export interface DesignOptions {
   scans?: Scan[];
   /** the date a tape shows (today) */
   now?: Date;
+  /** the caption brought on the design's own way (a word on each beat, a film title, a tape's line); off, it keeps its own look */
+  restyle?: boolean;
 }
 
 /**
  * A montage in a design: its colour, and the design's effects in place of the plain
- * flourish (a clean edit keeps it); its mood line or POV label restyled (a meme caption
- * stays as it is: it's the joke). The plan is changed and returned.
+ * flourish (a clean edit keeps it); asked to (`restyle`), its mood line or POV label in
+ * the design's own caption (a meme caption stays as it is: it's the joke). The plan is
+ * changed and returned.
  */
 export function applyDesign(plan: EditPlan, design: Design, song: SongAnalysis, opts: DesignOptions = {}): EditPlan {
   plan.grade = DESIGN_GRADES[design];
@@ -1143,7 +1151,7 @@ export function applyDesign(plan: EditPlan, design: Design, song: SongAnalysis, 
   const own = new Set<FxEvent["kind"]>(["flash", "burn", "punch", "shake", "zoomblur", "split"]);
   const opensOwn = design !== "cinematic";
   plan.fx = plan.fx.filter((e) => !own.has(e.kind) && !(opensOwn && e.kind === "fadein" && e.start < 1e-6));
-  const cap = CAPTIONS[design];
+  const cap = opts.restyle ? CAPTIONS[design] : undefined;
   if (cap && plan.captions.length) {
     const beats = ctx.beats.filter((b) => b < (ctx.drop ?? ctx.end));
     plan.captions = plan.captions.flatMap((c) => {

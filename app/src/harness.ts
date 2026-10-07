@@ -227,6 +227,8 @@ export interface MontageRun {
   thirds?: boolean;
   /** listen for the singing (default on) */
   vocals?: boolean;
+  /** the caption in each design's own way (the app's Animated caption); default: it keeps its own look */
+  restyle?: boolean;
   /** where in the song the edits start (default: automatic) */
   songStart?: number;
   /** judge the footage with the picture model in the page, as the app does without a key (default on) */
@@ -367,7 +369,7 @@ async function montage(run: MontageRun) {
         : run.format === "meme"
           ? comeOn(dress(planMeme({ ...common, text: run.memeText ?? "", position: run.memePosition ?? "upper" })))
           : design
-            ? applyDesign(dress(planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style, talkers, loop: run.loop, pace: run.pace, lean: leanOf(design), openers: run.openers?.map((i) => `clip${i}`) })), design, song!, { scans })
+            ? applyDesign(dress(planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style, talkers, loop: run.loop, pace: run.pace, lean: leanOf(design), openers: run.openers?.map((i) => `clip${i}`) })), design, song!, { scans, restyle: run.restyle })
             : comeOn(dress(planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style, talkers, loop: run.loop, pace: run.pace, openers: run.openers?.map((i) => `clip${i}`) })));
     // As the app does: planned again until no shot runs over one of the footage's own cuts.
     const plan = run.settle === false ? make() : await settlePlan(make, new Map(scans.map((sc) => [sc.id, sc])), cutFinder(sources));

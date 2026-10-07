@@ -22,8 +22,9 @@ import { senseSheets, SENSE_VERSION } from "../engine/vision/sense";
 import { findMoments, transcribe, type Moment, type Transcript } from "../engine/story/story";
 import { musicWindow, planMontage, usedRanges, type Ranges } from "../engine/plan/montage";
 import type { Pace } from "../engine/plan/rhythm";
-import { CALM_LABEL, mixOrder, styleFor, styleLabel, talks, type EditStyle, type Talker } from "../engine/plan/styles";
-import { applyDesign, designFor, designName, designOrder, heardBeats, leanOf, ownCaptions, type Design } from "../engine/plan/designs";
+import { CALM_LABEL, EDIT_STYLES, mixOrder, styleFor, styleLabel, talks, type EditStyle, type Talker } from "../engine/plan/styles";
+import { applyDesign, designFor, designName, designOrder, DESIGNS, heardBeats, leanOf, ownCaptions, type Design } from "../engine/plan/designs";
+import { designAllowed, styleAllowed, usable, withoutFx, type FxChoice, type FxGroup } from "../engine/plan/effects";
 import { NO_GRADE, WARM_GRADE, type Aspect, type CaptionEvent, type CardSpec, type EditPlan, type TextLook } from "../engine/plan/types";
 import { shouted, speechRanges, subtitlesFor, type Heard } from "../engine/plan/subtitles";
 import { listen } from "../mimic/asr/client";
@@ -114,7 +115,8 @@ export interface Style {
   format: Format;
   aspect: Aspect;
   length: number;
-  caption: "none" | "mood" | "pov" | "meme";
+  /** the caption: a mood line or POV label in its own look whatever the design, the meme's two lines, each design's own way (animated), or none */
+  caption: "none" | "mood" | "pov" | "meme" | "animated";
   text: string;
   textB: string;
   memeText: string;
@@ -128,10 +130,16 @@ export interface Style {
   smart: boolean;
   /** velocity edits: speed ramps, slow motion on each hit then a rush into the next cut */
   velocity: boolean;
-  /** how a montage is shaped (engine/plan/styles.ts), or "mix": each edit in a batch another way */
-  edit: "mix" | EditStyle;
-  /** how a montage looks (engine/plan/designs.ts), or "mix": each edit in a batch another design, the ones that suit the song first */
-  design: "mix" | Design;
+  /** the ways a montage can be shaped (engine/plan/styles.ts) that a batch goes through, each edit the next (one: only that one) */
+  edits: EditStyle[];
+  /** the designs a montage can take (engine/plan/designs.ts) that a batch goes through, the ones that suit the song first (one: only that one) */
+  designs: Design[];
+  /** the effects left out of every edit (engine/plan/effects.ts) */
+  fxOff: FxGroup[];
+  /** with a drop: black and white until it, turning to colour on it */
+  bwToDrop: boolean;
+  /** with a drop: it lands with a hit (a flash, a punch-in, a strobe, a freeze); off, a plain cut */
+  dropHit: boolean;
   /** how hard a montage cuts on the music (engine/plan/rhythm.ts): steady (the editors' rhythm, on the loudest hits), hard (more of the hits), or relaxed */
   pace: Pace;
   /** with the card off: end on the moment the edit opens on, so the replay loops */
@@ -215,8 +223,11 @@ const DEFAULT_STYLE: Style = {
   faces: true,
   smart: true,
   velocity: false,
-  edit: "mix",
-  design: "mix",
+  edits: EDIT_STYLES.map((e) => e.value),
+  designs: DESIGNS.map((d) => d.value),
+  fxOff: [],
+  bwToDrop: true,
+  dropHit: true,
   pace: "beat",
   loop: true,
   ownCaption: false,
@@ -228,9 +239,13 @@ const STYLE_STORE = "clipper.style.v1";
 function loadStyle(): Style {
   try {
     const raw = localStorage.getItem(STYLE_STORE);
-    const stored = raw ? (JSON.parse(raw) as Partial<Style>) : {};
-    // (A look saved before a setting was added gets that setting's default.)
-    return { ...DEFAULT_STYLE, ...stored, captionLook: { ...DEFAULT_LOOK, ...stored.captionLook } };
+    const stored = raw ? (JSON.parse(raw) as Partial<Style> & { edit?: "mix" | EditStyle; design?: "mix" | Design }) : {};
+    // (A look saved before a setting was added gets that setting's default; one style or
+    // design picked, or the mix, before they could be ticked, is ticked so.)
+    const { edit, design, ...rest } = stored;
+    const edits = (rest.edits ?? (edit && edit !== "mix" ? [edit] : DEFAULT_STYLE.edits)).filter((e) => EDIT_STYLES.some((x) => x.value === e));
+    const designs = (rest.designs ?? (design && design !== "mix" ? [design] : DEFAULT_STYLE.designs)).filter((d) => DESIGNS.some((x) => x.value === d));
+    return { ...DEFAULT_STYLE, ...rest, edits: edits.length ? edits : DEFAULT_STYLE.edits, designs: designs.length ? designs : DEFAULT_STYLE.designs, captionLook: { ...DEFAULT_LOOK, ...rest.captionLook } };
   } catch {
     return { ...DEFAULT_STYLE };
   }
@@ -618,7 +633,7 @@ class Studio {
    * starts, where the card comes in and where it ends (song seconds), and for
    * story clips the moment the burst hits.
    */
-  songWindow(): { start: number; cardAt: number; end: number; payoff: number | null; auto: boolean } | null {
+  songWindow(): { start: number; cardAt: number; end: number; payoff: number | null; auto: boolean; drop?: number; clear?: boolean } | null {
     const s = this.state;
     const song = this.song;
     if (!song || !s.sound || s.sound.status !== "ready") return null;
@@ -628,7 +643,13 @@ class Studio {
       return { start: Math.max(0, payoff - 20), cardAt: payoff + 3.2, end: Math.min(song.duration, payoff + 3.2 + (s.kit.enabled ? cardHoldOf(s.kit) : 0.6)), payoff, auto: s.sound.payoff === null };
     }
     const win = musicWindow(song, s.style.length, cardHoldOf(s.kit), s.sound.fromReel, s.sound.start ?? undefined);
-    return { start: win.songStart, cardAt: win.songStart + win.cardAt, end: win.songStart + win.duration, payoff: null, auto: s.sound.start === null };
+    // (The drop the edits land on, as the planner finds it in this stretch, and whether it's
+    // a clear one: a loudness step of 0.4 or more, as every reference edit's drop is; the
+    // return after a break counts.)
+    const drop = win.dropAt !== undefined ? win.songStart + win.dropAt : undefined;
+    const step = drop !== undefined ? song.drops.find((d) => Math.abs(d.t - drop) < 0.6)?.strength : undefined;
+    const clear = drop !== undefined && (step === undefined ? !!song.structure?.breaks.some(([, b]) => Math.abs(b - drop) < 2.5) : step >= 0.4);
+    return { start: win.songStart, cardAt: win.songStart + win.cardAt, end: win.songStart + win.duration, payoff: null, auto: s.sound.start === null, ...(drop !== undefined ? { drop, clear } : {}) };
   }
 
   clearSound() {
@@ -657,6 +678,28 @@ class Studio {
     this.set((s) => ({ kit: { ...s.kit, shot: DEFAULT_SHOT, shotName: "Namzilabs dashboard" } }));
     await saveKitShot(null, "");
     await this.loadCardImage();
+  }
+
+  /** Tick or untick an edit style for the batch (the last one ticked stays). */
+  toggleEdit(e: EditStyle) {
+    const on = this.state.style.edits;
+    if (on.includes(e)) {
+      if (on.length > 1) this.setStyle({ edits: on.filter((x) => x !== e) });
+    } else this.setStyle({ edits: EDIT_STYLES.map((x) => x.value).filter((x) => x === e || on.includes(x)) });
+  }
+
+  /** Tick or untick a design for the batch (the last one ticked stays). */
+  toggleDesign(d: Design) {
+    const on = this.state.style.designs;
+    if (on.includes(d)) {
+      if (on.length > 1) this.setStyle({ designs: on.filter((x) => x !== d) });
+    } else this.setStyle({ designs: DESIGNS.map((x) => x.value).filter((x) => x === d || on.includes(x)) });
+  }
+
+  /** Leave a group of effects out of every edit, or bring it back. */
+  toggleFx(g: FxGroup) {
+    const off = this.state.style.fxOff;
+    this.setStyle({ fxOff: off.includes(g) ? off.filter((x) => x !== g) : [...off, g] });
   }
 
   /** Change the caption editor's look (switching it on). */
@@ -1112,9 +1155,19 @@ class Studio {
     const canTalk = style.format === "montage" ? this.talkingClips(ready) : [];
     // The clips the user picked to open the edit with, in their order.
     const openers = style.format === "montage" ? ready.filter((f) => f.opener && (f.kind === "video" || f.kind === "image")).map((f) => f.id) : [];
-    const order = mixOrder(scans, canTalk.length > 0, style.pace);
-    // And its design: the one picked, or each edit the next that suits the song and footage.
-    const designs = designOrder(song, scans);
+    // (Only the ticked styles and designs, and only those the effects left on allow: black
+    // and white to colour needs its black and white, the tape design its tape.)
+    const fx: FxChoice = { off: style.fxOff, bwToDrop: style.bwToDrop, dropHit: style.dropHit };
+    const ticked = usable(style.edits, (e) => styleAllowed(e, fx));
+    const mixed = mixOrder(scans, canTalk.length > 0, style.pace).filter((e) => ticked.includes(e));
+    const order = mixed.length ? mixed : ticked;
+    const editPick: EditStyle | "mix" = order.length === 1 ? order[0] : "mix";
+    // And its design: each edit the next of the ticked ones, those that suit the song and
+    // footage first (the rest of the ticked ones after them).
+    const tickedDesigns = usable(style.designs, (d) => designAllowed(d, fx));
+    const suited = designOrder(song, scans).filter((d) => tickedDesigns.includes(d));
+    const designs = [...suited, ...tickedDesigns.filter((d) => !suited.includes(d))];
+    const designPick: Design | "mix" = designs.length === 1 ? designs[0] : "mix";
 
     // Another batch with the same footage and sound picks up where the last left off.
     const key = [style.format, style.aspect, ready.map((f) => f.id).join(","), s.sound?.id ?? ""].join("|");
@@ -1126,8 +1179,8 @@ class Studio {
     const avoid = this.madeAvoid;
     const base = this.made;
     this.made += count;
-    const editOf = (v: number): EditStyle | undefined => (style.format === "montage" ? styleFor(base + v, style.edit, order) : undefined);
-    const designOf = (v: number): Design | undefined => (style.format === "montage" && song ? designFor(base + v, style.design, designs, editOf(v)) : undefined);
+    const editOf = (v: number): EditStyle | undefined => (style.format === "montage" ? styleFor(base + v, editPick, order) : undefined);
+    const designOf = (v: number): Design | undefined => (style.format === "montage" && song ? designFor(base + v, designPick, designs, editOf(v)) : undefined);
     const named = (v: number, name: string, d = designOf(v)) => `${name}${d ? `, ${designName(d)}` : ""} ${base + v + 1}`;
     const jobs: Job[] = Array.from({ length: count }, (_, v) => ({
       id: newId("j"),
@@ -1204,9 +1257,12 @@ class Studio {
               return comeOn(dress(planMeme({ ...common, text: style.memeText, position: style.memePosition })));
             }
             if (!song) throw new Error("Add a sound first");
-            const plan = dress(planMontage({ ...common, song, caption: style.caption === "none" ? null : { style: style.caption === "meme" ? "meme" : style.caption, text: style.text }, style: edit, talkers, loop: style.loop, pace: style.pace, lean: design && leanOf(design), openers, subtitles: style.subtitles }));
-            // The design's effects and colour (a split screen's panels checked with the shots).
-            return design ? applyDesign(plan, design, song, { scans }) : comeOn(plan);
+            const kind = style.caption === "animated" ? "mood" : style.caption;
+            const plan = dress(planMontage({ ...common, song, caption: kind === "none" ? null : { style: kind, text: style.text }, style: edit, talkers, loop: style.loop, pace: style.pace, lean: design && leanOf(design), openers, subtitles: style.subtitles }));
+            // The design's effects and colour (a split screen's panels checked with the shots),
+            // the caption in its own look unless it's to come on the design's way; then the
+            // effects left out taken away.
+            return withoutFx(design ? applyDesign(plan, design, song, { scans, restyle: style.caption === "animated" }) : comeOn(plan), fx);
           };
           // Planned, then planned again until no shot runs over one of a long video's own
           // cuts (media/cuts.ts: every frame of what the edit uses gets looked at).
