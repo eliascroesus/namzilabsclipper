@@ -644,7 +644,7 @@ export function handPicked(scans: Scan[]): Set<string> {
  * life rather than luxury (`life`: friends on a trip, a party, a day out; see
  * lifeFootage), people doing something are what it's about, not filler.
  */
-function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts = false, purpose: Purpose = "flex", hand: Set<string> = new Set(), life = false): Segment[] {
+function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts = false, purpose: Purpose = "flex", hand: Set<string> = new Set(), life = false, larp = false): Segment[] {
   const out: Segment[] = [];
   for (const scan of scans) {
     const st = scan.stats;
@@ -731,10 +731,12 @@ function segmentsFor(scans: Scan[], d: number, motionScale: number, acrossCuts =
         }
         // (Or anything it rates as showing nothing off, whatever it calls it: someone standing in
         // a kitchen. In a clip the user picked, only talking and text, and all of a talking clip
-        // but its real flex.)
+        // but its real flex. With LARP picks, anything that isn't the flex, whoever picked it.)
         const kind = look?.kind[Math.max(0, mid)];
         const filler = look
-          ? hand.has(scan.id)
+          ? larp && purpose === "flex"
+            ? FILLER.has(kind!) || (flex ?? 1) < 0.5
+            : hand.has(scan.id)
             ? NEVER.has(kind!) || (talky(scan) && (flex ?? 0) < 0.7)
             : life
               ? NEVER.has(kind!) || (!DOING.has(kind!) && (flex ?? 1) < 0.2)
@@ -909,20 +911,20 @@ function selectsOf(moments: Map<string, Moment>, k: number, spreadBy = 0.08): Se
  * failing that, the longest there are (played slower); failing that, stretches
  * running across the source's own cuts.
  */
-function candidatesFor(scans: Scan[], d: number, motionScale: number, purpose: Purpose = "flex", hand: Set<string> = new Set(), life = false): { segs: Segment[]; len: number } {
-  let segs = segmentsFor(scans, d, motionScale, false, purpose, hand, life);
+function candidatesFor(scans: Scan[], d: number, motionScale: number, purpose: Purpose = "flex", hand: Set<string> = new Set(), life = false, larp = false): { segs: Segment[]; len: number } {
+  let segs = segmentsFor(scans, d, motionScale, false, purpose, hand, life, larp);
   if (segs.length) return { segs, len: d };
   const inShot = Math.max(...scans.map((s) => longestStretch(s)));
   if (inShot >= d * 0.5) {
     const len = Math.max(MIN_SHOT, Math.min(d, inShot));
-    segs = segmentsFor(scans, len, motionScale, false, purpose, hand, life);
+    segs = segmentsFor(scans, len, motionScale, false, purpose, hand, life, larp);
     if (segs.length) return { segs, len };
   }
-  segs = segmentsFor(scans, d, motionScale, true, purpose, hand, life);
+  segs = segmentsFor(scans, d, motionScale, true, purpose, hand, life, larp);
   if (segs.length) return { segs, len: d };
   const whole = Math.max(...scans.map((s) => longestStretch(s, true)));
   const len = Math.max(0.1, Math.min(d, whole));
-  segs = segmentsFor(scans, len, motionScale, true, purpose, hand, life);
+  segs = segmentsFor(scans, len, motionScale, true, purpose, hand, life, larp);
   if (segs.length) return { segs, len };
   // Clips too short for even that: each one from its start, whatever its length.
   return {
@@ -956,6 +958,8 @@ export interface AssignContext {
   lean?: "action" | "calm";
   /** which clips may play at a time in the edit (the user's split of the footage round the drop); any, when unset or when none of the slot's clips fit */
   side?: (t: number, id: string) => boolean;
+  /** LARP picks: only the flex is the edit while there's any left (talking, desks, rooms, people standing around are filler in every clip, whoever picked it; footage of the life is judged as flex) */
+  larp?: boolean;
 }
 
 /** A velocity ramp takes this much more footage than the slot is long. */
@@ -1045,8 +1049,9 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
   // select will do, so the edits in a batch can share a great scene without
   // repeating each other's shots.
   // (What the footage is: luxury, where the flex is the point, or the life, where the people are.)
-  const life = lifeFootage(scans);
-  const halfSeconds = segmentsFor(scans, 0.5, motionScale, false, ctx.purpose, hand, life);
+  const larp = !!ctx.larp;
+  const life = !larp && lifeFootage(scans);
+  const halfSeconds = segmentsFor(scans, 0.5, motionScale, false, ctx.purpose, hand, life, larp);
   const moments = momentScores(halfSeconds);
   // Each edit draws its selects first from the good moments (four fifths as good as
   // the footage's best, or better) no earlier edit in the batch used, in any role:
@@ -1176,7 +1181,7 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
     const need = slot.pieces ? d + (slot.pieces.length - 1) * RECUT_JUMP : ctx.velocity && d >= RAMP_MIN ? d * RAMP_FOOTAGE : d;
     const key = Math.round(need * FPS);
     if (!cache.has(key)) {
-      const c = candidatesFor(scans, need, motionScale, ctx.purpose, hand, life);
+      const c = candidatesFor(scans, need, motionScale, ctx.purpose, hand, life, larp);
       cache.set(key, { ...c, best: momentScores(c.segs) });
     }
     const { segs: fit, len, best: bestOf } = cache.get(key)!;
@@ -1188,7 +1193,7 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
       for (const sc of short) {
         const L = longestStretch(sc);
         if (L < Math.max(MIN_SHOT, 0.6 * len) || L >= len) continue;
-        const more = segmentsFor([sc], L, motionScale, false, ctx.purpose, hand, life).map((g) => ({ ...g, len: L }));
+        const more = segmentsFor([sc], L, motionScale, false, ctx.purpose, hand, life, larp).map((g) => ({ ...g, len: L }));
         if (more.length) segs = [...segs, ...more];
       }
     }
@@ -1371,7 +1376,8 @@ export function assignShots(slots: Slot[], scans: Scan[], ctx: AssignContext): S
           if (ctx.avoid?.has(id)) s -= hero ? 0.6 : 0.3;
         }
         if (relax && overlaps(used.get(id), a - 0.05, b + 0.05)) s -= 0.6;
-        if (relax && flexLeft && seg.filler) s -= 0.5;
+        // (LARP picks: filler only when every bit of flex left is a poor repeat.)
+        if (relax && flexLeft && seg.filler) s -= larp ? 1.2 : 0.5;
         s += 0.12 * taste(ctx.variant, seg.scan, a);
         s += (rand() - 0.5) * 0.04;
         if (s > bestScore) {
@@ -1620,6 +1626,8 @@ export interface MontageOptions {
   sides?: { before: string[]; after: string[] };
   /** with the user's drop: the caption after it (the caption's text is the one before it) */
   captionAfter?: string;
+  /** LARP picks (AssignContext.larp) */
+  larp?: boolean;
 }
 
 /** A pace's cutting against the references' (the template's shot length, times this). */
@@ -1695,7 +1703,7 @@ export function planMontage(o: MontageOptions): EditPlan {
   const onlyBefore = new Set(o.sides?.before ?? []);
   const onlyAfter = new Set(o.sides?.after ?? []);
   const side = dropCut !== undefined && (onlyBefore.size || onlyAfter.size) ? (t: number, id: string) => (t < dropCut - 0.01 ? !onlyAfter.has(id) : !onlyBefore.has(id)) : undefined;
-  let shots = assignShots(slots, rest.length >= 2 ? rest : o.scans, { song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, toCome: o.toCome, velocity: o.velocity, used, loop: looped, lean: o.lean, side });
+  let shots = assignShots(slots, rest.length >= 2 ? rest : o.scans, { song, songStart: win.songStart, aspect: o.aspect, variant: o.variant, avoid: o.avoid, toCome: o.toCome, velocity: o.velocity, used, loop: looped, lean: o.lean, side, larp: o.larp });
   if (intro) shots = [...intro.shots, ...shots];
   // The beats and half beats the song hits, as cut (for pictures landing on the music).
   const grid = song.beats

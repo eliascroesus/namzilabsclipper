@@ -139,6 +139,21 @@ export function FootagePanel({ s }: { s: State }) {
         )}
       </Drop>
       <SmartPicks s={s} />
+      {s.style.format === "montage" && (
+        <div className="field" style={{ marginTop: 10 }}>
+          <Switch
+            checked={s.style.larp}
+            onChange={(v) => studio.setStyle({ larp: v })}
+            hint={
+              s.style.larp
+                ? "The edits keep to the expensive parts: supercars (outside or from the driver's seat), private jets, yachts, clubs and bottle service, mansions, cash, and a long video's own montage stretches. Talking, desks, plain rooms and people standing around stay out while there's flex to use."
+                : "Off: every clip you drop gets its turn, and footage of the life (friends, a trip, a day out) is picked for what's happening in it."
+            }
+          >
+            LARP picks
+          </Switch>
+        </div>
+      )}
       {twist && s.footage.length > 0 && <p className="hint" style={{ margin: "10px 0 0" }}>Tap a clip's tag to put it after the flip (<b style={{ color: "var(--orange)" }}>Real</b>): the work, the desk, the screen. Leave them all as Flex and it picks the calmest clip.</p>}
       {s.style.format === "montage" && s.footage.some((f) => f.status === "ready") && (
         <p className="hint" style={{ margin: "10px 0 0" }}>

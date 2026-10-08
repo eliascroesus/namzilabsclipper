@@ -1,15 +1,22 @@
 /**
  * Smart picks without a key: a small image model in the page looks at the same
  * contact-sheet frames Gemini would (sheets.ts) and says what each one shows and
- * how much it sells the life. It's TinyCLIP (Microsoft, MIT licence), an 8M
- * parameter image encoder, 9 MB with 8-bit weights, in public/models: a frame
- * becomes a point in the space where CLIP puts pictures and descriptions of
- * them, and the nearest descriptions ("a supercar", "a private jet", "a person
- * talking to the camera", "a computer screen with trading charts"...) decide its
- * kind. Those descriptions were turned into points once, offline
- * (tinyclip-text.json), so only the image half of the model runs here. On the
- * reference Reels it tells the supercars, jets and villas from the desks, charts
- * and title cards 96 times in 100 (ROC AUC 0.96).
+ * how much it sells the life. It's TinyCLIP (Microsoft, MIT licence), its 40M
+ * parameter image encoder trained on LAION-400M, 41 MB with 8-bit weights, in
+ * public/models (as quick per frame as the 8M one it replaced: it cuts a frame
+ * into 49 patches, not 196): a frame becomes a point in the space where CLIP puts
+ * pictures and descriptions of them, and the nearest descriptions decide its kind
+ * and its flex. Those descriptions ("bottle service with sparklers in a
+ * nightclub", "the cream leather cabin of a private jet", "the dashboard and
+ * steering wheel of a supercar while driving", "a person talking to the
+ * camera"...) were turned into points once, offline (tinyclip-text.json), so only
+ * the image half of the model runs here; each kind has a few of them, one for each
+ * way it shows (a jet from outside, its stairs, its cabin). On 430 frames of the
+ * reference edits and raw vlogs, labelled by hand, it puts the LARP (supercars,
+ * jets, yachts, clubs, mansions) above the talking, desks, rooms and title cards
+ * 99 times in 100 (ROC AUC 0.99), and rates 94% of the LARP frames as clear flex
+ * (0.7 or more) with 98% of what it rates so being LARP; the 8M encoder with the
+ * old descriptions managed 0.95 and 52%, and called most talking heads money.
  */
 import wasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.wasm?url";
 import type { InferenceSession } from "onnxruntime-web/wasm";
@@ -19,7 +26,7 @@ import type { Sheets } from "./sheets";
 
 type Ort = typeof import("onnxruntime-web/wasm");
 
-const MODEL = `${import.meta.env.BASE_URL}models/tinyclip-s8.onnx`;
+const MODEL = `${import.meta.env.BASE_URL}models/tinyclip-b40.onnx`;
 const TEXT = `${import.meta.env.BASE_URL}models/tinyclip-text.json`;
 const SIZE = 224;
 const MEAN = [0.48145466, 0.4578275, 0.40821073];
@@ -27,7 +34,7 @@ const STD = [0.26862954, 0.26130258, 0.27577711];
 /** How sharply the nearest description wins (CLIP compares at 100; softer blends neighbours). */
 const SHARPNESS = 50;
 
-export const SENSE_VERSION = 2;
+export const SENSE_VERSION = 3;
 
 interface TextSpace {
   classes: { kind: Kind; flex: number; emb: number[] }[];
@@ -68,7 +75,7 @@ export class Senser {
     readonly text: TextSpace,
   ) {}
 
-  /** The model, loaded once (9 MB, cached by the browser after the first time). */
+  /** The model, loaded once (41 MB, cached by the browser after the first time). */
   static get(): Promise<Senser> {
     if (!Senser.loading) {
       Senser.loading = (async () => {

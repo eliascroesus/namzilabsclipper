@@ -132,6 +132,8 @@ export interface Style {
   faces: boolean;
   /** smart picks: Gemini looks at stills of the footage to find the flex (needs the key) */
   smart: boolean;
+  /** LARP picks (montage): the edits keep to the flex (supercars, jets, yachts, clubs, mansions, cash, a video's own montage stretches) while there's any; off, every clip dropped gets its turn and footage of the life is picked for what's happening in it */
+  larp: boolean;
   /** velocity edits: speed ramps, slow motion on each hit then a rush into the next cut */
   velocity: boolean;
   /** the ways a montage can be shaped (engine/plan/styles.ts) that a batch goes through, each edit the next (one: only that one) */
@@ -230,6 +232,7 @@ const DEFAULT_STYLE: Style = {
   look: "warm",
   faces: true,
   smart: true,
+  larp: true,
   velocity: false,
   edits: EDIT_STYLES.map((e) => e.value),
   designs: DESIGNS.map((d) => d.value),
@@ -1267,7 +1270,9 @@ class Studio {
     this.batchStarted();
     this.set((st) => ({ jobs: [...jobs, ...st.jobs], busy: true, notice: undefined }));
     try {
-      scoreInterest(scans);
+      // (LARP picks: the flex leads; a montage only.)
+      const larp = style.format === "montage" && style.larp;
+      scoreInterest(scans, { larp });
       for (const [v, job] of jobs.entries()) {
         // Deleted while it waited its turn.
         if (!this.hasJob(job.id)) continue;
@@ -1331,7 +1336,7 @@ class Studio {
             }
             if (!song) throw new Error("Add a sound first");
             const kind = style.caption === "animated" ? "mood" : style.caption;
-            const plan = dress(planMontage({ ...common, song, caption: kind === "none" ? null : { style: kind, text: style.text }, style: edit, talkers, loop: style.loop, pace: style.pace, lean: design && leanOf(design), openers, subtitles: style.subtitles, ...marked }));
+            const plan = dress(planMontage({ ...common, song, caption: kind === "none" ? null : { style: kind, text: style.text }, style: edit, talkers, loop: style.loop, pace: style.pace, lean: design && leanOf(design), openers, subtitles: style.subtitles, larp, ...marked }));
             // The design's effects and colour (a split screen's panels checked with the shots),
             // the caption in its own look unless it's to come on the design's way; then the
             // effects left out taken away.

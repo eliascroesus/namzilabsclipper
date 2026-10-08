@@ -1,4 +1,4 @@
-TinyCLIP-ViT-8M-16-Text-3M-YFCC15M, image encoder only (tinyclip-s8.onnx: exported to ONNX and
+TinyCLIP-ViT-40M-32-Text-19M-LAION400M, image encoder only (tinyclip-b40.onnx: exported to ONNX and
 quantised to 8-bit weights; tinyclip-text.json: the text encoder's embeddings of the descriptions
 in the app's footage categories, computed once). From https://github.com/microsoft/Cream (TinyCLIP).
 

@@ -322,6 +322,31 @@ describe("planners on a synthetic song (runs everywhere)", () => {
     }
   });
 
+  it("LARP picks: only the flex, whoever picked the clip; off, every clip gets its turn", () => {
+    // Six flex clips and three plain ones, all dropped one by one: friends in a van, a
+    // dinner, a room.
+    const flexy: Kind[] = ["car", "jet", "yacht", "party", "home", "watch"];
+    const plainIds = ["van", "dinner", "room"];
+    const run = (larp: boolean) => {
+      const footage = [
+        ...flexy.map((kind, k) => lookedAt(`f${k}`, [{ len: 5, kind, flex: 0.8 + 0.02 * k, wow: 0.6, look: k }], 30 + k)),
+        lookedAt("van", [{ len: 8, kind: "people", flex: 0.3, wow: 0.5, look: 9 }], 40),
+        lookedAt("dinner", [{ len: 8, kind: "food", flex: 0.3, wow: 0.6, look: 10 }], 41),
+        lookedAt("room", [{ len: 8, kind: "other", flex: 0.25, wow: 0.5, look: 11 }], 42),
+      ];
+      for (const sc of footage) sc.stats.sharp.fill(plainIds.includes(sc.id) ? 6 : 4.5);
+      scoreInterest(footage, { larp });
+      const plan = planMontage({ song, songSource: "song", songName: "click", fromStart: false, scans: footage, aspect: "9x16", length: 12, card: null, caption: null, variant: 0, larp });
+      return clips(plan.shots).map((sh) => sh.source);
+    };
+    const off = run(false);
+    const on = run(true);
+    expect(off.some((id) => plainIds.includes(id))).toBe(true);
+    expect(on.filter((id) => plainIds.includes(id))).toEqual([]);
+    // (Each flex clip still gets its turn.)
+    for (let k = 0; k < flexy.length; k++) expect(on).toContain(`f${k}`);
+  });
+
   it("uses every clip the user picked, not the same few again and again", () => {
     // Fifteen phone clips of a trip, all of them the life (a user's upload): the picture
     // model rates a few as flex (the views, the yacht, the clubs) and the rest as people,

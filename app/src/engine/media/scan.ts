@@ -520,7 +520,48 @@ export function lifeFootage(scans: Scan[]): boolean {
   return n >= 8 && lux < 0.25 * n;
 }
 
-export function scoreInterest(scans: Scan[]): void {
+/**
+ * The stretches of a video that are already cut as a montage, per sample: four cuts or
+ * more within five seconds (a shot every second and a quarter or quicker), as a vlog's
+ * B-roll runs to its music (the drive, the yacht, the night out), not the talking it
+ * cuts back to. Ready-made to clip: each shot is already a moment. (A clip all montage,
+ * an edit dropped in as footage, has nothing to set apart.)
+ */
+export function montageStretches(scan: Scan): Uint8Array {
+  const n = scan.stats.t.length;
+  const out = new Uint8Array(n);
+  if (scan.kind !== "video" || scan.cuts.length < 4) return out;
+  const cuts = [...scan.cuts, ...(scan.exactCuts ?? [])].sort((a, b) => a - b);
+  for (let i = 0; i < n; i++) {
+    const t = scan.stats.t[i];
+    let lo = 0;
+    while (lo < cuts.length && cuts[lo] < t - 2.5) lo++;
+    let k = 0;
+    // (Cuts a sixth of a second apart, read twice, count once.)
+    for (let j = lo, last = -Infinity; j < cuts.length && cuts[j] <= t + 2.5; j++) {
+      if (cuts[j] - last <= 0.17) continue;
+      k++;
+      last = cuts[j];
+    }
+    if (k >= 4) out[i] = 1;
+  }
+  let on = 0;
+  for (const v of out) on += v;
+  if (on > 0.8 * n) out.fill(0);
+  return out;
+}
+
+export interface InterestOptions {
+  /**
+   * LARP picks: the flex leads (the supercars, jets, yachts, clubs, mansions and cash),
+   * everything else (someone talking, a desk, a room, people standing around, food)
+   * counts for little, footage of the life is judged as flex like the rest, and a
+   * video's own montage stretches with flex in them count for more.
+   */
+  larp?: boolean;
+}
+
+export function scoreInterest(scans: Scan[], o: InterestOptions = {}): void {
   const sharp: number[] = [];
   const motion: number[] = [];
   const color: number[] = [];
@@ -542,11 +583,12 @@ export function scoreInterest(scans: Scan[]): void {
   const OTHER = KINDS.indexOf("other");
   const PEOPLE = KINDS.indexOf("people");
   const DOING = new Set(["people", "party", "fashion", "sport"].map((k) => KINDS.indexOf(k as Kind)));
-  const life = lifeFootage(scans);
+  const life = !o.larp && lifeFootage(scans);
   for (const sc of scans) {
     const n = sc.stats.t.length;
     const out = new Float32Array(n);
     const real = sc.look ? new Float32Array(n) : undefined;
+    const montage = o.larp && sc.look ? montageStretches(sc) : null;
     for (let i = 0; i < n; i++) {
       const st = sc.stats;
       const qSharp = clamp01((st.sharp[i] - s10) / Math.max(1e-6, s90 - s10));
@@ -581,14 +623,19 @@ export function scoreInterest(scans: Scan[]): void {
         const seen = 1 - 0.5 * clamp01((0.2 - st.luma[i]) / 0.12);
         // (In footage of the life, what's happening counts as much as the flex: someone
         // doing something, or plenty moving.)
-        const pick = life ? 0.35 * sc.look.flex[i] + 0.4 * sc.look.wow[i] + 0.25 * Math.max(DOING.has(kind) ? 1 : 0, qMotion) : 0.6 * sc.look.flex[i] + 0.4 * sc.look.wow[i];
+        const flex = sc.look.flex[i];
+        const pick = o.larp ? 0.75 * flex + 0.25 * sc.look.wow[i] : life ? 0.35 * flex + 0.4 * sc.look.wow[i] + 0.25 * Math.max(DOING.has(kind) ? 1 : 0, qMotion) : 0.6 * flex + 0.4 * sc.look.wow[i];
         q = 0.3 * quality + 0.7 * seen * pick;
         if (kind === TEXT) q *= 0.2;
-        else if (kind === TALKING) q *= 0.5;
+        else if (kind === TALKING) q *= o.larp ? 0.3 : 0.5;
         // Filler: a room, a blur, people with nothing to show off, a desk. In the edit
         // only once the flex runs out.
-        else if (kind === WORK) q *= 0.6;
-        else if (kind === OTHER || (kind === PEOPLE && !life)) q *= 0.85;
+        else if (kind === WORK) q *= o.larp ? 0.4 : 0.6;
+        else if (kind === OTHER || (kind === PEOPLE && !life)) q *= o.larp ? 0.6 : 0.85;
+        // (LARP picks: anything else with little flex, a meal, a gym, a beach; and the flex
+        // in a montage stretch, already cut to be seen.)
+        if (o.larp && flex < 0.5 && kind !== TEXT && kind !== TALKING && kind !== WORK) q *= 0.6;
+        if (montage?.[i] && flex >= 0.5) q *= 1.15;
         real![i] = kind === WORK ? 0.45 + 0.3 * sc.look.wow[i] + 0.25 * quality : kind === TEXT || kind === TALKING ? 0.02 : 0.1 * quality;
       }
       out[i] = clamp01(q);

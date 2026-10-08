@@ -21,7 +21,7 @@ export interface Rating {
   emb?: Float32Array;
 }
 
-export const LOOK_VERSION = 1;
+export const LOOK_VERSION = 2;
 
 const SYSTEM =
   "You are the picture editor for short Instagram Reels and TikToks in the luxury lifestyle genre: supercars, watches, travel, penthouses and money, cut hard to a trending song (the trader lifestyle and flex edits). You look at contact sheets of someone's footage and judge every frame for those edits, honestly: most everyday footage is not flex.";
@@ -29,17 +29,17 @@ const SYSTEM =
 const PROMPT = `Each sheet is a grid of frames from the footage, each with its number in the top left corner. Judge EVERY numbered frame.
 
 kind: the main thing in it.
-- car: a car is the subject (inside or out, driving shots too)
+- car: a car is the subject (inside or out: the dashboard, the steering wheel, driving shots too)
 - watch: a watch or jewellery close up
-- jet: a private jet or plane, inside or out
-- yacht: a yacht or boat
+- jet: a private jet, plane or helicopter, inside or out (its stairs, its cabin, people sitting in it)
+- yacht: a yacht or boat, its deck, a party on it, the wake behind it, a jet ski
 - home: a house, penthouse, villa, hotel room or pool
 - view: a skyline, landscape, beach or sea, a view from high up
 - city: streets, buildings, city nights, nightlife outside
 - travel: an airport, a plane cabin, arriving somewhere
 - money: cash, cards, a big number or win on a screen
 - fashion: clothes, shoes, a fit check
-- party: a club, bottles, a crowd
+- party: a club, bottle service, sparklers, a VIP table, a crowd, a pool or boat party
 - food: food or drinks as the subject
 - sport: a gym, training, a match
 - work: a desk, a laptop, charts, a trading setup, someone working late (the grind)
@@ -48,7 +48,7 @@ kind: the main thing in it.
 - text: titles, graphics, logos, subscribe or end screens, ads or sponsor segments, black or blank frames
 - other
 
-flex, 0 to 10: how much it sells the dream. 9 or 10: a supercar or hypercar (Lamborghini, Ferrari, McLaren, Rolls-Royce, G-Wagon and the like), a private jet, a yacht, a luxury watch close up, a penthouse or mansion, an infinity pool, a skyline from a height, stacks of cash, first class. 5 to 8: a nice car, a luxury hotel or restaurant, designer clothes, beautiful travel spots, city nights, nightlife. 0 to 4: ordinary life: a regular room, a plain street, an everyday car, food, people sitting or talking.
+flex, 0 to 10: how much it sells the dream (the LARP: what a flex edit is made of). 9 or 10: a supercar or hypercar (Lamborghini, Ferrari, McLaren, Rolls-Royce, G-Wagon and the like) outside or from the driver's seat, a private jet (outside, its stairs or its cabin), a helicopter, a yacht or a party on one, a luxury watch or jewellery close up, a penthouse or mansion, an infinity pool, a skyline from a height, stacks of cash, first class. 7 or 8: a nightclub VIP table or bottle service with sparklers, a packed club with lights, a luxury hotel, an overwater villa, a speedboat or jet ski. 5 or 6: a nice car, a fine restaurant, designer clothes and shopping bags, beautiful travel spots, city nights, a pool party. 0 to 4: ordinary life: a regular room, a plain street, an everyday car, food, people sitting or talking, someone talking to the camera however nice the room.
 
 wow, 0 to 10: how striking it is as a picture, whatever it shows: composition, light (golden hour, city lights, neon), movement (driving, drone shots, speed), water, scale. Low for dull, dark, blurry, cluttered or badly framed frames, and for talking heads.
 

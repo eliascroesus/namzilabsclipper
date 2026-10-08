@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PROFILE_BINS, scoreInterest, type Scan } from "../src/engine/media/scan";
+import { montageStretches, PROFILE_BINS, scoreInterest, type Scan } from "../src/engine/media/scan";
 import { lookFor, rateSheets, restoreLook, storeLook, type Rating } from "../src/engine/vision/look";
 import type { Sheets } from "../src/engine/vision/sheets";
 import { skipSegments, youtubeId } from "../src/engine/ai/sponsorblock";
@@ -53,6 +53,42 @@ describe("smart picks", () => {
     scoreInterest([desk, flex]);
     expect(desk.real![0]).toBeGreaterThan(0.5);
     expect(flex.real![0]).toBeLessThan(0.2);
+  });
+
+  it("finds a video's own montage stretches: four cuts or more in five seconds", () => {
+    // A minute of vlog: talking with a cut every eight seconds, and from 20 to 30 s the
+    // B-roll cut to its music, a shot every 0.8 s.
+    const vlog = clip("vlog", 60);
+    vlog.cuts = [8, 16, ...Array.from({ length: 13 }, (_, k) => 20 + 0.8 * k), 32, 40, 48, 56];
+    const m = montageStretches(vlog);
+    const at = (t: number) => m[vlog.stats.t.findIndex((x) => x >= t)];
+    expect([10, 17, 40, 50].map(at)).toEqual([0, 0, 0, 0]);
+    expect([21, 25, 29].map(at)).toEqual([1, 1, 1]);
+    // An edit dropped in as footage is all montage: nothing to set apart.
+    const edit = clip("edit", 20);
+    edit.cuts = Array.from({ length: 24 }, (_, k) => 0.8 * (k + 1));
+    expect(montageStretches(edit).every((v) => v === 0)).toBe(true);
+  });
+
+  it("LARP picks: the flex leads, the rest counts for little, a montage stretch's flex for more", () => {
+    const rate = (scan: Scan, flex: number, kind: Rating["kind"]) => (scan.look = lookFor(scan, sheets([0]), new Map([[1, { n: 1, flex, wow: 6, kind }]]))!);
+    const car = clip("car", 30);
+    const dinner = clip("dinner", 30);
+    const talk = clip("talk", 30);
+    rate(car, 9, "car");
+    rate(dinner, 3, "food");
+    rate(talk, 2, "talking");
+    const mean = (s: Scan) => s.interest!.reduce((a, v) => a + v, 0) / s.interest!.length;
+    scoreInterest([car, dinner, talk]);
+    const plain = { dinner: mean(car) / mean(dinner), talk: mean(car) / mean(talk) };
+    scoreInterest([car, dinner, talk], { larp: true });
+    expect(mean(car) / mean(dinner)).toBeGreaterThan(1.5 * plain.dinner);
+    expect(mean(car) / mean(talk)).toBeGreaterThan(1.5 * plain.talk);
+    // The car cut as a montage from 10 to 20 s: those moments count for more.
+    car.cuts = [5, ...Array.from({ length: 12 }, (_, k) => 10 + 0.8 * k), 25];
+    scoreInterest([car, dinner, talk], { larp: true });
+    const at = (t: number) => car.interest![car.stats.t.findIndex((x) => x >= t)];
+    expect(at(15)).toBeGreaterThan(1.1 * at(27));
   });
 
   it("counts the flex of a frame too dark to read for less", () => {

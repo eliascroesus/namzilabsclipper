@@ -233,6 +233,8 @@ export interface MontageRun {
   songStart?: number;
   /** judge the footage with the picture model in the page, as the app does without a key (default on) */
   sense?: boolean;
+  /** LARP picks: the edits keep to the flex, as the app's switch does (default off here) */
+  larp?: boolean;
   /** save the analysed song and footage (and the contact sheets) for tuning the planner outside the page */
   dump?: boolean;
   /** look at every frame the edit uses for the footage's own cuts, and plan again around them (default on) */
@@ -315,7 +317,7 @@ async function montage(run: MontageRun) {
     const { lookFor } = await import("./engine/vision/look");
     for (const sc of scans) if (sc.kind === "video" && sc.sheets) sc.look = lookFor(sc, sc.sheets, await senseSheets(sc.sheets));
   }
-  scoreInterest(scans);
+  scoreInterest(scans, { larp: run.larp });
   lap("scan");
   if (run.dump) {
     await save(`${run.out ?? "state"}-state.json`, new Blob([toJSON({ song, scans })]));
@@ -369,8 +371,8 @@ async function montage(run: MontageRun) {
         : run.format === "meme"
           ? comeOn(dress(planMeme({ ...common, text: run.memeText ?? "", position: run.memePosition ?? "upper" })))
           : design
-            ? applyDesign(dress(planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style, talkers, loop: run.loop, pace: run.pace, lean: leanOf(design), openers: run.openers?.map((i) => `clip${i}`) })), design, song!, { scans, restyle: run.restyle })
-            : comeOn(dress(planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style, talkers, loop: run.loop, pace: run.pace, openers: run.openers?.map((i) => `clip${i}`) })));
+            ? applyDesign(dress(planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style, talkers, loop: run.loop, pace: run.pace, lean: leanOf(design), openers: run.openers?.map((i) => `clip${i}`), larp: run.larp })), design, song!, { scans, restyle: run.restyle })
+            : comeOn(dress(planMontage({ ...common, song: song!, caption: run.caption === undefined ? { style: "mood", text: "Peak life." } : run.caption, style, talkers, loop: run.loop, pace: run.pace, openers: run.openers?.map((i) => `clip${i}`), larp: run.larp })));
     // As the app does: planned again until no shot runs over one of the footage's own cuts.
     const plan = run.settle === false ? make() : await settlePlan(make, new Map(scans.map((sc) => [sc.id, sc])), cutFinder(sources));
     usedRanges(plan, avoid);
