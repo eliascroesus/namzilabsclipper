@@ -7,7 +7,7 @@
  * mimic planner follows.
  */
 import { fontById } from "../../engine/text/library";
-import type { MimicTemplate, BrollSlot, CardSlot, CaptionLook, SoundLook, TextDesign } from "../types";
+import type { MimicTemplate, BrollSlot, CardSlot, CaptionLook, RefTransition, SoundLook, TextDesign } from "../types";
 import { CardFinder, type Gray } from "./cards";
 import { captionLook, captionScript, measureLine, type CaptionSample } from "./captions";
 import type { Picture, TextBox, TextReader } from "./ocr";
@@ -16,6 +16,7 @@ import { findSfx, soundProfile } from "./sound";
 import { readDesign, type DesignReading, type TextSample } from "./textdesign";
 import { matchFont, sizeIn, type Renderer } from "./fontmatch";
 import { blendOf, layerOf, lineWords, wordMask, type Plane } from "./words";
+import { findTransitions, transitionName } from "./transitions";
 import { scaleBetween, zoomEvents, zoomLook, type ZoomEvent } from "./zoom";
 
 export interface FrameSource {
@@ -272,6 +273,20 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
   const shots = classifyShots(small, times, cuts, duration, hasFace);
   const main = shots.filter((s) => s.main);
 
+  // 4b. What happens at each shot change, and what it joins.
+  onProgress(0.74, "Reading the transitions");
+  const fps = src.fps || 30;
+  const isMain = (t: number) => (shots.find((s) => t >= s.start - 1e-6 && t < s.end - 1e-6) ?? shots[shots.length - 1])?.main ?? true;
+  // (A card sliding on or off over the talking is the card's move, not the shot's.)
+  const cardMove = (t: number, dur: number) => cards.some((c) => Math.abs(t - c.start) < 0.3 + dur / 2 || Math.abs(t - c.end) < 0.3 + dur / 2);
+  const found = findTransitions(small, times, cuts, { fps }).filter((x) => x.kind === "cut" || x.over || !cardMove(x.t, x.dur) || cuts.some((c) => Math.abs(c - x.t) <= x.dur / 2 + 0.5 / fps));
+  const transitions: RefTransition[] = found.map((x) => {
+    const before = x.over === "in" ? x.t : x.t - x.dur / 2 - 0.5 / fps;
+    const after = x.over === "out" ? x.t + x.dur : x.t + x.dur / 2 + 0.5 / fps;
+    return { ...x, t: Math.round(x.t * 1000) / 1000, from: isMain(Math.max(0, before)) ? "main" : "broll", to: isMain(Math.min(duration - 1e-3, after)) ? "main" : "broll" };
+  });
+  cancelled(signal);
+
   // 5. Zooms, on the talking footage, leaving out the captions and the cards.
   onProgress(0.75, "Measuring the zooms");
   const sw = small[0]?.width ?? 1;
@@ -388,6 +403,16 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
   if (sound.bed) notes.push(`A bed under the voice from ${sound.bed.start.toFixed(1)} s, ${-sound.bed.level} dB down.`);
   notes.push(sound.sfx.length ? `Sounds on ${sound.sfx.map((s) => s.on).join(", ")}.` : "No sound effects to be heard in its sound (the edit gets whooshes on the cards' moves; see Sound).");
   if (tail > 0.2) notes.push(`Ends on ${tail.toFixed(1)} s of black.`);
+  const moves = transitions.filter((x) => x.kind !== "cut");
+  if (transitions.length) {
+    const kinds = new Map<string, number>();
+    for (const x of moves) {
+      const name = transitionName({ ...x, dur: 0 }).replace(/ \(.*$/, "");
+      kinds.set(name, (kinds.get(name) ?? 0) + 1);
+    }
+    const hard = transitions.length - moves.length;
+    notes.push(`${transitions.length} shot change${transitions.length > 1 ? "s" : ""}: ${hard} hard cut${hard === 1 ? "" : "s"}${moves.length ? `, ${[...kinds.entries()].map(([k, v]) => `${v} ${k.toLowerCase()}${v > 1 && !/s$/.test(k) ? "s" : ""}`).join(", ")}` : ""}.`);
+  }
 
   return {
     version: 1,
@@ -405,6 +430,7 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
     speaker,
     maxPause: sp.maxPause,
     script,
+    transitions,
     notes,
   };
 }

@@ -145,7 +145,7 @@ const KEY_STORE = "clipper.gemini.v1";
  * reference as studied, and the footage as heard (its words, where the voice is, its cuts, the
  * speaker's face take by take). Bump a version when what makes it changes.
  */
-const STUDY_VERSION = 3;
+const STUDY_VERSION = 4;
 const HEAR_VERSION = 1;
 const fileKey = (f: File) => `${f.name}:${f.size}:${f.lastModified}`;
 interface Heard {

@@ -77,5 +77,13 @@ describe.skipIf(!have)("studying the example ad", () => {
     expect(t.sound.bed!.start).toBeLessThan(20);
     expect(t.sound.sfx).toEqual([]);
     expect(t.tail).toBeCloseTo(3, 0);
+    // Transitions: every shot change a hard cut (the cards' slides are the cards' own), the
+    // cutaways cut to from the talking and back.
+    expect(t.transitions!.length).toBeGreaterThanOrEqual(8);
+    expect(t.transitions!.every((x) => x.kind === "cut")).toBe(true);
+    for (const b of t.broll) {
+      expect(t.transitions!.some((x) => Math.abs(x.t - b.start) < 0.05 && x.from === "main" && x.to === "broll"), `into the cutaway at ${b.start}`).toBe(true);
+      expect(t.transitions!.some((x) => Math.abs(x.t - b.end) < 0.05 && x.from === "broll" && x.to === "main"), `out of the cutaway at ${b.end}`).toBe(true);
+    }
   });
 });

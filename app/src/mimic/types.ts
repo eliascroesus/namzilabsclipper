@@ -167,6 +167,38 @@ export interface Motion {
   ease: "out" | "in" | "linear";
 }
 
+/** What happens as one shot gives way to the next. */
+export type TransitionKind = "cut" | "dissolve" | "dip" | "flash" | "push" | "slide" | "wipe" | "whip" | "zoom" | "blur" | "glitch" | "spin";
+
+/** Which way the pictures travel. */
+export type Way = "left" | "right" | "up" | "down";
+
+export interface TransitionLook {
+  kind: TransitionKind;
+  /** seconds the whole of it takes, centred on the cut (0: a hard cut) */
+  dur: number;
+  /** which way the pictures travel (push, slide, wipe, whip; spin: "left" turns anticlockwise), or a zoom "in" or "out" */
+  dir?: Way | "in" | "out";
+  /** a dip's colour */
+  color?: "black" | "white";
+  /** how its speed runs: even, fast at first ("out"), fast at the end ("in"), or slow at both ends */
+  ease: "linear" | "in" | "out" | "inout";
+  /** a slide: the next picture slides over the last ("in", the default) or the last slides off the next ("out"); a dip with
+   * only its second half (up from black at the start, "in") or its first (down to black at the end, "out") */
+  over?: "in" | "out";
+}
+
+/** A transition in the reference, at one of its cuts. */
+export interface RefTransition extends TransitionLook {
+  /** the cut's time */
+  t: number;
+  /** what it joins: the talking footage, a cutaway, or black (the start or the end) */
+  from: "main" | "broll";
+  to: "main" | "broll";
+  /** what was measured */
+  why: string;
+}
+
 export type CardContent = "photo" | "screenshot" | "video" | "unknown";
 
 export interface CardSlot {
@@ -248,6 +280,8 @@ export interface MimicTemplate {
   maxPause: number;
   /** what the reference says, caption by caption (as read off its captions) */
   script?: { start: number; end: number; text: string }[];
+  /** every shot change and what happens at it: a cut, a crossfade, a whip... (studies before these were read have none) */
+  transitions?: RefTransition[];
   /** measurements for the page to show */
   notes: string[];
 }
