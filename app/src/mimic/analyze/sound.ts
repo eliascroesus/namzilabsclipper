@@ -103,9 +103,9 @@ export function findSfx(high: Float32Array, events: { t: number; on: SfxOn }[], 
   for (let t = 0.5; t < duration - 0.5; t += duration / 97) probes.push(peak(t));
   const typical = pct(probes, 0.5);
   const spread = pct(probes, 0.75) - typical;
-  const kinds: Record<SfxOn, SfxKind> = { "card-in": "whoosh", "card-out": "whoosh", cut: "whoosh", broll: "whoosh", zoom: "hit" };
+  const kinds: Record<SfxOn, SfxKind> = { "card-in": "whoosh", "card-out": "whoosh", cut: "whoosh", broll: "whoosh", zoom: "hit", transition: "whoosh" };
   const out: SoundLook["sfx"] = [];
-  for (const on of ["card-in", "card-out", "cut", "broll", "zoom"] as SfxOn[]) {
+  for (const on of ["card-in", "card-out", "cut", "broll", "zoom", "transition"] as SfxOn[]) {
     const ts = events.filter((e) => e.on === on).map((e) => e.t);
     if (ts.length < 3) continue;
     const lift = pct(ts.map(peak), 0.5) - typical;

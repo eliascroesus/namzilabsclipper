@@ -192,11 +192,28 @@ export interface TransitionLook {
 export interface RefTransition extends TransitionLook {
   /** the cut's time */
   t: number;
-  /** what it joins: the talking footage, a cutaway, or black (the start or the end) */
+  /** what it joins: the talking footage or a cutaway (a fade in or out joins it to black) */
   from: "main" | "broll";
   to: "main" | "broll";
   /** what was measured */
   why: string;
+}
+
+/** A transition at one of the edit's cuts. */
+export interface PlanTransition extends TransitionLook {
+  /**
+   * what it's on, to keep the user's changes to it when the edit is planned again: "open",
+   * "close", "in:<cutaway>", "out:<cutaway>", or "jump:<source time>" (a cut in the footage)
+   */
+  key: string;
+  /** output time of the cut (a fade in: 0; a fade out: where it starts) */
+  t: number;
+  from: "main" | "broll" | "black";
+  to: "main" | "broll" | "black";
+  /** where its look came from, for the page: the reference's transition at a time of it, the user's, or a plain cut */
+  why: string;
+  /** the user changed it */
+  mine?: boolean;
 }
 
 export type CardContent = "photo" | "screenshot" | "video" | "unknown";
@@ -250,7 +267,7 @@ export interface ZoomLook {
 }
 
 export type SfxKind = "whoosh" | "swipe" | "pop" | "click" | "hit" | "riser" | "ding" | "cash";
-export type SfxOn = "card-in" | "card-out" | "cut" | "zoom" | "broll";
+export type SfxOn = "card-in" | "card-out" | "cut" | "zoom" | "broll" | "transition";
 
 export interface SoundLook {
   /** music (or a drone) under the voice: where it starts, how loud against the voice (dB) */
@@ -404,6 +421,8 @@ export interface MimicPlan {
   /** the same, take by take (edit times), so the speaker is as big in every take */
   frames?: { start: number; end: number; cx: number; cy: number; zoom: number }[];
   broll: PlanBroll[];
+  /** what happens at every cut: a hard cut, a crossfade, a whip... (plans made before these were copied have none) */
+  transitions?: PlanTransition[];
   cards: PlanCard[];
   captions: { look: CaptionLook; pages: CaptionPage[] } | null;
   sfx: SfxCue[];

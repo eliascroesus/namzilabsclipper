@@ -379,6 +379,7 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
   }
   for (const b of cutaways) sfxEvents.push({ t: b.start, on: "broll" });
   for (const e of events) sfxEvents.push({ t: e.start, on: "zoom" });
+  for (const x of transitions) if (x.kind !== "cut" && !x.over) sfxEvents.push({ t: x.t, on: "transition" });
   const sound: SoundLook = { bed: sp.bed, sfx: findSfx(sp.high, sfxEvents, duration) };
 
   // 9. The speaker's framing: where the face sits in the talking footage.

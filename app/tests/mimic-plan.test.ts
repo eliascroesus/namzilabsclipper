@@ -4,6 +4,7 @@ import { DEFAULT_LOOK, paginate } from "../src/mimic/captions";
 import { lineAt, planMimic, progress, shapeLine, withStretch, zoomAt } from "../src/mimic/plan";
 import { presetById } from "../src/mimic/presets";
 import { cardOffset } from "../src/mimic/render";
+import { transitionAt, transitionSpan } from "../src/mimic/transitions";
 import type { MimicTemplate } from "../src/mimic/types";
 import type { Word } from "../src/mimic/asr/parakeet";
 
@@ -200,6 +201,78 @@ describe("the mimic plan", () => {
     expect(plan.cards.find((c) => c.slot === "card2")?.extra).toBe("a");
     expect(plan.music?.gain).toBe(-16);
     expect(plan.music!.start).toBeGreaterThan(8);
+  });
+});
+
+describe("the reference's transitions on the edit's cuts", () => {
+  const words = say("En to tre fire fem seks syv otte ni ti elleve tolv tretten fjorten femten seksten sytten atten nitten tyve. En to tre fire fem seks syv otte ni ti elleve tolv tretten fjorten femten seksten sytten atten nitten tyve. En to tre fire fem seks syv otte ni ti elleve tolv tretten fjorten femten seksten sytten atten nitten tyve.");
+  const dur = words[words.length - 1].end + 0.5;
+  const tpl: MimicTemplate = {
+    ...template,
+    transitions: [
+      { kind: "dip", color: "black", over: "in", dur: 0.4, ease: "linear", t: 0, from: "main", to: "main", why: "up from black" },
+      { kind: "cut", dur: 0, ease: "linear", t: 3, from: "main", to: "main", why: "a hard cut" },
+      { kind: "whip", dir: "left", dur: 0.27, ease: "inout", t: 5, from: "main", to: "broll", why: "a whip" },
+      { kind: "dissolve", dur: 0.2, ease: "linear", t: 7, from: "broll", to: "main", why: "a crossfade" },
+      { kind: "dissolve", dur: 0.2, ease: "linear", t: 15, from: "main", to: "main", why: "a crossfade" },
+      { kind: "dip", color: "black", over: "out", dur: 0.3, ease: "linear", t: 16.7, from: "main", to: "main", why: "down to black" },
+    ],
+  };
+  const base = {
+    template: tpl,
+    raw: { id: "raw", duration: dur, width: 608, height: 1080, cuts: [4.2, 11.1] },
+    words,
+    speech: [{ start: 0, end: dur - 0.5 }],
+    extras: [{ id: "v", name: "v.mp4", kind: "video" as const, width: 1920, height: 1080, duration: 4 }],
+    clip: false,
+  };
+
+  it("puts the cutaway's own in and out of it, and the nearest joining the same things on the footage's cuts", () => {
+    const plan = planMimic(base);
+    const by = new Map(plan.transitions!.map((x) => [x.key, x]));
+    expect([...by.keys()]).toEqual(["open", "jump:4.20", "in:broll1", "out:broll1", "jump:11.10", "close"]);
+    expect(by.get("open")).toMatchObject({ kind: "dip", over: "in", t: 0, from: "black", to: "main" });
+    expect(by.get("in:broll1")).toMatchObject({ kind: "whip", dir: "left", from: "main", to: "broll" });
+    expect(by.get("in:broll1")!.why).toContain("at this cutaway");
+    expect(by.get("in:broll1")!.t).toBeCloseTo(plan.broll[0].start, 6);
+    expect(by.get("out:broll1")).toMatchObject({ kind: "dissolve", from: "broll", to: "main" });
+    // A fifth of the way in, the reference's cut there; past the middle, its crossfade.
+    expect(by.get("jump:4.20")!.kind).toBe("cut");
+    expect(by.get("jump:11.10")!.kind).toBe("dissolve");
+    const body = plan.duration - plan.tail;
+    expect(by.get("close")).toMatchObject({ kind: "dip", to: "black" });
+    expect(by.get("close")!.t + by.get("close")!.dur).toBeCloseTo(body, 6);
+    // On at the right times, eased: through the whip at its cut, halfway.
+    const w = by.get("in:broll1")!;
+    const [a, b] = transitionSpan(w);
+    expect(b - a).toBeCloseTo(0.27, 6);
+    expect(transitionAt(plan.transitions, w.t)!.x.key).toBe("in:broll1");
+    expect(transitionAt(plan.transitions, w.t)!.p).toBeCloseTo(0.5, 2);
+    expect(transitionAt(plan.transitions, 2)).toBeNull();
+  });
+
+  it("keeps the user's changes by what they're on, with a whoosh on the ones that move, none longer than the shots allow", () => {
+    const plan = planMimic({ ...base, transitions: { "jump:4.20": { kind: "push", dir: "up", dur: 0.3, ease: "inout" }, "jump:11.10": { dur: 5 }, "in:broll1": { kind: "cut" } } });
+    const by = new Map(plan.transitions!.map((x) => [x.key, x]));
+    expect(by.get("jump:4.20")).toMatchObject({ kind: "push", dir: "up", dur: 0.3, mine: true });
+    expect(by.get("in:broll1")).toMatchObject({ kind: "cut", dur: 0 });
+    const long = by.get("jump:11.10")!;
+    expect(long.kind).toBe("dissolve");
+    expect(long.dur).toBeLessThanOrEqual(1.2);
+    // (none overlapping another)
+    const spans = plan.transitions!.filter((x) => x.dur > 0).map(transitionSpan);
+    for (let i = 1; i < spans.length; i++) expect(spans[i][0]).toBeGreaterThanOrEqual(spans[i - 1][1] - 1e-6);
+    expect(plan.sfx.some((c) => c.key === "tr:jump:4.20" && Math.abs(c.t - by.get("jump:4.20")!.t) < 1e-6)).toBe(true);
+    expect(plan.sfx.some((c) => c.key.startsWith("tr:in:"))).toBe(false);
+    // The same edit planned again with a pause cut keeps the change where its cut still is.
+    const again = planMimic({ ...base, transitions: { "jump:4.20": { kind: "push", dir: "up", dur: 0.3, ease: "inout" } } });
+    expect(again.transitions!.find((x) => x.key === "jump:4.20")!.kind).toBe("push");
+  });
+
+  it("is a plain cut everywhere for a reference studied before transitions were read", () => {
+    const plan = planMimic({ ...base, template: { ...template } });
+    expect(plan.transitions!.every((x) => x.kind === "cut")).toBe(true);
+    expect(plan.transitions!.some((x) => x.key === "open")).toBe(false);
   });
 });
 

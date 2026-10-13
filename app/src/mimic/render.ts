@@ -19,7 +19,8 @@ import type { TextDesign } from "./types";
 import { decodeStereo } from "./audio";
 import { lineAt, zoomAt } from "./plan";
 import { isMadeSound, makeSfx, type Sfx } from "./sfx";
-import type { CaptionPage, MimicPlan, Motion, PlanCard, SfxCue } from "./types";
+import { transitionAt, transitionSpan } from "./transitions";
+import type { CaptionPage, MimicPlan, Motion, PlanCard, PlanTransition, SfxCue } from "./types";
 
 type Ctx = OffscreenCanvasRenderingContext2D;
 
@@ -88,6 +89,181 @@ export function cardOffset(c: Pick<PlanCard, "start" | "end" | "rect" | "enter" 
   return { dx: 0, dy: 0, alpha: 1, scale: 1 };
 }
 
+type Base = { kind: "broll" | "seg"; i: number };
+
+/** Which way a move travels, as a unit step across the frame. */
+const unit = (d: PlanTransition["dir"]): [number, number] => (d === "right" ? [1, 0] : d === "up" ? [0, -1] : d === "down" ? [0, 1] : [-1, 0]);
+
+/** A layer drawn smeared along (dx, dy) pixels: copies spread over the smear, averaged, softened between them. */
+function smeared(ctx: Ctx, img: OffscreenCanvas, x: number, y: number, dx: number, dy: number) {
+  const len = Math.hypot(dx, dy);
+  const n = len < 2 ? 1 : Math.min(12, Math.max(4, Math.round(len / 6)));
+  const filter = ctx.filter;
+  if (n > 1) ctx.filter = `blur(${Math.max(1, Math.round(len / n / 2))}px)`;
+  for (let k = 0; k < n; k++) {
+    const f = n === 1 ? 0 : k / (n - 1) - 0.5;
+    // (each copy over the average so far, at 1/(k+1): all of them weigh the same)
+    ctx.globalAlpha = 1 / (k + 1);
+    ctx.drawImage(img, x + f * dx, y + f * dy);
+  }
+  ctx.globalAlpha = 1;
+  ctx.filter = filter;
+}
+
+/** A layer scaled about the middle (and turned, by `turn` radians). */
+function scaledAbout(ctx: Ctx, img: OffscreenCanvas, W: number, H: number, s: number, turn = 0) {
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  if (turn) ctx.rotate(turn);
+  ctx.scale(s, s);
+  ctx.drawImage(img, -W / 2, -H / 2);
+  ctx.restore();
+}
+
+/**
+ * The two sides of a transition put together, `p` of the way through it (eased; `raw`
+ * not): a crossfade mixes them, a dip goes through its colour, a flash bursts white on the
+ * cut, a push moves both one way, a slide moves one over the other, a wipe sweeps an edge
+ * across, a whip is a push smeared with its speed, a zoom grows into the cut and lands
+ * close, a blur softens out and back in, a glitch tears the frame in bands on the cut, a
+ * spin turns out and in.
+ */
+export function composite(ctx: Ctx, x: Pick<PlanTransition, "kind" | "dir" | "color" | "over" | "from" | "to" | "dur">, p: number, raw: number, A: OffscreenCanvas, B: OffscreenCanvas, W: number, H: number, frame = 0) {
+  const both = (k: number) => {
+    // (half and half by k: the first picture, the second over it at k)
+    ctx.globalAlpha = 1;
+    ctx.drawImage(A, 0, 0);
+    if (k > 0) {
+      ctx.globalAlpha = Math.min(1, k);
+      ctx.drawImage(B, 0, 0);
+      ctx.globalAlpha = 1;
+    }
+  };
+  const tint = (color: string, a: number) => {
+    if (a <= 0) return;
+    ctx.globalAlpha = Math.min(1, a);
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  };
+  const [ux, uy] = unit(x.dir);
+  const L = ux ? W : H;
+  ctx.save();
+  ctx.filter = "none";
+  switch (x.kind) {
+    case "dissolve":
+      both(p);
+      break;
+    case "dip": {
+      const color = x.color === "white" ? "#fff" : "#000";
+      if (x.from === "black") (ctx.globalAlpha = 1), ctx.drawImage(B, 0, 0), tint(color, 1 - p);
+      else if (x.to === "black") (ctx.globalAlpha = 1), ctx.drawImage(A, 0, 0), tint(color, p);
+      else if (p < 0.5) ctx.drawImage(A, 0, 0), tint(color, 2 * p);
+      else ctx.drawImage(B, 0, 0), tint(color, 2 * (1 - p));
+      break;
+    }
+    case "flash":
+      ctx.drawImage(raw < 0.5 ? A : B, 0, 0);
+      tint(x.color === "black" ? "#000" : "#fff", Math.sqrt(Math.max(0, 1 - Math.abs(2 * raw - 1))));
+      break;
+    case "push":
+      ctx.drawImage(A, ux * p * W, uy * p * H);
+      ctx.drawImage(B, ux * (p - 1) * W, uy * (p - 1) * H);
+      break;
+    case "slide":
+      if (x.over === "out") {
+        ctx.drawImage(B, 0, 0);
+        ctx.drawImage(A, ux * p * W, uy * p * H);
+      } else {
+        ctx.drawImage(A, 0, 0);
+        ctx.drawImage(B, ux * (p - 1) * W, uy * (p - 1) * H);
+      }
+      break;
+    case "wipe": {
+      ctx.drawImage(A, 0, 0);
+      const d = p * L;
+      // (the next picture shown from where the edge came in, as far as it has swept)
+      const r: [number, number, number, number] = ux < 0 ? [W - d, 0, d, H] : ux > 0 ? [0, 0, d, H] : uy < 0 ? [0, H - d, W, d] : [0, 0, W, d];
+      ctx.beginPath();
+      ctx.rect(...r);
+      ctx.clip();
+      ctx.drawImage(B, 0, 0);
+      break;
+    }
+    case "whip": {
+      // As a push, with the frame's travel this frame as its smear (fast in the middle).
+      const speed = 4 * raw * (1 - raw) * L * 0.2;
+      smeared(ctx, A, ux * p * W, uy * p * H, ux * speed, uy * speed);
+      smeared(ctx, B, ux * (p - 1) * W, uy * (p - 1) * H, ux * speed, uy * speed);
+      break;
+    }
+    case "zoom": {
+      const blur = Math.round(14 * Math.sin(Math.PI * raw) * (Math.min(W, H) / 1080));
+      ctx.filter = blur > 0 ? `blur(${blur}px)` : "none";
+      if (x.dir === "out") {
+        // The last picture drawn back away from the next, the next settling from close.
+        scaledAbout(ctx, B, W, H, 1 + 0.6 * (1 - p));
+        if (p < 0.55) {
+          ctx.globalAlpha = Math.min(1, (0.55 - p) / 0.1);
+          scaledAbout(ctx, A, W, H, 1 - 0.4 * p);
+        }
+      } else {
+        // Growing into the cut, the next landing close and settling.
+        if (p < 0.5) scaledAbout(ctx, A, W, H, 1 + 1.2 * p);
+        else scaledAbout(ctx, B, W, H, 1 + 1.2 * (1 - p));
+      }
+      break;
+    }
+    case "blur": {
+      const R = 34 * (Math.min(W, H) / 1080);
+      const k = Math.min(1, Math.max(0, (p - 0.4) / 0.2));
+      ctx.filter = `blur(${Math.round(R * (1 - Math.abs(2 * p - 1)))}px)`;
+      both(k);
+      break;
+    }
+    case "glitch": {
+      ctx.drawImage(raw < 0.5 ? A : B, 0, 0);
+      // Bands of the frame torn sideways, a few frames' worth, the most on the cut.
+      const rand = seeded(frame * 7919 + 13);
+      const strength = 1 - Math.abs(2 * raw - 1);
+      const bands = 7;
+      for (let k = 0; k < bands; k++) {
+        const y = Math.floor(rand() * H);
+        const h = Math.max(2, Math.floor((0.02 + 0.08 * rand()) * H));
+        const dx = (rand() - 0.5) * 0.3 * W * strength;
+        ctx.drawImage(rand() < 0.5 ? A : B, 0, y, W, h, dx, y, W, h);
+      }
+      break;
+    }
+    case "spin": {
+      // Turned out a quarter, the next turned in from the other side; scaled to keep the corners covered.
+      const turn = (x.dir === "right" ? 1 : -1) * (Math.PI / 2) * (p < 0.5 ? p * 2 : (p - 1) * 2) * 0.5;
+      const cover = Math.abs(Math.cos(turn)) + Math.abs(Math.sin(turn)) * Math.max(W / H, H / W);
+      const blur = Math.round(10 * Math.sin(Math.PI * raw) * (Math.min(W, H) / 1080));
+      ctx.filter = blur > 0 ? `blur(${blur}px)` : "none";
+      scaledAbout(ctx, p < 0.5 ? A : B, W, H, cover, turn);
+      break;
+    }
+    default:
+      ctx.drawImage(raw < 0.5 ? A : B, 0, 0);
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+  ctx.filter = "none";
+}
+
+/** A little random number maker, the same numbers for the same seed. */
+function seeded(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export class MimicPainter {
   readonly canvas: OffscreenCanvas;
   private readonly ctx: Ctx;
@@ -99,6 +275,8 @@ export class MimicPainter {
   private person: OffscreenCanvas | null = null;
   private masker: PersonMasker | null | "none" = null;
   private lastT = -Infinity;
+  /** the two sides of a transition */
+  private readonly layers: ({ c: OffscreenCanvas; ctx: Ctx } | undefined)[] = [];
 
   constructor(
     private readonly plan: MimicPlan,
@@ -131,7 +309,7 @@ export class MimicPainter {
   }
 
   /** A picture or a clip's frame, drawn to cover the box (x, y, w, h in pixels) about the centre (cx, cy), zoomed. */
-  private async drawCover(id: string, key: string, from: number, to: number, srcT: number, box: [number, number, number, number], cx: number, cy: number, zoom: number) {
+  private async drawCover(id: string, key: string, from: number, to: number, srcT: number, box: [number, number, number, number], cx: number, cy: number, zoom: number, ctx: Ctx = this.ctx) {
     const src = this.sources.get(id);
     if (!src) return;
     const [bx, by, bw, bh] = box;
@@ -143,11 +321,97 @@ export class MimicPainter {
     const sx = Math.min(sw - vw, Math.max(0, cx * sw - vw / 2));
     const sy = Math.min(sh - vh, Math.max(0, cy * sh - vh / 2));
     if (src.image) {
-      this.ctx.drawImage(src.image, sx, sy, vw, vh, bx, by, bw, bh);
+      ctx.drawImage(src.image, sx, sy, vw, vh, bx, by, bw, bh);
       return;
     }
     const sample = await this.reader(key, id, from, to)?.at(srcT);
-    if (sample) sample.draw(this.ctx, sx, sy, vw, vh, bx, by, bw, bh);
+    if (sample) sample.draw(ctx, sx, sy, vw, vh, bx, by, bw, bh);
+  }
+
+  /** How long a stretch of the edit is seen before its start and after its end, through the transitions into and out of it. */
+  private roll(start: number, end: number): [number, number] {
+    let pre = 0;
+    let post = 0;
+    for (const x of this.plan.transitions ?? []) {
+      if (x.kind === "cut" || x.dur <= 0) continue;
+      const [a, b] = transitionSpan(x);
+      if (a < start - 1e-3 && b >= start - 1e-3) pre = Math.max(pre, start - a);
+      if (b > end + 1e-3 && a <= end + 1e-3) post = Math.max(post, b - end);
+    }
+    return [pre, post];
+  }
+
+  /** What fills the frame at t: a cutaway (its index) or a piece of the footage. */
+  private baseAt(t: number): Base | null {
+    const { plan } = this;
+    const b = plan.broll.findIndex((x) => t >= x.start && t < x.end);
+    if (b >= 0) return { kind: "broll", i: b };
+    const s = plan.segments.findIndex((x) => t >= x.start - 1e-6 && t < x.end - 1e-6);
+    return s >= 0 ? { kind: "seg", i: s } : null;
+  }
+
+  /**
+   * A cutaway or a piece of the footage at t, drawn over the frame. Through a transition
+   * either side of its own time (`hold`: the moment its zoom and framing are kept at), the
+   * clip plays on past its end or starts a little before its start.
+   */
+  private async drawBase(base: Base, t: number, ctx: Ctx, hold = t) {
+    const { plan } = this;
+    const { width: W, height: H } = plan;
+    if (base.kind === "broll") {
+      const cut = plan.broll[base.i];
+      const u = Math.min(1, Math.max(0, (t - cut.start) / Math.max(1e-6, cut.end - cut.start)));
+      const z = cut.zoom[0] + (cut.zoom[1] - cut.zoom[0]) * easeOut(u);
+      const extra = this.sources.get(cut.extra);
+      const clipT = cut.from + (t - cut.start);
+      const [pre, post] = this.roll(cut.start, cut.end);
+      await this.drawCover(cut.extra, `b:${base.i}`, Math.max(0, cut.from - pre), cut.from + (cut.end - cut.start) + post, extra?.info.kind === "video" ? Math.min(Math.max(0, clipT), Math.max(0, extra.info.duration - 0.05)) : 0, [0, 0, W, H], cut.crop.cx, cut.crop.cy, Math.max(1, z), ctx);
+      return;
+    }
+    const s = plan.segments[base.i];
+    const raw = this.sources.get(this.rawId);
+    const srcT = Math.min(Math.max(0, s.from + (t - s.start)), Math.max(0, (raw?.info.duration ?? Infinity) - 0.05));
+    const fr = plan.frames?.find((f) => hold >= f.start - 1e-6 && hold < f.end - 1e-6) ?? plan.frame;
+    const z = fr.zoom * zoomAt(plan.zoom, hold);
+    const [pre, post] = this.roll(s.start, s.end);
+    await this.drawCover(this.rawId, `seg:${base.i}`, Math.max(0, s.from - pre), s.to + post, srcT, [0, 0, W, H], fr.cx, fr.cy, z, ctx);
+  }
+
+  /** A layer the size of the frame, for one side of a transition. */
+  private layer(k: 0 | 1): { c: OffscreenCanvas; ctx: Ctx } {
+    let l = this.layers[k];
+    if (!l) {
+      const c = new OffscreenCanvas(this.plan.width, this.plan.height);
+      const ctx = c.getContext("2d", { alpha: false })!;
+      ctx.imageSmoothingQuality = "high";
+      this.layers[k] = l = { c, ctx };
+    }
+    return l;
+  }
+
+  /**
+   * Through a transition: the shot going out and the one coming in, each drawn at t
+   * (playing on), put together as the transition does at this point of it.
+   */
+  private async drawTransition(x: PlanTransition, p: number, raw: number, t: number) {
+    const { ctx, plan } = this;
+    const { width: W, height: H } = plan;
+    const cutT = x.from === "black" ? x.t : x.to === "black" ? x.t + x.dur : x.t;
+    const out = x.from === "black" ? null : this.baseAt(cutT - 1e-3);
+    const inn = x.to === "black" ? null : this.baseAt(cutT + 1e-3);
+    const A = this.layer(0);
+    const B = this.layer(1);
+    for (const [base, l, hold] of [
+      [out, A, Math.min(t, cutT - 1e-3)],
+      [inn, B, Math.max(t, cutT + 1e-3)],
+    ] as const) {
+      l.ctx.globalAlpha = 1;
+      l.ctx.filter = "none";
+      l.ctx.fillStyle = "#000";
+      l.ctx.fillRect(0, 0, W, H);
+      if (base) await this.drawBase(base, t, l.ctx, hold);
+    }
+    composite(ctx, x, p, raw, A.c, B.c, W, H, Math.round(t * plan.fps));
   }
 
   async paint(t: number): Promise<void> {
@@ -161,25 +425,23 @@ export class MimicPainter {
     const body = plan.duration - plan.tail;
     if (t >= body) return;
 
-    // The picture: a cutaway, or the footage at its zoom.
+    // The picture: a cutaway, or the footage at its zoom; or both, through a transition.
     const cut = plan.broll.find((b) => t >= b.start && t < b.end);
     const segIdx = plan.segments.findIndex((s) => t >= s.start - 1e-6 && t < s.end - 1e-6);
-    await this.drop((k) => (k.startsWith("seg:") ? Number(k.slice(4)) >= segIdx : k.startsWith("b:") ? plan.broll[Number(k.slice(2))]?.end > t : k.startsWith("c:") ? plan.cards[Number(k.slice(2))]?.end > t : true));
-    if (cut) {
-      const i = plan.broll.indexOf(cut);
-      const u = (t - cut.start) / Math.max(1e-6, cut.end - cut.start);
-      const z = cut.zoom[0] + (cut.zoom[1] - cut.zoom[0]) * easeOut(u);
-      const extra = this.sources.get(cut.extra);
-      const clipT = cut.from + (t - cut.start);
-      await this.drawCover(cut.extra, `b:${i}`, cut.from, cut.from + (cut.end - cut.start), extra?.info.kind === "video" ? Math.min(clipT, Math.max(0, extra.info.duration - 0.05)) : 0, [0, 0, W, H], cut.crop.cx, cut.crop.cy, Math.max(1, z));
-    } else if (segIdx >= 0) {
-      const s = plan.segments[segIdx];
-      const srcT = s.from + (t - s.start);
-      const fr = plan.frames?.find((f) => t >= f.start - 1e-6 && t < f.end - 1e-6) ?? plan.frame;
-      const z = fr.zoom * zoomAt(plan.zoom, t);
-      const next = plan.segments[segIdx + 1];
-      if (next) this.reader(`seg:${segIdx + 1}`, this.rawId, next.from, next.to); // start decoding the next piece now
-      await this.drawCover(this.rawId, `seg:${segIdx}`, s.from, s.to, srcT, [0, 0, W, H], fr.cx, fr.cy, z);
+    // (Clips stay open past their end through a transition out of them.)
+    const open = (x: { start: number; end: number } | undefined) => !!x && x.end + this.roll(x.start, x.end)[1] > t;
+    await this.drop((k) => (k.startsWith("seg:") ? open(plan.segments[Number(k.slice(4))]) : k.startsWith("b:") ? open(plan.broll[Number(k.slice(2))]) : k.startsWith("c:") ? plan.cards[Number(k.slice(2))]?.end > t : true));
+    const on = transitionAt(plan.transitions, t);
+    if (on) await this.drawTransition(on.x, on.p, on.raw, t);
+    else {
+      const base = this.baseAt(t);
+      if (base) await this.drawBase(base, t, ctx);
+    }
+    // (start decoding the next piece of the footage now)
+    const next = plan.segments[segIdx + 1];
+    if (next) {
+      const [pre, post] = this.roll(next.start, next.end);
+      this.reader(`seg:${segIdx + 1}`, this.rawId, Math.max(0, next.from - pre), next.to + post);
     }
 
     // A caption set behind the speaker goes on now, the speaker cut out of the frame and laid back over it.
