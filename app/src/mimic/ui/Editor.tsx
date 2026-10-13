@@ -6,8 +6,8 @@
  * same on every cut like it); a card's moves on and off and how long it stays; a sound's
  * sound and level. Drag a card or cutaway along to move it, its right edge to make it
  * longer or shorter, a sound along to move it. Space plays and stops, the arrow keys step
- * a frame (a second with Shift), Delete takes out a sound or makes a transition a cut,
- * and undo takes back any change made here.
+ * a frame (a second with Shift), Delete takes out what's picked (a transition becomes a
+ * cut), Escape lets go of it, and undo takes back any change made here.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Copy, Layers, Pause, Play, Plus, Redo2, RotateCcw, Trash2, Undo2, ZoomIn, ZoomOut } from "lucide-react";
@@ -113,7 +113,8 @@ export function Editor({ s, plan }: { s: State; plan: MimicPlan }) {
     } else if (mod && e.key.toLowerCase() === "y") {
       e.preventDefault();
       mimic.redo();
-    } else if (e.key === " ") {
+    } else if (e.key === "Escape") setPick(null);
+    else if (e.key === " ") {
       e.preventDefault();
       play();
     } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
@@ -233,7 +234,7 @@ export function Editor({ s, plan }: { s: State; plan: MimicPlan }) {
             Fit
           </button>
         )}
-        <span className="hint">Click a diamond for its transition, a block for its card or cutaway. Drag blocks to move them, their right edge to trim.</span>
+        <span className="hint">Click a diamond for its transition, a block for its card or cutaway. Drag blocks to move them, their right edge to trim (zoom in for short ones).</span>
       </div>
       <div className="tl" ref={strip} onPointerMove={onMove} onPointerUp={onUp}>
         <div className="tl-inner" style={{ width: LABEL + toX(dur) + 16, height: totalH }}>
@@ -266,7 +267,7 @@ export function Editor({ s, plan }: { s: State; plan: MimicPlan }) {
               return (
                 <div key={b.slot} className={`blk broll${on ? " on" : ""}`} style={{ left: toX(b.start + dt), width: Math.max(4, toX(b.end - b.start + dl)), top: top("video") + 3, height: ROW.video - 6 }} onPointerDown={(e) => begin(e, { kind: "move", slot: b.slot, px0: e.clientX, start: b.start, dt: 0 }, { kind: "broll", slot: b.slot })} title={`Cutaway: ${extraName(b.extra)}`}>
                   <span>{extraName(b.extra)}</span>
-                  <i className="trim" onPointerDown={(e) => begin(e, { kind: "len", slot: b.slot, px0: e.clientX, len: b.end - b.start, dl: 0 }, { kind: "broll", slot: b.slot })} />
+                  {toX(b.end - b.start) >= 22 && <i className="trim" onPointerDown={(e) => begin(e, { kind: "len", slot: b.slot, px0: e.clientX, len: b.end - b.start, dl: 0 }, { kind: "broll", slot: b.slot })} />}
                 </div>
               );
             })}
@@ -289,7 +290,7 @@ export function Editor({ s, plan }: { s: State; plan: MimicPlan }) {
               return (
                 <div key={c.slot} className={`blk card${on ? " on" : ""}`} style={{ left: toX(c.start + dt), width: Math.max(4, toX(c.end - c.start + dl)), top: top("cards") + 2, height: ROW.cards - 4 }} onPointerDown={(e) => begin(e, { kind: "move", slot: c.slot, px0: e.clientX, start: c.start, dt: 0 }, { kind: "card", slot: c.slot })} title={`Card: ${extraName(c.extra)}`}>
                   <span>{extraName(c.extra)}</span>
-                  <i className="trim" onPointerDown={(e) => begin(e, { kind: "len", slot: c.slot, px0: e.clientX, len: c.end - c.start, dl: 0 }, { kind: "card", slot: c.slot })} />
+                  {toX(c.end - c.start) >= 22 && <i className="trim" onPointerDown={(e) => begin(e, { kind: "len", slot: c.slot, px0: e.clientX, len: c.end - c.start, dl: 0 }, { kind: "card", slot: c.slot })} />}
                 </div>
               );
             })}

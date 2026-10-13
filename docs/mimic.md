@@ -277,8 +277,8 @@ the ruler to move the playhead, Play to watch and hear it from there.
 - **Adding**: with nothing picked, put one of your pictures or clips in at the playhead
   (a card, or a cutaway for a clip), a sound, or a zoom step there.
 - **Keys**: Space plays and stops, the arrow keys step a frame (a second with Shift),
-  Delete takes out what's picked (a transition becomes a cut), and Ctrl+Z / Ctrl+Shift+Z
-  undo and redo any change made by hand (here or on the other cards).
+  Delete takes out what's picked (a transition becomes a cut), Escape lets go of it, and
+  Ctrl+Z / Ctrl+Shift+Z undo and redo any change made by hand (here or on the other cards).
 
 Every change is kept by what it's on (a cut by the moment of your footage it falls at, a
 card by its slot), so it stays when the edit is planned again after another change.

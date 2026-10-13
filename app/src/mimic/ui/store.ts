@@ -964,7 +964,8 @@ class Mimic {
     this.lastPlaces = places;
     const anchor = Object.fromEntries(Object.entries(places).map(([k, v]) => [k, v.t]));
     this.extraPlaces = {};
-    if (s.placement !== "auto" || !s.words.length) return planMimic({ ...base, anchor });
+    // (A picture taken out of the edit stays out, wherever the pictures go.)
+    if (s.placement !== "auto" || !s.words.length) return planMimic({ ...base, extras: base.extras.filter((e) => s.extraMoved[e.id] !== "out"), anchor });
     // Each picture where the footage talks about it: the user's choice, Gemini's, or the words'
     // (one the user put in a card of the reference's stays there).
     const local = this.contentPlaces(base.extras);
@@ -1292,8 +1293,14 @@ class Mimic {
 
   /** A card or cutaway taken out of the edit (a picture placed by the words, or a slot of the reference's left empty). */
   removeFromEdit(slot: string) {
-    if (slot.startsWith("x:")) this.placeExtra(slot.slice(2), "out");
-    else this.assignSlot(slot, null);
+    const plan = this.plan();
+    const extra = plan?.cards.find((c) => c.slot === slot)?.extra ?? plan?.broll.find((b) => b.slot === slot)?.extra ?? (slot.startsWith("x:") ? slot.slice(2) : undefined);
+    this.keep();
+    // (The picture out of the edit, not on to the next card; a slot of the reference's left empty.)
+    this.set((s) => ({
+      extraMoved: extra ? { ...s.extraMoved, [extra]: "out" as const } : s.extraMoved,
+      assign: slot.startsWith("x:") ? s.assign : { ...s.assign, [slot]: null },
+    }));
   }
 
   /** One of the extras put in at an edit time (where the footage is then), as a card or, a clip, a cutaway. */
