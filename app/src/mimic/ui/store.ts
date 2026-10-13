@@ -24,8 +24,10 @@ import { DEFAULT_LOOK } from "../captions";
 import { geminiExtras, geminiSounds } from "../ai";
 import { understand } from "../extras";
 import { fold, placeByContent, sentences, soundsByWords, type Place } from "../match";
-import { planMimic, type PlanInput } from "../plan";
-import { mimicStills, mixMimic, renderMimic, type MixExtras } from "../render";
+import { planMimic, type CardEdit, type PlanInput } from "../plan";
+import { designFonts, mimicStills, MimicPainter, mixMimic, renderMimic, type MixExtras } from "../render";
+import { loadFonts } from "../../engine/render/fonts";
+import { TRANSITIONS, type TransitionEdit } from "../transitions";
 import { finish, isMadeSound, makeSfx, SOUNDS } from "../sfx";
 import type { CaptionLook, CaptionPlace, DesignAlt, Extra, MimicPlan, MimicTemplate, StylePick, TextDesign, VolumeLine } from "../types";
 import type { TextStyle } from "../../engine/text/style";
@@ -136,7 +138,23 @@ export interface State {
   /** the soundtrack playing: from where in the edit, since when (performance.now()) */
   playing: { from: number; since: number } | null;
   mixing: boolean;
+  /** the user's changes to the transitions, by what they're on */
+  transitionEdits: Record<string, TransitionEdit>;
+  /** the user's changes to the cards and cutaways (their moves, how long they stay), by slot */
+  cardEdits: Record<string, CardEdit>;
+  /** the user's zoom steps: taken out and put in (source times) */
+  zoomEdits: { off: number[]; add: number[] };
+  /** how many changes there are to undo, and to redo */
+  undoable: number;
+  redoable: number;
 }
+
+/** Everything in the state the plan is made from. */
+const PLAN_KEYS: (keyof State)[] = ["template", "footage", "extras", "words", "text", "assign", "clip", "tail", "music", "musicDb", "musicFrom", "musicAt", "musicEnd", "musicLine", "look", "sfxMode", "sfxMove", "sfxDb", "cueEdits", "myCues", "aiCues", "placement", "aiExtras", "cover", "extraMoved", "moved", "transitionEdits", "cardEdits", "zoomEdits", "hearing"];
+
+/** What the timeline's undo takes back: the edit's changes, made by hand. */
+type Edits = Pick<State, "transitionEdits" | "cardEdits" | "zoomEdits" | "cueEdits" | "myCues" | "moved" | "extraMoved" | "assign">;
+const EDIT_KEYS: (keyof Edits)[] = ["transitionEdits", "cardEdits", "zoomEdits", "cueEdits", "myCues", "moved", "extraMoved", "assign"];
 
 const KEY_STORE = "clipper.gemini.v1";
 
@@ -265,6 +283,11 @@ class Mimic {
       songPlaying: null,
       playing: null,
       mixing: false,
+      transitionEdits: {},
+      cardEdits: {},
+      zoomEdits: { off: [], add: [] },
+      undoable: 0,
+      redoable: 0,
     };
   }
 
@@ -839,6 +862,7 @@ class Mimic {
   }
 
   assignSlot(slot: string, extra: string | null | undefined) {
+    this.keep();
     this.set((s) => {
       const assign = { ...s.assign };
       if (extra === undefined) delete assign[slot];
@@ -894,6 +918,9 @@ class Mimic {
       tail: s.tail,
       music: s.music && s.music.status === "ready" ? { id: s.music.id, duration: s.music.duration, db: s.musicDb, from: s.musicFrom, at: s.musicAt, ...(s.musicEnd !== null ? { end: s.musicEnd } : {}), line: s.musicLine } : null,
       look: s.look,
+      transitions: s.transitionEdits,
+      cardEdits: s.cardEdits,
+      zoomEdits: s.zoomEdits,
       sfx: {
         mode: s.sfxMode,
         move: s.sfxMove,
@@ -914,14 +941,17 @@ class Mimic {
   }
 
   plan(): MimicPlan | null {
-    // (Planned once per state: the page asks from more than one place.)
-    if (this.planned?.state === this.state) return this.planned.plan;
+    // (Planned again only when something it's made from changed: the page asks from more than
+    // one place, and playing, mixing or making doesn't change it.)
+    const s = this.state;
+    const deps = [...PLAN_KEYS.map((k) => s[k]), this.speech, this.rawCuts, this.face, this.shots, this.track];
+    if (this.planned && this.planned.deps.length === deps.length && this.planned.deps.every((d, i) => d === deps[i])) return this.planned.plan;
     const plan = this.planNow();
-    this.planned = { state: this.state, plan };
+    this.planned = { deps, plan };
     return plan;
   }
 
-  private planned: { state: State; plan: MimicPlan | null } | null = null;
+  private planned: { deps: unknown[]; plan: MimicPlan | null } | null = null;
 
   private planNow(): MimicPlan | null {
     const s = this.state;
@@ -1057,6 +1087,7 @@ class Mimic {
 
   /** The user puts a picture at a moment of the footage (source time), in the reference's cards, or out; null lets the page choose again. */
   placeExtra(id: string, at: number | "slot" | "out" | null) {
+    this.keep();
     this.set((s) => {
       const extraMoved = { ...s.extraMoved };
       if (at === null) delete extraMoved[id];
@@ -1067,6 +1098,7 @@ class Mimic {
 
   /** The user puts a card (its run) or cutaway at a moment of the footage (source time); null puts it back. */
   moveSlot(slot: string, t: number | null) {
+    this.keep();
     this.set((s) => {
       const moved = { ...s.moved };
       if (t === null) delete moved[slot];
@@ -1110,6 +1142,7 @@ class Mimic {
   }
 
   editCue(key: string, patch: { dt?: number; sound?: string; db?: number; off?: boolean }) {
+    this.keep();
     this.set((s) => {
       const mine = s.myCues.find((c) => c.key === key);
       if (mine) {
@@ -1122,12 +1155,202 @@ class Mimic {
   }
 
   addCue(t: number, sound: string) {
+    this.keep();
     this.set((s) => ({ myCues: [...s.myCues, { key: `mine:${newId("c")}`, t, sound, db: 0, why: "yours" }] }));
   }
 
   resetCues() {
+    this.keep();
     this.set({ cueEdits: {}, myCues: [] });
   }
+
+  // The timeline: transitions, cards and cutaways changed by hand, and undo.
+
+  private undoStack: Edits[] = [];
+  private redoStack: Edits[] = [];
+
+  private edits(): Edits {
+    const s = this.state;
+    return Object.fromEntries(EDIT_KEYS.map((k) => [k, s[k]])) as unknown as Edits;
+  }
+
+  /** Keeps the edit as it is now, for undo, before a change by hand. */
+  private keep() {
+    this.undoStack.push(this.edits());
+    if (this.undoStack.length > 100) this.undoStack.shift();
+    this.redoStack = [];
+    this.set({ undoable: this.undoStack.length, redoable: 0 });
+  }
+
+  undo() {
+    const back = this.undoStack.pop();
+    if (!back) return;
+    this.redoStack.push(this.edits());
+    this.set({ ...back, undoable: this.undoStack.length, redoable: this.redoStack.length });
+  }
+
+  redo() {
+    const fwd = this.redoStack.pop();
+    if (!fwd) return;
+    this.undoStack.push(this.edits());
+    this.set({ ...fwd, undoable: this.undoStack.length, redoable: this.redoStack.length });
+  }
+
+  /** A transition changed (merged over what it is), or put back as the reference has it (null). */
+  editTransition(key: string, patch: TransitionEdit | null) {
+    this.keep();
+    this.set((s) => {
+      const transitionEdits = { ...s.transitionEdits };
+      if (patch === null) delete transitionEdits[key];
+      else {
+        // (A new kind starts from that kind's own look, keeping the length when it had one.)
+        const was = this.plan()?.transitions?.find((x) => x.key === key);
+        const fresh = patch.kind && patch.kind !== was?.kind ? TRANSITIONS.find((k) => k.kind === patch.kind)?.look : undefined;
+        const keepDur = fresh && was && was.dur > 0 && patch.dur === undefined ? { dur: was.dur } : {};
+        transitionEdits[key] = { ...(transitionEdits[key] ?? {}), ...(fresh ?? {}), ...keepDur, ...patch };
+      }
+      return { transitionEdits };
+    });
+  }
+
+  /** One transition's look on every cut joining the same things (or every cut). */
+  transitionToAll(key: string, everywhere = false) {
+    const plan = this.plan();
+    const x = plan?.transitions?.find((t) => t.key === key);
+    if (!plan || !x) return;
+    const look: TransitionEdit = { kind: x.kind, dur: x.dur, ease: x.ease, dir: x.dir, color: x.color, over: x.over };
+    this.keep();
+    this.set((s) => {
+      const transitionEdits = { ...s.transitionEdits };
+      for (const t of plan.transitions ?? []) {
+        if (t.from === "black" || t.to === "black") continue;
+        if (everywhere || (t.from === x.from && t.to === x.to)) transitionEdits[t.key] = { ...look };
+      }
+      return { transitionEdits };
+    });
+  }
+
+  resetTransitions() {
+    this.keep();
+    this.set({ transitionEdits: {} });
+  }
+
+  /** A card or cutaway changed: its moves or how long it stays (null: as planned). */
+  editCard(slot: string, patch: CardEdit | null) {
+    this.keep();
+    this.set((s) => {
+      const cardEdits = { ...s.cardEdits };
+      if (patch === null) delete cardEdits[slot];
+      else cardEdits[slot] = { ...(cardEdits[slot] ?? {}), ...patch };
+      return { cardEdits };
+    });
+  }
+
+  /**
+   * A card (its run) or cutaway dragged along the timeline to an edit time: kept as the
+   * moment of the footage there, as a move of the user's.
+   */
+  moveOnTimeline(slot: string, t: number) {
+    const plan = this.plan();
+    if (!plan) return;
+    const seg = plan.segments.find((x) => t >= x.start && t < x.end) ?? (t < (plan.segments[0]?.start ?? 0) ? plan.segments[0] : plan.segments[plan.segments.length - 1]);
+    if (!seg) return;
+    const src = Math.max(0, seg.from + Math.min(Math.max(0, t - seg.start), seg.to - seg.from));
+    if (slot.startsWith("x:")) return this.placeExtra(slot.slice(2), src);
+    // (A reference card moves with its run, by the run's first card.)
+    const tpl = this.state.template;
+    const card = tpl?.cards.find((c) => c.id === slot);
+    const first = card ? (tpl!.cards.find((c) => c.run === card.run)?.id ?? slot) : slot;
+    const firstPlan = plan.cards.find((c) => c.slot === first);
+    const own = plan.cards.find((c) => c.slot === slot);
+    const shift = firstPlan && own ? own.start - firstPlan.start : 0;
+    const t0 = Math.max(0, t - shift);
+    const seg0 = plan.segments.find((x) => t0 >= x.start && t0 < x.end) ?? seg;
+    this.moveSlot(first, Math.max(0, seg0.from + Math.min(Math.max(0, t0 - seg0.start), seg0.to - seg0.from)));
+  }
+
+  /** The moment of the footage at an edit time. */
+  private sourceAt(t: number): number | null {
+    const plan = this.plan();
+    const seg = plan?.segments.find((x) => t >= x.start && t < x.end) ?? plan?.segments[plan.segments.length - 1];
+    return seg ? Math.max(0, seg.from + Math.min(Math.max(0, t - seg.start), seg.to - seg.from)) : null;
+  }
+
+  /** A zoom step taken out at an edit time, or one put in there. */
+  editZoom(t: number, add: boolean) {
+    const src = this.sourceAt(t);
+    if (src === null) return;
+    this.keep();
+    this.set((s) => {
+      const near = (v: number) => Math.abs(v - src) < 0.15;
+      if (add) return { zoomEdits: { off: s.zoomEdits.off.filter((v) => !near(v)), add: [...s.zoomEdits.add.filter((v) => !near(v)), src] } };
+      // (One the user put in goes; one the plan made is taken out.)
+      if (s.zoomEdits.add.some(near)) return { zoomEdits: { ...s.zoomEdits, add: s.zoomEdits.add.filter((v) => !near(v)) } };
+      return { zoomEdits: { ...s.zoomEdits, off: [...s.zoomEdits.off, src] } };
+    });
+  }
+
+  /** A card or cutaway taken out of the edit (a picture placed by the words, or a slot of the reference's left empty). */
+  removeFromEdit(slot: string) {
+    if (slot.startsWith("x:")) this.placeExtra(slot.slice(2), "out");
+    else this.assignSlot(slot, null);
+  }
+
+  /** One of the extras put in at an edit time (where the footage is then), as a card or, a clip, a cutaway. */
+  addAtTime(extra: string, t: number) {
+    const plan = this.plan();
+    if (!plan) return;
+    const seg = plan.segments.find((x) => t >= x.start && t < x.end) ?? plan.segments[plan.segments.length - 1];
+    if (!seg) return;
+    // (Out of the reference's card it was in, if it was in one.)
+    const assign = Object.fromEntries(Object.entries(this.state.assign).filter(([, v]) => v !== extra));
+    if (Object.keys(assign).length !== Object.keys(this.state.assign).length) this.set({ assign });
+    if (this.state.placement !== "auto") this.set({ placement: "auto" });
+    this.placeExtra(extra, Math.max(0, seg.from + Math.min(Math.max(0, t - seg.start), seg.to - seg.from)));
+  }
+
+  // The live preview: the edit drawn at a moment, small.
+
+  private live: { plan: MimicPlan; painter: MimicPainter; fonts: Promise<void> } | null = null;
+  private painting: Promise<void> = Promise.resolve();
+
+  /**
+   * The edit at t drawn into the canvas, `width` pixels across (as it will be made, smaller).
+   * Calls queue; one that's still waiting when a newer comes is skipped.
+   */
+  paintAt(t: number, canvas: HTMLCanvasElement, width = 360): Promise<boolean> {
+    const plan = this.plan();
+    const raw = this.state.footage;
+    if (!plan || !raw) return Promise.resolve(false);
+    const ticket = ++this.paintTicket;
+    const run = this.painting.then(async () => {
+      if (ticket !== this.paintTicket) return false;
+      if (this.live?.plan !== plan) {
+        const old = this.live;
+        const k = Math.min(1, width / plan.width);
+        const small: MimicPlan = { ...plan, width: Math.round((plan.width * k) / 2) * 2, height: Math.round((plan.height * k) / 2) * 2 };
+        this.live = { plan, painter: new MimicPainter(small, this.sources, raw.id), fonts: loadFonts().then(() => designFonts(plan)) };
+        if (old) await old.painter.close();
+      }
+      const live = this.live;
+      await live.fonts;
+      const fps = plan.fps || 30;
+      await live.painter.paint(Math.max(0, Math.min(plan.duration - 1 / fps, Math.round(t * fps) / fps)));
+      if (canvas.width !== live.painter.canvas.width || canvas.height !== live.painter.canvas.height) {
+        canvas.width = live.painter.canvas.width;
+        canvas.height = live.painter.canvas.height;
+      }
+      canvas.getContext("2d")!.drawImage(live.painter.canvas, 0, 0);
+      return true;
+    });
+    this.painting = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run.catch(() => false);
+  }
+
+  private paintTicket = 0;
 
   /** The user's own sounds (a whoosh they like, a sound of their brand). */
   async addSounds(files: File[]) {

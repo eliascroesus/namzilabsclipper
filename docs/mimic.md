@@ -70,6 +70,32 @@ Python tools in `tools/`):
    - **Zooms** (`zoom.ts`): each frame against the one before, scaled about the middle and
      nudged a pixel or two, leaving out the captions and cards; the best scale is the
      zoom. A run of frames growing (or shrinking) is one punch-in (or pull-out).
+   - **Transitions** (`transitions.ts`): what happens at every shot change. Each frame is
+     compared with the one before with the camera's own move taken out (the shift, on a
+     copy about 30 px across its short side, that leaves the least difference), against
+     what its shots do frame to frame; a run of frames changing more than that is one
+     change, a lone frame of it a hard cut, and frames held between two changes (a
+     flipbook) keep them apart. Then the frames of the run say what it is: mixes of the
+     two shots, the share of the next growing (a crossfade, its length and easing);
+     darker or brighter than both shots (a dip through black or white, or a flash); the
+     two side by side with the edge moving one way (a push, a slide over or off, a wipe);
+     smeared one way into and out of the cut, the edges across the move kept (a whip);
+     scaled hard through it (a zoom); softened (a blur); torn in rows (a glitch); and up
+     from black at the start or down to it at the end (a fade in or out). A pan, a shake,
+     a punch-in or the lights changing inside one shot isn't a transition: the shot after
+     is the shot before moved, scaled or lit differently, and a cut with the shots moving
+     fast either side stays a cut. A card sliding on or off over the talking is the card's
+     own move. Each transition is kept with what it joins (the talking or a cutaway).
+     Checked against the hand-counted breakdowns ([frame-by-frame.md](frame-by-frame.md)),
+     about a second for a 20 s Reel:
+
+     | Edit | Counted by hand | Read |
+     |---|---|---|
+     | nio.trade …3659 | 18 hard, 8 crossfades, 1 fade out | 18 hard, 5 crossfades, the fade in and out |
+     | nio.trade …6955 | 2 hard, 11 crossfades, 1 dip | 2 hard, 9 crossfades, the fade in |
+     | nio.trade …8678 | 26 hard, 3 crossfades, 1 warm burn | 26 hard, 2 crossfades, the burn as a flash |
+     | nio.trade …5448, TJR, mico | every change a hard cut | every change a hard cut |
+     | the example ad | hard cuts into and out of 3 cutaways | the same |
 2. **A frame a second, read whole** with PP-OCRv4's text detector and recogniser (ONNX,
    Apache 2.0, 15.6 MB, `public/models/ppocr-*`): where big, changing lines of text sit
    most often is the caption band; small text inside a card makes it a screenshot.
@@ -92,9 +118,18 @@ Python tools in `tools/`):
    or all one size (their widths grow with their letters).
 4. **The sound** (`sound.ts`, 16 kHz): where the voice is and its pauses; a bed under it
    (the low end under a voice, 20 to 90 Hz, rising well above where it starts and staying
-   up; its level from the quiet between words); and sounds on events (for each kind of
-   visual event, the loudest high-frequency moment near each, against moments picked evenly
-   through the video).
+   up; its level from the quiet between words); and its sound effects one by one. At every
+   visual event (a card coming on or going, a cutaway, a zoom, a transition) the sound
+   standing out most within 0.3 s, band by band in seven octaves every 10 ms, over what
+   each band usually reaches; measured the same every 0.6 s through the whole video, that
+   is what the syllables and the beats do anyway, and a kind of event has sounds only
+   where its own stand out 4 dB past that (so an edit cut on the beat doesn't hear its
+   drums as sound effects). Each sound heard is named by its shape: a click or pop (under
+   80 ms), a boom (most of it under 250 Hz, hitting at once), a riser (growing into its
+   peak for most of a second), a ding (a tone), a whoosh (noise for a fifth of a second
+   or more) or a swipe (a short burst of it); the page's own made sounds come out as what
+   they are. On the references here the music edits and the example ad have none to
+   hear.
 5. **Faces** (YuNet, already in the clipper) on the frames read whole: the speaker's face
    size and place, to frame the new footage the same.
 
@@ -177,11 +212,26 @@ On the example the analysis takes about 75 s in Node and a little longer in a br
   a jump cut reads as a punch-in, the way the reference hides its own).
 - **Framing**: when both faces are found, the footage is cropped (up to 1.3 times) so the
   face is as big, and where, the reference has it.
+- **Transitions** (`transitions.ts`): every cut in the edit gets one, the jumps in your
+  footage, into and out of each cutaway, and the fade in at the start and out at the end
+  where the reference has them. A cutaway the reference has takes the reference's own
+  transitions in and out of it; any other cut takes the reference's transition joining
+  the same things (the talking to the talking, the talking to a cutaway, a cutaway back)
+  nearest the same point of the edit, so a reference whose crossfades come in a run after
+  its opening has them there too (a montage of cutaways with no talking lends its nearest,
+  whatever it joins). None runs longer than the shots either side allow. `render.ts` draws
+  both shots through one, the one going out playing on past its cut and the next starting
+  a little before, put together as the kind does: a crossfade, a dip through black or
+  white, a white flash, a push, a slide over or off, a wipe, a whip (a push with a motion
+  blur that follows its speed), a zoom through the cut, a blur, a glitch's torn bands, a
+  spin.
 - **Sound effects** (`sfx.ts`, made in the page: whoosh, swipe, pop, click, boom, riser,
   ding, cash register; or your own files), with a switch: none; *on the moves* (a whoosh
   peaking as a card lands, moving across from the side it comes in from, a softer one as
   it leaves, a swipe as a run's picture changes, a whoosh into each cutaway, or the
-  reference's own sounds on these where it has some); or *moves and script* (and a cash
+  reference's own sounds on these where it has some, and a whoosh on a transition that
+  moves the pictures, or the reference's own sound on the transition it copies); or
+  *moves and script* (and a cash
   register where money is said, or, with + Gemini, the moments Gemini picks: a ding on a key
   number, a boom on a big claim). Each sits at a set loudness against the voice's talking
   (8 dB under, then its own level and the effects' level). Every one can be heard, moved
@@ -202,6 +252,36 @@ it with WebCodecs, H.264 and AAC in MP4 where the browser can.
 The captions can be seen before any of that: the Captions card draws one of your captions
 over a frame of your footage (framed as the edit frames it) in the look as it's set, redrawn
 as you change it, stepping through the captions and playing one coming on word by word.
+
+## Editing it on the timeline
+
+The **Edit it** card (`ui/Editor.tsx`) lays the edit out in layers, as CapCut does, under
+a preview of the frame at the playhead (drawn by the same painter as the render, smaller):
+the footage piece by piece with its cutaways over it and a diamond at every cut (orange
+for a transition, green for one you changed, white for a plain cut, the band round it
+its length), the cards, the captions, the zoom, the sound effects and the music. Click
+the ruler to move the playhead, Play to watch and hear it from there.
+
+- **A transition**: click its diamond. Pick its kind (cut, crossfade, dip, flash, push,
+  slide, wipe, whip, zoom, blur, glitch, spin), its length in frames, which way it goes, how
+  its speed runs, the colour of a dip or flash, which picture moves in a slide, and its
+  sound; put the same on every cut joining the same things, or on every cut; or take it
+  back to what the reference has.
+- **A card**: how it comes on and goes off (cut, slide from a side, fade, pop) and how
+  long each takes, how long it stays; drag it along to move it (its run moves with it),
+  its right edge to make it longer or shorter, or take it out.
+- **A cutaway**: drag it, trim it, take it out, or open the transitions into and out of it.
+- **A sound**: drag it along, pick another sound or level, hear it, take it out.
+- **A zoom step**: click its dot on the Zoom layer to take it out (a step as the reference
+  zooms, or a jump hiding a cut in your footage).
+- **Adding**: with nothing picked, put one of your pictures or clips in at the playhead
+  (a card, or a cutaway for a clip), a sound, or a zoom step there.
+- **Keys**: Space plays and stops, the arrow keys step a frame (a second with Shift),
+  Delete takes out what's picked (a transition becomes a cut), and Ctrl+Z / Ctrl+Shift+Z
+  undo and redo any change made by hand (here or on the other cards).
+
+Every change is kept by what it's on (a cut by the moment of your footage it falls at, a
+card by its slot), so it stays when the edit is planned again after another change.
 
 ## Hearing the footage
 
@@ -234,4 +314,10 @@ WebAssembly build in a worker (`app/src/mimic/asr/`):
 - A card's picture is laid flat in its rectangle (no rotation, 3D or masks beyond rounded
   corners).
 - A reference's own music and sounds aren't copied (they're someone else's); the page
-  copies where and how loud they sit, with your music and its own sounds.
+  copies where and how loud they sit, and what kind of sound sits on what, with your music
+  and its own made sounds.
+- Transitions made of motion graphics (a circle wipe from an orb, an object thrown at the
+  lens, a 3D camera move across flat layers) are read as the nearest kind (a crossfade, a
+  whip) or not at all; a fast digital pan inside one shot is a camera move, not a
+  transition. Sound effects under music, where the cuts land on its hits, can't be told
+  from the music.

@@ -12,7 +12,7 @@ import { CardFinder, type Gray } from "./cards";
 import { captionLook, captionScript, measureLine, type CaptionSample } from "./captions";
 import type { Picture, TextBox, TextReader } from "./ocr";
 import { blackTail, classifyShots, findCuts, type Shot } from "./shots";
-import { findSfx, soundProfile } from "./sound";
+import { hearSfx, soundProfile } from "./sound";
 import { readDesign, type DesignReading, type TextSample } from "./textdesign";
 import { matchFont, sizeIn, type Renderer } from "./fontmatch";
 import { blendOf, layerOf, lineWords, wordMask, type Plane } from "./words";
@@ -380,7 +380,13 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
   for (const b of cutaways) sfxEvents.push({ t: b.start, on: "broll" });
   for (const e of events) sfxEvents.push({ t: e.start, on: "zoom" });
   for (const x of transitions) if (x.kind !== "cut" && !x.over) sfxEvents.push({ t: x.t, on: "transition" });
-  const sound: SoundLook = { bed: sp.bed, sfx: findSfx(sp.high, sfxEvents, duration) };
+  const fx = hearSfx(audio, sfxEvents, duration);
+  const sound: SoundLook = { bed: sp.bed, sfx: fx.sfx, ...(fx.heard.length ? { heard: fx.heard } : {}) };
+  for (const h of fx.heard) {
+    if (h.on !== "transition") continue;
+    const x = transitions.find((v) => Math.abs(v.t - h.t) < 0.02);
+    if (x) x.sound = h.kind;
+  }
 
   // 9. The speaker's framing: where the face sits in the talking footage.
   let speaker: MimicTemplate["speaker"] = null;
@@ -402,7 +408,8 @@ export async function analyzeReference(src: FrameSource, a: Analysts, onProgress
   if (cutaways.length) notes.push(`${cutaways.length} cutaway${cutaways.length > 1 ? "s" : ""} over the voice.`);
   if (zoom) notes.push(`${zoom.changes.length} zooms on the talking, to about ${Math.round((zoom.close - 1) * 100)}% closer.`);
   if (sound.bed) notes.push(`A bed under the voice from ${sound.bed.start.toFixed(1)} s, ${-sound.bed.level} dB down.`);
-  notes.push(sound.sfx.length ? `Sounds on ${sound.sfx.map((s) => s.on).join(", ")}.` : "No sound effects to be heard in its sound (the edit gets whooshes on the cards' moves; see Sound).");
+  const onName: Record<string, string> = { "card-in": "cards coming on", "card-out": "cards going", cut: "cuts", broll: "cutaways", zoom: "zooms", transition: "transitions" };
+  notes.push(sound.sfx.length ? `Sound effects: ${sound.sfx.map((s) => `${s.kind === "hit" ? "a boom" : `a ${s.kind}`} on its ${onName[s.on] ?? s.on} (${(sound.heard ?? []).filter((h) => h.on === s.on).length} heard, ${s.level} dB over the rest)`).join("; ")}.` : "No sound effects to be heard in its sound (the edit gets whooshes on the cards' moves; see Sound).");
   if (tail > 0.2) notes.push(`Ends on ${tail.toFixed(1)} s of black.`);
   const moves = transitions.filter((x) => x.kind !== "cut");
   if (transitions.length) {

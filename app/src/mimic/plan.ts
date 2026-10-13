@@ -11,7 +11,7 @@ import { keepSpeech, type Run } from "../engine/audio/speech";
 import { paginate, DEFAULT_LOOK } from "./captions";
 import { designPages } from "./design";
 import { copyTransitions, lookName, MOVING, type TransitionEdit } from "./transitions";
-import type { CardSlot, Edge, Extra, MimicPlan, MimicTemplate, PlanBroll, PlanCard, PlanWord, Segment, SfxCue, VolumeLine } from "./types";
+import type { CardSlot, Edge, Extra, MimicPlan, MimicTemplate, Motion, PlanBroll, PlanCard, PlanWord, Segment, SfxCue, VolumeLine } from "./types";
 import type { Word } from "./asr/parakeet";
 
 export interface PlanInput {
@@ -62,6 +62,16 @@ export interface PlanInput {
   look?: MimicTemplate["captions"];
   /** the user's changes to the transitions, by what they're on ("in:broll2", "jump:12.40", "open") */
   transitions?: Record<string, TransitionEdit>;
+  /** the user's changes to a card or cutaway, by slot: how it comes on and goes off, how long it stays (seconds) */
+  cardEdits?: Record<string, CardEdit>;
+  /** the user's zoom steps: taken out, and put in (moments of the footage, source times) */
+  zoomEdits?: { off?: number[]; add?: number[] };
+}
+
+export interface CardEdit {
+  enter?: Motion;
+  exit?: Motion;
+  len?: number;
 }
 
 export interface SfxOptions {
@@ -418,6 +428,27 @@ export function planMimic(inp: PlanInput): MimicPlan {
   const cards = [...xCards, ...ref.cards.filter((c) => !gone.has(c.slot))].map((c) => ({ ...c, end: Math.min(body, c.end) })).filter((c) => c.start < body - 0.3 && c.end > c.start);
   const broll = [...xBroll, ...ref.broll.filter((b) => !gone.has(b.slot))].map((b) => ({ ...b, end: Math.min(body, b.end) })).filter((b) => b.start < body - 0.3 && b.end > b.start);
 
+  // The user's changes to a card or a cutaway: its moves, how long it stays (a clip no longer than it is).
+  for (const c of cards) {
+    const e = inp.cardEdits?.[c.slot];
+    if (!e) continue;
+    if (e.enter) c.enter = e.enter;
+    if (e.exit) c.exit = e.exit;
+    if (e.len) c.end = Math.min(body, c.start + Math.max(0.3, e.len));
+    const moves = (c.enter.kind === "cut" ? 0 : c.enter.dur) + (c.exit.kind === "cut" ? 0 : c.exit.dur);
+    if (moves > c.end - c.start) {
+      const k = (c.end - c.start) / moves;
+      c.enter = { ...c.enter, dur: c.enter.dur * k };
+      c.exit = { ...c.exit, dur: c.exit.dur * k };
+    }
+  }
+  for (const b of broll) {
+    const len = inp.cardEdits?.[b.slot]?.len;
+    if (!len) continue;
+    const e = extras.get(b.extra);
+    b.end = Math.min(body, b.start + Math.max(0.3, len), e?.kind === "video" && e.duration > 0 ? b.start + e.duration - b.from : Infinity);
+  }
+
   // 3b. Transitions: the reference's, on the edit's cuts.
   const rawCuts = inp.raw.cuts.map((c) => clock.toOut(c)).filter((t): t is number => t !== null);
   const transitions = copyTransitions({ template: tpl, segments, rawCuts, broll, body, edits: inp.transitions });
@@ -439,6 +470,13 @@ export function planMimic(inp: PlanInput): MimicPlan {
     const t = place(ch.t);
     if (changes.some((c) => Math.abs(c.t - t) < 0.8)) continue;
     changes.push({ t, jump: false });
+  }
+  // The user's own: zoom steps taken out, and steps put in (moments of the footage).
+  const zoomOff = (inp.zoomEdits?.off ?? []).map((t) => clock.toOut(t)).filter((t): t is number => t !== null);
+  for (let i = changes.length - 1; i >= 0; i--) if (zoomOff.some((t) => Math.abs(t - changes[i].t) < 0.15)) changes.splice(i, 1);
+  for (const src of inp.zoomEdits?.add ?? []) {
+    const t = clock.toOut(src);
+    if (t !== null && t > 0.05 && t < body - 0.05 && !changes.some((c) => Math.abs(c.t - t) < 0.1)) changes.push({ t, jump: false });
   }
   changes.sort((a, b) => a.t - b.t);
   let level = 1;
@@ -563,7 +601,8 @@ export function planMimic(inp: PlanInput): MimicPlan {
     }
     for (const b of broll) cue(`cut:${b.slot}`, b.start, heard.get("broll") ?? so.move, -2, "a cutaway");
     // (and a whoosh on a transition that moves the pictures, but into a cutaway, which has its own)
-    for (const x of transitions) if (MOVING.has(x.kind) && !x.key.startsWith("in:")) cue(`tr:${x.key}`, x.t, heard.get("transition") ?? so.move, -4, `a ${lookName(x).toLowerCase()}`);
+    // (or the reference's own sound on the transition it copies, on whatever kind)
+    for (const x of transitions) if ((MOVING.has(x.kind) || x.sound) && x.kind !== "cut" && !x.key.startsWith("in:")) cue(`tr:${x.key}`, x.t, x.sound ?? heard.get("transition") ?? so.move, -4, `a ${lookName(x).toLowerCase()}`);
     const zoomSound = heard.get("zoom");
     if (zoomSound) changes.filter((c) => !c.jump).forEach((c, i) => cue(`zoom:${i}`, c.t, zoomSound, -6, "a zoom"));
   }

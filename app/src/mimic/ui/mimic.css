@@ -126,3 +126,59 @@ kbd { font: 600 11px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; padd
 .fill-editor .angle { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px; }
 .fill-editor .angle input { flex: 1; min-width: 0; accent-color: var(--brand); }
 .swatch { width: 44px; height: 22px; border-radius: 5px; border: 1px solid var(--line); display: inline-block; }
+
+/* The editor: a preview at the playhead, the panel for what's picked, and the edit in layers. */
+.editor:focus { outline: none; }
+.editor:focus-visible { outline: 1px solid var(--brand); outline-offset: 2px; }
+.editor-top { display: grid; grid-template-columns: minmax(180px, 300px) 1fr; gap: 16px; align-items: start; }
+.editor-view { display: flex; flex-direction: column; gap: 8px; }
+.editor-frame { width: 100%; max-height: 62vh; object-fit: contain; border-radius: 8px; border: 1px solid var(--line); background: #000; display: block; }
+.transport { display: flex; align-items: center; gap: 6px; }
+.transport .num { margin-left: auto; font-size: 12px; }
+.inspector { min-width: 0; }
+.insp { display: flex; flex-direction: column; gap: 10px; }
+.insp-head { display: flex; flex-direction: column; gap: 2px; }
+.insp p { margin: 0; }
+.kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.kinds button { border: 1px solid var(--line); background: var(--control); color: var(--muted); border-radius: var(--radius); padding: 4px 9px; font: inherit; font-size: 12px; cursor: pointer; }
+.kinds button[aria-pressed="true"] { border-color: var(--brand); color: var(--text); background: var(--hover); }
+.motion-edit { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); }
+.field-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.field-row .select { flex: 1; }
+.tl-tools { display: flex; align-items: center; gap: 6px; margin: 14px 0 6px; }
+.tl-tools .hint { margin-left: 6px; font-size: 12px; }
+.tl { position: relative; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--control); user-select: none; touch-action: pan-x; }
+.tl-inner { position: relative; }
+.tl-labels { position: sticky; left: 0; top: 0; width: 84px; z-index: 5; background: var(--control); border-right: 1px solid var(--line); float: left; }
+.tl-labels span { position: absolute; left: 8px; display: flex; align-items: center; font-size: 11px; color: var(--muted); }
+.tl-body { position: absolute; top: 0; bottom: 0; right: 0; }
+.tl-ruler { position: absolute; left: 0; right: 0; top: 0; height: 20px; cursor: ew-resize; border-bottom: 1px solid var(--line); }
+.tl-ruler span { position: absolute; top: 3px; font-size: 10px; color: var(--muted); padding-left: 3px; border-left: 1px solid var(--line); line-height: 14px; }
+.tl-row { position: absolute; left: 0; background: rgba(127, 127, 127, 0.06); border-radius: 4px; cursor: pointer; }
+.blk { position: absolute; border-radius: 5px; overflow: hidden; font-size: 11px; line-height: 1; display: flex; align-items: center; padding: 0 6px; box-sizing: border-box; white-space: nowrap; cursor: grab; }
+.blk span { overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.blk.on { outline: 2px solid #f59e0b; outline-offset: -1px; z-index: 3; }
+.blk.seg { background: rgba(120, 140, 170, 0.35); border: 1px solid rgba(120, 140, 170, 0.6); cursor: default; }
+.blk.broll { background: rgba(168, 85, 247, 0.6); color: #fff; z-index: 2; }
+.blk.card { background: rgba(79, 124, 255, 0.6); color: #fff; }
+.blk.page { background: rgba(160, 170, 190, 0.3); color: var(--text); cursor: pointer; }
+.blk.music { background: rgba(34, 197, 94, 0.35); color: var(--text); cursor: default; }
+.blk .trim { position: absolute; right: 0; top: 0; bottom: 0; width: 7px; cursor: ew-resize; background: rgba(255, 255, 255, 0.35); }
+.tr-band { position: absolute; background: rgba(245, 158, 11, 0.22); border-left: 1px solid rgba(245, 158, 11, 0.6); border-right: 1px solid rgba(245, 158, 11, 0.6); pointer-events: none; z-index: 3; }
+.tr-band.mine { background: rgba(34, 197, 94, 0.2); border-color: rgba(34, 197, 94, 0.6); }
+.tr-dot { position: absolute; width: 16px; height: 16px; padding: 0; border: 2px solid #e5e7eb; background: var(--control); transform: rotate(45deg) scale(0.75); border-radius: 3px; cursor: pointer; z-index: 4; }
+.tr-dot:not(.cut) { background: #f59e0b; border-color: #fff; transform: rotate(45deg) scale(0.9); }
+.tr-dot.mine:not(.cut) { background: #22c55e; }
+.tr-dot.on { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.6); }
+.zoom-line { position: absolute; pointer-events: none; }
+.zoom-line polyline { fill: none; stroke: #38bdf8; stroke-width: 1.5; }
+.cue-dot { position: absolute; width: 12px; height: 12px; padding: 0; border: 0; background: #e5e7eb; transform: rotate(45deg); border-radius: 2px; cursor: grab; z-index: 4; }
+.cue-dot.mine { background: #22c55e; }
+.cue-dot.on { background: #f59e0b; }
+.playhead { position: absolute; top: 0; width: 2px; margin-left: -1px; background: #f43f5e; pointer-events: none; z-index: 6; }
+@media (max-width: 760px) { .editor-top { grid-template-columns: 1fr; } }
+.add-here { display: flex; flex-direction: column; gap: 6px; padding: 8px; margin-bottom: 10px; border: 1px dashed var(--line); border-radius: var(--radius); }
+.add-here .row { gap: 6px; }
+.add-here .select { flex: 1; min-width: 0; }
+.zoom-dot { position: absolute; width: 10px; height: 10px; padding: 0; border: 2px solid #38bdf8; background: var(--control); border-radius: 50%; cursor: pointer; z-index: 4; }
+.zoom-dot.on { background: #f59e0b; border-color: #fff; }

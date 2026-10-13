@@ -197,6 +197,8 @@ export interface RefTransition extends TransitionLook {
   to: "main" | "broll";
   /** what was measured */
   why: string;
+  /** the sound heard on it, when there was one */
+  sound?: SfxKind;
 }
 
 /** A transition at one of the edit's cuts. */
@@ -214,6 +216,8 @@ export interface PlanTransition extends TransitionLook {
   why: string;
   /** the user changed it */
   mine?: boolean;
+  /** the sound the reference's had on it */
+  sound?: SfxKind;
 }
 
 export type CardContent = "photo" | "screenshot" | "video" | "unknown";
@@ -274,6 +278,8 @@ export interface SoundLook {
   bed: { start: number; level: number } | null;
   /** sounds on events: on every such event in the reference */
   sfx: { on: SfxOn; kind: SfxKind; level: number }[];
+  /** each sound heard on an event: when, on what, what it sounds like, how far it stands out (dB) and how long it is */
+  heard?: { t: number; on: SfxOn; kind: SfxKind; level: number; dur: number }[];
 }
 
 export interface MimicTemplate {

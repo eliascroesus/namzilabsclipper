@@ -7,6 +7,7 @@ import { SOUNDS } from "../sfx";
 import type { CaptionLook, CardSlot, MimicPlan, MimicTemplate } from "../types";
 import { CaptionPreview } from "./CaptionPreview";
 import { DesignEditor } from "./DesignEditor";
+import { Editor } from "./Editor";
 import { MusicStrip } from "./MusicStrip";
 import { SoundCard } from "./SoundCard";
 import { fromPaste, PASTE_KEY } from "./paste";
@@ -713,6 +714,7 @@ function Outputs({ s }: { s: State }) {
               ))}
             </ul>
           </section>
+          {plan && s.hearing.stage === "ready" && <Editor s={s} plan={plan} />}
           <section className="card">
             <div className="section-head">
               <span className="caps">Captions</span>

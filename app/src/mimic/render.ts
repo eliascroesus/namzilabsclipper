@@ -432,7 +432,13 @@ export class MimicPainter {
     const open = (x: { start: number; end: number } | undefined) => !!x && x.end + this.roll(x.start, x.end)[1] > t;
     await this.drop((k) => (k.startsWith("seg:") ? open(plan.segments[Number(k.slice(4))]) : k.startsWith("b:") ? open(plan.broll[Number(k.slice(2))]) : k.startsWith("c:") ? plan.cards[Number(k.slice(2))]?.end > t : true));
     const on = transitionAt(plan.transitions, t);
-    if (on) await this.drawTransition(on.x, on.p, on.raw, t);
+    // (A fade in from black or out to it takes the whole frame, the cards and captions too: it goes on last.)
+    const fade = on && (on.x.from === "black" || on.x.to === "black") ? { color: on.x.color === "white" ? "#fff" : "#000", a: on.x.from === "black" ? 1 - on.p : on.p } : null;
+    if (on && !fade) await this.drawTransition(on.x, on.p, on.raw, t);
+    else if (fade) {
+      const base = this.baseAt(on!.x.from === "black" ? t + 1e-3 : t);
+      if (base) await this.drawBase(base, t, ctx);
+    }
     else {
       const base = this.baseAt(t);
       if (base) await this.drawBase(base, t, ctx);
@@ -478,6 +484,12 @@ export class MimicPainter {
 
     // The caption.
     if (page && !captioned) this.drawCaption(page, t);
+    if (fade && fade.a > 0) {
+      ctx.globalAlpha = Math.min(1, fade.a);
+      ctx.fillStyle = fade.color;
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
+    }
   }
 
   /** Where a design's caption's words go (worked out once a caption). */

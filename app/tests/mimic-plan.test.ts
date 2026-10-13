@@ -186,6 +186,17 @@ describe("the mimic plan", () => {
     expect([...levels].every((z) => z === 1 || Math.abs(z - 1.16) < 1e-9)).toBe(true);
   });
 
+  it("takes out the zoom steps the user takes out, and puts theirs in", () => {
+    const plan = planMimic(base);
+    const steps = (keys: [number, number][]) => keys.filter((k, i) => i > 0 && Math.abs(k[1] - keys[i - 1][1]) > 1e-6);
+    const before = steps(plan.zoom).length;
+    // (No pauses cut: the footage's moments are the edit's.)
+    const edited = planMimic({ ...base, zoomEdits: { off: [4.2], add: [8.5] } });
+    expect(zoomAt(edited.zoom, 4.19)).toBeCloseTo(zoomAt(edited.zoom, 4.21), 6);
+    expect(zoomAt(edited.zoom, 8.45)).not.toBeCloseTo(zoomAt(edited.zoom, 8.75), 3);
+    expect(steps(edited.zoom).length).toBe(before);
+  });
+
   it("cuts the pauses when asked, keeping every word", () => {
     const gappy = say("Et. To. Tre. Fire.").map((w, i) => ({ ...w, start: w.start + i * 1.5, end: w.end + i * 1.5 }));
     const speech = gappy.map((w) => ({ start: w.start, end: w.end }));

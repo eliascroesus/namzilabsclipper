@@ -6,8 +6,9 @@
  * in and out of it; any other cut takes the reference's transition joining the same
  * things (the talking to the talking, the talking to a cutaway, a cutaway back) nearest
  * the same point of the edit, so a reference whose crossfades come in a run after its
- * opening has them there in the edit too. Without one, a plain cut. The user's changes,
- * by what they're on, go over the top.
+ * opening has them there in the edit too (a reference with nothing joining the same, a
+ * montage of cutaways, lends its nearest whatever it joins). The user's changes, by what
+ * they're on, go over the top.
  */
 import type { MimicTemplate, PlanBroll, PlanTransition, RefTransition, Segment, TransitionKind, TransitionLook } from "./types";
 
@@ -113,7 +114,9 @@ export function copyTransitions(inp: CopyInput): PlanTransition[] {
       if (own.length) return { x: own.reduce((a, x) => (Math.abs(x.t - at) < Math.abs(a.t - at) ? x : a)), how: "its own" };
     }
     const want = (x: RefTransition) => x.from === (c.from === "black" ? "main" : c.from) && x.to === (c.to === "black" ? "main" : c.to);
-    const same = joins.filter(want);
+    // (A reference with nothing joining the same things, a montage of cutaways with no talking
+    // in it, lends the nearest of its own whatever it joins.)
+    const same = joins.some(want) ? joins.filter(want) : joins;
     if (!same.length) return null;
     const share = c.t / Math.max(1e-3, body);
     return { x: same.reduce((a, x) => (Math.abs(x.t / refBody - share) < Math.abs(a.t / refBody - share) ? x : a)), how: "nearest" };
@@ -122,7 +125,7 @@ export function copyTransitions(inp: CopyInput): PlanTransition[] {
     const n = near(c);
     const look = n ? lookOf(n.x) : CUT;
     const why = !n ? "a plain cut (the reference has nothing joining these)" : `${n.how === "its own" ? "as the reference does at this cutaway" : "the reference's"} (${n.x.t.toFixed(2)} s: ${n.x.why})`;
-    return { ...look, key: c.key, t: c.t, from: c.from, to: c.to, why };
+    return { ...look, key: c.key, t: c.t, from: c.from, to: c.to, why, ...(n?.x.sound ? { sound: n.x.sound } : {}) };
   });
   // The fade up at the start and down at the end.
   const open = fades.find((x) => x.over === "in");
